@@ -1,0 +1,15 @@
+{
+  "admins": [
+    "adam@truetradinggroup.com"
+  ],
+  "users": [
+    "mperinotti@gmail.com",
+    "samerawada92@gmail.com"
+  ],
+  "notes": {
+    "description": "Approved email whitelist for AI-Trader platform",
+    "admin_permissions": "Full access to all models, user management, system settings",
+    "user_permissions": "View own models, view public leaderboard, manage own profile",
+    "last_updated": "2025-10-29"
+  }
+}

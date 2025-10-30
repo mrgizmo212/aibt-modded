@@ -1,0 +1,10089 @@
+{
+"openapi": "3.0.0",
+"info": {
+"title": "Polygon Options, Crypto Futures & Equities API",
+"version": "1.0.0",
+"description": "API documentation for Polygon Options/Stocks endpoints including Options Chain Snapshot, Option Contract Snapshot, All Contracts, Aggregate Bars (OHLC) for options and crypto endpoints for Tickers and aggregated OHLC (Custom Bars) for cryptocurrencies."
+},
+"servers": [
+{
+"url": "https://apiv3-ttg.onrender.com",
+"description": "Production server"
+},
+{
+"url": "http://localhost:4000",
+"description": "Local server"
+}
+],
+"tags": [
+{
+"name": "Market Info",
+"description": "Endpoints for market holidays, market status, splits, and dividends."
+},
+{
+"name": "Futures",
+"description": "Endpoints for futures data."
+},
+{
+"name": "Options",
+"description": "Endpoints for options data including snapshots, contracts, aggregate bars and daily summaries."
+},
+{
+"name": "Crypto",
+"description": "Endpoints for cryptocurrency data including tickers and aggregated OHLC data."
+},
+{
+"name": "Forex",
+"description": "Endpoints for Forex data (price, snapshot, etc.)."
+},
+{
+"name": "Stocks",
+"description": "Endpoints for equities data (price, snapshot, etc.)."
+},
+{
+"name": "Indices",
+"description": "Endpoints for indices data."
+}
+],
+"components": {
+"securitySchemes": {
+"CustomApiKey": {
+"type": "apiKey",
+"in": "header",
+"name": "x-custom-key",
+"description": "Custom API Key required for accessing the endpoints."
+}
+}
+},
+"security": [
+{
+"CustomApiKey": []
+}
+],
+"paths": {
+"/polygon/options/trades/{optionsTicker}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Trades",
+"description": "Retrieve comprehensive, tick-level trade data for a specified options ticker within a defined time range. Each record includes price, size, exchange, trade conditions, and precise timestamp information.",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The options ticker symbol (e.g., O:TSLA210903C00700000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Filter by trade timestamp (YYYY-MM-DD or nanosecond UNIX timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter for timestamps ≥ this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter for timestamps > this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter for timestamps ≤ this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter for timestamps < this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Sort order of results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Maximum number of records to return (default 1000, max 50000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 1000
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field to sort by (e.g., `timestamp`).",
+"required": false,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/last-trade/{optionsTicker}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Last Trade",
+"description": "Retrieve the latest available trade for a specified options contract, including price, size, exchange, and timestamp.",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The options ticker symbol (e.g., O:TSLA210903C00700000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the most recent trade.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/quotes/{optionsTicker}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Quotes",
+"description": "Retrieve historical bid/ask quotes for a specified options contract over a defined time range.",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The options ticker symbol (e.g., O:SPY241220P00720000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Sort order of results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Maximum number of records to return (default 1000, max 50000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 1000
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field to sort by (e.g., `timestamp`).",
+"required": false,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with quote data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/chain/{underlyingAsset}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Options Chain Snapshot",
+"description": "Retrieve a comprehensive snapshot of all options contracts associated with the given underlying ticker.",
+"parameters": [
+{
+"name": "underlyingAsset",
+"in": "path",
+"description": "The underlying ticker symbol of the option contract (e.g., EVRI).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "strike_price",
+"in": "query",
+"description": "Filter by strike price.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.gte",
+"in": "query",
+"description": "Filter by strike price greater than or equal to a value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.gt",
+"in": "query",
+"description": "Filter by strike price greater than a value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.lte",
+"in": "query",
+"description": "Filter by strike price less than or equal to a value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.lt",
+"in": "query",
+"description": "Filter by strike price less than a value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "expiration_date",
+"in": "query",
+"description": "Expiration date in YYYY-MM-DD format.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "expiration_date.gte",
+"in": "query",
+"description": "Filter by expiration date greater than or equal to a value (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "expiration_date.gt",
+"in": "query",
+"description": "Filter by expiration date greater than a value (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "expiration_date.lte",
+"in": "query",
+"description": "Filter by expiration date less than or equal to a value (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "expiration_date.lt",
+"in": "query",
+"description": "Filter by expiration date less than a value (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "contract_type",
+"in": "query",
+"description": "Type of contract (call/put).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order of results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Number of results to return (default 10, max 250).",
+"required": false,
+"schema": {
+"type": "number",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field used to sort results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker",
+"expiration_date",
+"strike_price"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with options chain snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/contract/{underlyingAsset}/{optionContract}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Option Contract Snapshot",
+"description": "Retrieve a snapshot of a specific options contract with key metrics and market data.",
+"parameters": [
+{
+"name": "underlyingAsset",
+"in": "path",
+"description": "The underlying ticker symbol (e.g., EVRI).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "optionContract",
+"in": "path",
+"description": "The option contract identifier (e.g., O:EVRI260116C00015000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order of results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Number of results to return (default 10).",
+"required": false,
+"schema": {
+"type": "number",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field used to sort results.",
+"required": false,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the specified option contract snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/contracts": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "All Contracts",
+"description": "Retrieve a comprehensive index of options contracts, including active and expired listings.",
+"parameters": [
+{
+"name": "underlying_ticker",
+"in": "query",
+"description": "Filter contracts by the underlying ticker.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "contract_type",
+"in": "query",
+"description": "Filter by contract type (call/put/other).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"call",
+"put",
+"other"
+]
+}
+},
+{
+"name": "expiration_date",
+"in": "query",
+"description": "Filter contracts by expiration date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "as_of",
+"in": "query",
+"description": "Specify a point in time for contracts as of this date (YYYY-MM-DD). Defaults to today's date.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "strike_price",
+"in": "query",
+"description": "Filter contracts by strike price.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.gte",
+"in": "query",
+"description": "Filter contracts with strike price greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.gt",
+"in": "query",
+"description": "Filter contracts with strike price greater than this value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.lte",
+"in": "query",
+"description": "Filter contracts with strike price less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "strike_price.lt",
+"in": "query",
+"description": "Filter contracts with strike price less than this value.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "expired",
+"in": "query",
+"description": "Filter contracts based on expiration status. Defaults to false.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order of results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Number of results to return (default 10).",
+"required": false,
+"schema": {
+"type": "number",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field used to sort results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker",
+"underlying_ticker",
+"expiration_date",
+"strike_price"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with a list of options contracts.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/custom-bars/{optionsTicker}/{multiplier}/{timespan}/{from}/{to}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Custom Bars (OHLC)",
+"description": "Retrieve aggregated historical OHLC (Open, High, Low, Close) and volume data for a specified options contract over a custom date range and time interval in Eastern Time (ET).",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The ticker symbol of the options contract (e.g., O:SPY251219C00650000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "multiplier",
+"in": "path",
+"description": "The size of the timespan multiplier.",
+"required": true,
+"schema": {
+"type": "integer",
+"default": 1
+}
+},
+{
+"name": "timespan",
+"in": "path",
+"description": "The timespan for each aggregate bar (e.g., minute, hour, day).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "from",
+"in": "path",
+"description": "The start date or timestamp for the aggregate time window (format: YYYY-MM-DD or timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The end date or timestamp for the aggregate time window (format: YYYY-MM-DD or timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-02-10"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort the results by timestamp. Allowed values: asc (oldest first) or desc (newest first).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limits the number of base aggregates used to create the aggregate results. Defaults to 5000, maximum is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 5000
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with aggregated custom bars (OHLC) data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string"
+},
+"adjusted": {
+"type": "boolean"
+},
+"queryCount": {
+"type": "integer"
+},
+"request_id": {
+"type": "string"
+},
+"resultsCount": {
+"type": "integer"
+},
+"status": {
+"type": "string"
+},
+"results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open price"
+},
+"h": {
+"type": "number",
+"description": "High price"
+},
+"l": {
+"type": "number",
+"description": "Low price"
+},
+"c": {
+"type": "number",
+"description": "Close price"
+},
+"v": {
+"type": "number",
+"description": "Volume"
+},
+"t": {
+"type": "number",
+"description": "Timestamp"
+},
+"n": {
+"type": "number",
+"description": "Number of transactions"
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/tickers": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Crypto Tickers",
+"description": "Retrieve a comprehensive list of ticker symbols supported by Polygon.io across various asset classes including crypto. Each entry provides details such as symbol, name, market, currency, and active status.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Specify a ticker symbol. Defaults to an empty string to query all tickers.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Search ticker for values that are greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Search ticker for values that are greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Search ticker for values that are less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Search ticker for values that are less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "type",
+"in": "query",
+"description": "Specify the type of the tickers. Defaults to empty string to query all types.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "market",
+"in": "query",
+"description": "Filter by market type. For crypto, use 'crypto'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"stocks",
+"crypto",
+"fx",
+"otc",
+"indices"
+]
+}
+},
+{
+"name": "exchange",
+"in": "query",
+"description": "Specify the primary exchange in ISO code format.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cusip",
+"in": "query",
+"description": "Specify the CUSIP code of the asset (not returned in the response).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cik",
+"in": "query",
+"description": "Specify the CIK of the asset.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "Specify a point in time to retrieve tickers available on that date. Defaults to the most recent available date.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "search",
+"in": "query",
+"description": "Search terms within the ticker and/or company name.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "active",
+"in": "query",
+"description": "Specify if the tickers returned should be actively traded on the queried date. Default is true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 100 and maximum is 1000.",
+"required": false,
+"schema": {
+"type": "number",
+"default": 100
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with crypto tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching crypto tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/ohlc/{cryptoTicker}/{multiplier}/{timespan}/{from}/{to}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Crypto OHLC (Custom Bars)",
+"description": "Retrieve aggregated historical OHLC (Open, High, Low, Close) and volume data for a specified cryptocurrency pair over a custom date range and time interval in Coordinated Universal Time (UTC). These aggregates are derived from qualifying crypto trades. If no eligible trades occur within a given timeframe, an empty interval is returned, indicating no trading activity. Adjust the multiplier and timespan parameters (e.g., a 5-minute bar) to tailor the analysis.",
+"parameters": [
+{
+"name": "cryptoTicker",
+"in": "path",
+"description": "The ticker symbol of the cryptocurrency pair (e.g., X:BTCUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "X:BTCUSD"
+}
+},
+{
+"name": "multiplier",
+"in": "path",
+"description": "The size of the timespan multiplier.",
+"required": true,
+"schema": {
+"type": "integer",
+"default": 1
+}
+},
+{
+"name": "timespan",
+"in": "path",
+"description": "The timespan for each aggregate bar (e.g., minute, hour, day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "from",
+"in": "path",
+"description": "The start date or timestamp for the aggregate time window (format: YYYY-MM-DD or timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The end date or timestamp for the aggregate time window (format: YYYY-MM-DD or timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-02-10"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort the results by timestamp. Allowed values: asc (oldest first) or desc (newest first).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limits the number of base aggregates queried to create the aggregate results. Defaults to 5000, maximum is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 5000
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with aggregated crypto OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string"
+},
+"adjusted": {
+"type": "boolean"
+},
+"queryCount": {
+"type": "integer"
+},
+"request_id": {
+"type": "string"
+},
+"resultsCount": {
+"type": "integer"
+},
+"status": {
+"type": "string"
+},
+"results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open price"
+},
+"h": {
+"type": "number",
+"description": "High price"
+},
+"l": {
+"type": "number",
+"description": "Low price"
+},
+"c": {
+"type": "number",
+"description": "Close price"
+},
+"v": {
+"type": "number",
+"description": "Volume"
+},
+"t": {
+"type": "number",
+"description": "Timestamp"
+},
+"n": {
+"type": "number",
+"description": "Number of transactions"
+},
+"vw": {
+"type": "number",
+"description": "Volume weighted average price"
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching aggregated crypto OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/snapshot": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Crypto All Market Snapshot",
+"description": "Retrieve a comprehensive snapshot of all cryptocurrency tickers. Optionally, filter the snapshot by providing a comma-separated list of ticker symbols using the 'tickers' query parameter.",
+"parameters": [
+{
+"name": "tickers",
+"in": "query",
+"description": "Optional comma-separated list of ticker symbols to filter snapshot results (e.g., X:BTCUSD,X:ETHUSD).",
+"required": false,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with crypto market snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching crypto market snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/previous-day/{optionsTicker}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Previous Day Bar (OHLC)",
+"description": "Retrieve the previous day's OHLC data for an options contract.",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The ticker symbol of the options contract (e.g., O:SPY251219C00650000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/options/daily-summary/{optionsTicker}/{date}": {
+"get": {
+"tags": [
+"Options"
+],
+"summary": "Daily Ticker Summary (OHLC)",
+"description": "Retrieve the open/close prices (and pre-market, after-hours data) for a specific options contract on a given date.",
+"parameters": [
+{
+"name": "optionsTicker",
+"in": "path",
+"description": "The ticker symbol of the options contract (e.g., O:SPY251219C00650000).",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "date",
+"in": "path",
+"description": "The date for which to retrieve data (format: YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily ticker summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"404": {
+"description": "Daily ticker summary not found.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string",
+"example": "Daily ticker summary not found"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/snapshot/{ticker}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Single Ticker Snapshot",
+"description": "Retrieve the most recent market data snapshot for a single ticker. This endpoint consolidates the latest trade and aggregated data (minute, day, and previous day) for the specified ticker. Snapshot data is cleared at 12:00 AM EST and begins updating as exchanges report new information.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "Ticker of the snapshot (e.g., X:BTCUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "X:BTCUSD"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with single ticker snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string"
+},
+"status": {
+"type": "string"
+},
+"ticker": {
+"type": "object",
+"description": "Snapshot data for the specified ticker.",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar."
+},
+"lastTrade": {
+"type": "object",
+"description": "The most recent trade."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar."
+},
+"todaysChange": {
+"type": "number",
+"description": "Change value from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "Percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "Last updated timestamp."
+}
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the ticker snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/trades/{cryptoTicker}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Trades",
+"description": "Retrieve comprehensive, tick-level trade data for a specified crypto ticker within a defined time range. Each record includes price, size, exchange, trade conditions, and precise timestamp information. This granular data is foundational for constructing aggregated bars and performing in-depth analyses.",
+"parameters": [
+{
+"name": "cryptoTicker",
+"in": "path",
+"description": "The ticker symbol to get trades for (e.g., X:BTC-USD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "X:BTC-USD"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by trade timestamp. Either a date in YYYY-MM-DD format or a nanosecond timestamp.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter trades with a timestamp greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter trades with a timestamp greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter trades with a timestamp less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter trades with a timestamp less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 1000 and max is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering. Use 'timestamp'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"timestamp"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with tick-level trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "Cursor URL for fetching the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "array",
+"description": "An array of trade objects.",
+"items": {
+"type": "object",
+"properties": {
+"conditions": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of trade condition codes."
+},
+"exchange": {
+"type": "integer",
+"description": "Exchange ID (refer to Polygon.io's exchange mapping)."
+},
+"id": {
+"type": "string",
+"description": "Unique trade identifier."
+},
+"participant_timestamp": {
+"type": "integer",
+"description": "Nanosecond Exchange Unix Timestamp."
+},
+"price": {
+"type": "number",
+"description": "Trade price in the base currency."
+},
+"size": {
+"type": "number",
+"description": "Trade size (volume)."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "Status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/conversion/{from}/{to}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Currency Conversion",
+"description": "Retrieve real-time currency conversion rates between any two supported currencies. This endpoint provides the most recent bid/ask quotes and calculates the converted amount based on the current market rate.",
+"parameters": [
+{
+"name": "from",
+"in": "path",
+"description": "The 'from' currency symbol (e.g., AUD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AUD"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The 'to' currency symbol (e.g., USD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "USD"
+}
+},
+{
+"name": "amount",
+"in": "query",
+"description": "The amount to convert. Default is 100.",
+"required": false,
+"schema": {
+"type": "number",
+"default": 100
+}
+},
+{
+"name": "precision",
+"in": "query",
+"description": "The decimal precision of the conversion. Default is 2.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 2
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the conversion result.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"converted": {
+"type": "number",
+"description": "The result of the conversion."
+},
+"from": {
+"type": "string",
+"description": "The 'from' currency symbol."
+},
+"initialAmount": {
+"type": "number",
+"description": "The amount to convert."
+},
+"last": {
+"type": "object",
+"description": "Contains the requested quote data for the specified forex currency pair.",
+"properties": {
+"ask": {
+"type": "number",
+"description": "The ask price."
+},
+"bid": {
+"type": "number",
+"description": "The bid price."
+},
+"exchange": {
+"type": "integer",
+"description": "The exchange ID."
+},
+"timestamp": {
+"type": "integer",
+"description": "The Unix millisecond timestamp."
+}
+}
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"symbol": {
+"type": "string",
+"description": "The evaluated currency pair (e.g., AUD/USD)."
+},
+"to": {
+"type": "string",
+"description": "The 'to' currency symbol."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the conversion data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/ohlc/{forexTicker}/{multiplier}/{timespan}/{from}/{to}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Forex OHLC (Custom Bars)",
+"description": "Retrieve aggregated historical OHLC (Open, High, Low, Close) and volume data for a specified Forex currency pair over a custom date range and time interval in Eastern Time (ET). Unlike stocks or options, these aggregates are generated from quoted bid/ask prices rather than executed trades. If no new quotes occur during a given timeframe, no aggregate bar is produced, indicating an interval without quote updates. Users can customize data by adjusting the multiplier and timespan parameters.",
+"parameters": [
+{
+"name": "forexTicker",
+"in": "path",
+"description": "The ticker symbol of the currency pair (e.g., C:EURUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "C:EURUSD"
+}
+},
+{
+"name": "multiplier",
+"in": "path",
+"description": "The size of the timespan multiplier.",
+"required": true,
+"schema": {
+"type": "integer",
+"default": 1
+}
+},
+{
+"name": "timespan",
+"in": "path",
+"description": "The timespan for each aggregate bar (e.g., minute, hour, day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "from",
+"in": "path",
+"description": "The start of the aggregate time window. Format: YYYY-MM-DD or a millisecond timestamp.",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The end of the aggregate time window. Format: YYYY-MM-DD or a millisecond timestamp.",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-02-10"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort the results by timestamp. Allowed values: asc (oldest first) or desc (newest first).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limits the number of base aggregates queried to create the results. Defaults to 5000, maximum is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 5000
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with aggregated Forex OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The currency pair symbol that was evaluated (e.g., C:EURUSD)."
+},
+"adjusted": {
+"type": "boolean",
+"description": "Indicates if the results were adjusted for splits."
+},
+"queryCount": {
+"type": "integer",
+"description": "The number of aggregates used to generate the response."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request ID assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "The total number of results returned."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"results": {
+"type": "array",
+"description": "An array of aggregate bar objects.",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open price for the interval."
+},
+"h": {
+"type": "number",
+"description": "Highest price for the interval."
+},
+"l": {
+"type": "number",
+"description": "Lowest price for the interval."
+},
+"c": {
+"type": "number",
+"description": "Close price for the interval."
+},
+"v": {
+"type": "number",
+"description": "Volume during the interval."
+},
+"t": {
+"type": "number",
+"description": "Unix millisecond timestamp for the start of the interval."
+},
+"n": {
+"type": "number",
+"description": "Optional: number of transactions during the interval."
+},
+"vw": {
+"type": "number",
+"description": "Optional: volume weighted average price."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching aggregated Forex OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/snapshot": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Full Market Snapshot",
+"description": "Retrieve a comprehensive snapshot of the forex market in a single response. This endpoint consolidates key information such as pricing, volume, and quote activity for all forex tickers. Snapshot data is refreshed daily after 12:00 AM EST as new data begins to populate.",
+"parameters": [
+{
+"name": "tickers",
+"in": "query",
+"description": "Optional comma-separated list of tickers to filter the snapshot (e.g., C:EURUSD,C:GBPCAD,C:AUDINR). Leaving this parameter empty returns data for all tickers.",
+"required": false,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with a full market snapshot for forex tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "OK"
+},
+"tickers": {
+"type": "array",
+"description": "An array of snapshot data for the forex tickers.",
+"items": {
+"type": "object",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for the ticker."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote for the ticker.",
+"properties": {
+"ask": {
+"type": "number"
+},
+"bid": {
+"type": "number"
+},
+"timestamp": {
+"type": "integer"
+},
+"exchange": {
+"type": "integer"
+}
+}
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar for the ticker."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar for the ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The currency pair symbol (e.g., C:EURUSD)."
+},
+"todaysChange": {
+"type": "number",
+"description": "Change in price from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "Percentage change from the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "Unix timestamp of the last update."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the Forex market snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/snapshot/{ticker}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Single Ticker Snapshot",
+"description": "Retrieve the most recent market data snapshot for a single ticker. This endpoint consolidates the latest quote and aggregated data (minute, day, and previous day) for the specified forex ticker. Snapshot data is cleared at 12:00 AM EST and begins updating as exchanges report new information.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "The forex ticker (e.g., C:EURUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "C:EURUSD"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with single ticker snapshot data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "OK"
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"ticker": {
+"type": "object",
+"description": "Snapshot data for the specified ticker.",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for this ticker."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote for this ticker."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar for this ticker."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar for this ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The forex ticker symbol."
+},
+"todaysChange": {
+"type": "number",
+"description": "The change in price from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "The percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "The last updated Unix millisecond timestamp."
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the ticker snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/market-movers/{direction}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Top Market Movers",
+"description": "Retrieve snapshot data highlighting the top 20 gainers or losers in the forex market. Gainers are those with the largest percentage increase, and losers are the ones with the largest percentage decrease since the previous day’s close. Snapshot data is refreshed daily at 12:00 AM EST as exchanges report new data.",
+"parameters": [
+{
+"name": "direction",
+"in": "path",
+"description": "The direction of the snapshot results to return. Allowed values: 'gainers' or 'losers'.",
+"required": true,
+"schema": {
+"type": "string",
+"enum": [
+"gainers",
+"losers"
+],
+"example": "gainers"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with top market mover snapshots.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "OK"
+},
+"tickers": {
+"type": "array",
+"description": "An array of snapshot data for the top market movers.",
+"items": {
+"type": "object",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for this ticker."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote for this ticker."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar for this ticker."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar for this ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The forex ticker symbol (e.g., C:EURUSD)."
+},
+"todaysChange": {
+"type": "number",
+"description": "The change in price from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "The percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "The last updated timestamp."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"400": {
+"description": "Invalid direction value provided.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string",
+"example": "Invalid direction. Use 'gainers' or 'losers'."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching market movers data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/ticker/{ticker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Ticker Overview",
+"description": "Retrieve comprehensive details for a single ticker supported by Polygon.io. This endpoint provides a deep look into a company’s fundamental attributes, including primary exchange, standardized identifiers (CIK, composite FIGI, share class FIGI), market capitalization, industry classification, key dates, and branding assets.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "Specify a point in time to retrieve ticker details. Defaults to the most recent available date.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with ticker overview details.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"count": {
+"type": "integer",
+"description": "Total number of results (usually 1 for a single ticker)."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "object",
+"description": "Detailed ticker information.",
+"properties": {
+"active": {
+"type": "boolean",
+"description": "Whether or not the asset is actively traded."
+},
+"address": {
+"type": "object",
+"description": "Company headquarters address details."
+},
+"branding": {
+"type": "object",
+"description": "Branding assets such as logo and icon URLs."
+},
+"cik": {
+"type": "string",
+"description": "The CIK number for this ticker."
+},
+"composite_figi": {
+"type": "string",
+"description": "The composite OpenFIGI number for this ticker."
+},
+"currency_name": {
+"type": "string",
+"description": "The currency in which the asset is traded."
+},
+"delisted_utc": {
+"type": "string",
+"description": "The last date that the asset was traded (if delisted)."
+},
+"description": {
+"type": "string",
+"description": "A description of the company."
+},
+"homepage_url": {
+"type": "string",
+"description": "The URL of the company's homepage."
+},
+"list_date": {
+"type": "string",
+"description": "The date when the symbol was first publicly listed (YYYY-MM-DD)."
+},
+"locale": {
+"type": "string",
+"description": "The locale of the asset (e.g., 'us' or 'global')."
+},
+"market": {
+"type": "string",
+"description": "The market type (e.g., 'stocks')."
+},
+"market_cap": {
+"type": "number",
+"description": "Market capitalization of the company."
+},
+"name": {
+"type": "string",
+"description": "The name of the company."
+},
+"phone_number": {
+"type": "string",
+"description": "The company's phone number."
+},
+"primary_exchange": {
+"type": "string",
+"description": "The primary listing exchange."
+},
+"round_lot": {
+"type": "number",
+"description": "The round lot size of the security."
+},
+"share_class_figi": {
+"type": "string",
+"description": "The share class OpenFIGI number for this ticker."
+},
+"share_class_shares_outstanding": {
+"type": "number",
+"description": "Number of outstanding shares for this share class."
+},
+"sic_code": {
+"type": "string",
+"description": "The standard industrial classification (SIC) code."
+},
+"sic_description": {
+"type": "string",
+"description": "Description of the SIC code."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+},
+"ticker_root": {
+"type": "string",
+"description": "The root of the ticker symbol."
+},
+"ticker_suffix": {
+"type": "string",
+"description": "The suffix of the ticker symbol."
+},
+"total_employees": {
+"type": "number",
+"description": "Approximate number of company employees."
+},
+"type": {
+"type": "string",
+"description": "The asset type."
+},
+"weighted_shares_outstanding": {
+"type": "number",
+"description": "Weighted outstanding shares."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching ticker overview.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/related/{ticker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Related Tickers",
+"description": "Retrieve a list of tickers related to a specified ticker, identified through an analysis of news coverage and other data. This endpoint helps users discover peers, competitors, or thematically similar companies for comparative analysis, portfolio diversification, and market research.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "The ticker symbol to search for related companies (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with an array of related tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string"
+},
+"results": {
+"type": "array",
+"description": "An array of related ticker objects.",
+"items": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "A ticker related to the requested ticker."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"example": "OK"
+},
+"ticker": {
+"type": "string",
+"description": "The ticker being queried."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/ohlc/{stocksTicker}/{multiplier}/{timespan}/{from}/{to}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Custom Bars (OHLC)",
+"description": "Retrieve aggregated historical OHLC (Open, High, Low, Close) and volume data for a specified stock ticker over a custom date range and time interval in Eastern Time (ET). Aggregates are constructed exclusively from qualifying trades. If no eligible trades occur within a given timeframe, no aggregate bar is produced. Users can tailor the data by adjusting the multiplier and timespan parameters (e.g., a 5-minute bar) to cover various sessions including pre-market, regular, and after-hours.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "A case-sensitive ticker symbol (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "multiplier",
+"in": "path",
+"description": "The size of the timespan multiplier.",
+"required": true,
+"schema": {
+"type": "integer",
+"default": 1
+}
+},
+{
+"name": "timespan",
+"in": "path",
+"description": "The timespan for each aggregate bar (e.g., minute, hour, day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "from",
+"in": "path",
+"description": "The start of the aggregate time window (YYYY-MM-DD or millisecond timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The end of the aggregate time window (YYYY-MM-DD or millisecond timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-02-10"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort the results by timestamp. Allowed values: asc (oldest first) or desc (newest first).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limits the number of base aggregates queried to create the aggregate results. Defaults to 5000, maximum is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 5000
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with aggregated custom bars (OHLC) data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The exchange symbol for the ticker."
+},
+"adjusted": {
+"type": "boolean",
+"description": "Whether the response was adjusted for splits."
+},
+"queryCount": {
+"type": "integer",
+"description": "The number of aggregates used in the query."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "The total number of results for the query."
+},
+"status": {
+"type": "string",
+"description": "The response status."
+},
+"results": {
+"type": "array",
+"description": "An array of aggregated data objects.",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open price for the interval."
+},
+"h": {
+"type": "number",
+"description": "High price for the interval."
+},
+"l": {
+"type": "number",
+"description": "Low price for the interval."
+},
+"c": {
+"type": "number",
+"description": "Close price for the interval."
+},
+"n": {
+"type": "number",
+"description": "Optional: number of transactions in the interval."
+},
+"otc": {
+"type": "boolean",
+"description": "Optional: indicates if this aggregate is for an OTC ticker."
+},
+"t": {
+"type": "number",
+"description": "Unix millisecond timestamp for the start of the interval."
+},
+"v": {
+"type": "number",
+"description": "Trading volume during the interval."
+},
+"vw": {
+"type": "number",
+"description": "Optional: volume weighted average price."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching aggregated OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/prev/{stocksTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Previous Day Bar (OHLC)",
+"description": "Retrieve the previous trading day's open, high, low, and close (OHLC) data for a specified stock ticker. This endpoint provides key pricing metrics including volume to help assess recent performance and inform trading strategies.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "A case-sensitive ticker symbol (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The ticker symbol (e.g., AAPL)."
+},
+"adjusted": {
+"type": "boolean",
+"description": "Indicates if the data is adjusted for splits."
+},
+"queryCount": {
+"type": "integer",
+"description": "The number of aggregates used in the query."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"resultsCount": {
+"type": "integer",
+"description": "The total number of results."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"results": {
+"type": "array",
+"description": "An array of previous day bar data objects.",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open price."
+},
+"h": {
+"type": "number",
+"description": "High price."
+},
+"l": {
+"type": "number",
+"description": "Low price."
+},
+"c": {
+"type": "number",
+"description": "Close price."
+},
+"n": {
+"type": "number",
+"description": "Optional: number of transactions."
+},
+"t": {
+"type": "number",
+"description": "Unix millisecond timestamp for the start of the aggregate window."
+},
+"v": {
+"type": "number",
+"description": "Trading volume."
+},
+"vw": {
+"type": "number",
+"description": "Optional: volume weighted average price."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/ticker-snapshot/{stocksTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Single Ticker Snapshot",
+"description": "Retrieve the most recent market data snapshot for a single ticker. This endpoint consolidates the latest trade, quote, and aggregated data (minute, day, and previous day) for the specified stock ticker. Snapshot data is cleared at 3:30 AM EST and begins updating as exchanges report new information.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the snapshot data for the specified ticker.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+},
+"ticker": {
+"type": "object",
+"description": "Snapshot data for the specified ticker.",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote, if available."
+},
+"lastTrade": {
+"type": "object",
+"description": "The most recent trade, if available."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar."
+},
+"ticker": {
+"type": "string",
+"description": "The exchange symbol that this item is traded under."
+},
+"todaysChange": {
+"type": "number",
+"description": "The change in price from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "The percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "The last updated timestamp (Unix millisecond)."
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/snapshot": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Full Market Snapshot",
+"description": "Retrieve a comprehensive snapshot of the entire U.S. stock market, covering over 10,000+ actively traded tickers in a single response. This endpoint consolidates key information such as pricing, volume, and trade activity, eliminating the need for multiple queries. Snapshot data is cleared daily at 3:30 AM EST and begins updating as exchanges report new data. Optionally, a list of tickers can be provided and OTC securities can be included.",
+"parameters": [
+{
+"name": "tickers",
+"in": "query",
+"description": "A case-sensitive comma-separated list of tickers to get snapshots for (e.g., AAPL,TSLA,GOOG). Empty string defaults to querying all tickers.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "include_otc",
+"in": "query",
+"description": "Include OTC securities in the response. Default is false.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with a full market snapshot for stocks.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"count": {
+"type": "integer",
+"description": "The total number of results."
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+},
+"tickers": {
+"type": "array",
+"description": "An array of snapshot data for the specified tickers.",
+"items": {
+"type": "object",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for the ticker."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote for the ticker, if available."
+},
+"lastTrade": {
+"type": "object",
+"description": "The most recent trade for the ticker, if available."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar for the ticker."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar for the ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+},
+"todaysChange": {
+"type": "number",
+"description": "The change in price from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "The percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "The last updated Unix millisecond timestamp."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the full market snapshot.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/unified-snapshot": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Unified Snapshot",
+"description": "Retrieve unified snapshots of market data for multiple asset classes (stocks, options, forex, crypto) in a single request. This endpoint consolidates key metrics such as last trade, last quote, open, high, low, close, and volume for a comprehensive view of current market conditions.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Search a range of tickers lexicographically.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Search for ticker values greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Search for ticker values greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Search for ticker values less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Search for ticker values less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.any_of",
+"in": "query",
+"description": "Comma-separated list of tickers (e.g., NCLH,O:SPY250321C00380000,C:EURUSD,X:BTCUSD,I:SPX). If omitted, results will be paginated.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "type",
+"in": "query",
+"description": "Query by asset type.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default is 10, maximum is 250).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering; use 'ticker'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+],
+"default": "ticker"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with unified snapshot data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "Cursor URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of snapshot objects containing market data from various asset classes.",
+"items": {
+"type": "object",
+"properties": {
+"break_even_price": {
+"type": "number",
+"description": "Break-even price (for options)."
+},
+"details": {
+"type": "object",
+"description": "Additional details for the ticker."
+},
+"error": {
+"type": "string",
+"description": "Error message, if any, for the ticker."
+},
+"fmv": {
+"type": "number",
+"description": "Fair market value (if available)."
+},
+"greeks": {
+"type": "object",
+"description": "Option greeks (if applicable)."
+},
+"last_quote": {
+"type": "object",
+"description": "The most recent quote."
+},
+"last_trade": {
+"type": "object",
+"description": "The most recent trade."
+},
+"market_status": {
+"type": "string",
+"description": "The market status (e.g., open, closed, early_trading, late_trading)."
+},
+"message": {
+"type": "string",
+"description": "Optional message for the ticker."
+},
+"name": {
+"type": "string",
+"description": "The name of the asset."
+},
+"open_interest": {
+"type": "number",
+"description": "Open interest (if applicable)."
+},
+"session": {
+"type": "object",
+"description": "Session details including price changes, volume, etc."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+},
+"type": {
+"type": "string",
+"description": "The asset class (stocks, options, fx, crypto, indices)."
+},
+"underlying_asset": {
+"type": "object",
+"description": "Details about the underlying asset (for options, if applicable)."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching unified snapshot data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/market-movers/{direction}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Top Market Movers",
+"description": "Retrieve snapshot data highlighting the top 20 gainers or losers in the U.S. stock market. Gainers are stocks with the largest percentage increase since the previous day’s close, while losers are those with the largest percentage decrease. To ensure meaningful insights, only tickers with a minimum trading volume of 10,000 are included. Snapshot data is cleared daily at 3:30 AM EST and repopulates as exchanges report new information, typically starting around 4:00 AM EST.",
+"parameters": [
+{
+"name": "direction",
+"in": "path",
+"description": "The direction of the snapshot results to return. Allowed values: 'gainers' or 'losers'.",
+"required": true,
+"schema": {
+"type": "string",
+"enum": [
+"gainers",
+"losers"
+],
+"example": "gainers"
+}
+},
+{
+"name": "include_otc",
+"in": "query",
+"description": "Include OTC securities in the response. Default is false.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the top market mover snapshot data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "OK"
+},
+"tickers": {
+"type": "array",
+"description": "An array of snapshot objects for the top market movers.",
+"items": {
+"type": "object",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for the ticker."
+},
+"lastQuote": {
+"type": "object",
+"description": "The most recent quote for the ticker."
+},
+"lastTrade": {
+"type": "object",
+"description": "The most recent trade for the ticker."
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar for the ticker."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar for the ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+},
+"todaysChange": {
+"type": "number",
+"description": "The price change from the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "The percentage change from the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "The last updated timestamp (Unix milliseconds)."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"400": {
+"description": "Invalid direction value.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string",
+"example": "Invalid direction. Use 'gainers' or 'losers'."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching market mover data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/trades/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Trades",
+"description": "Retrieve comprehensive, tick-level trade data for a specified stock ticker within a defined time range. Each record includes price, size, exchange, trade conditions, and precise timestamp information. This data is foundational for constructing aggregated bars and performing in-depth analyses.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol to get trades for (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by trade timestamp (YYYY-MM-DD or nanosecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter trades with a timestamp greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter trades with a timestamp greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter trades with a timestamp less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter trades with a timestamp less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results by the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default is 1000, max is 50000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering; use 'timestamp'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"timestamp"
+],
+"default": "timestamp"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with tick-level trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of trade objects.",
+"items": {
+"type": "object",
+"properties": {
+"conditions": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of condition codes."
+},
+"correction": {
+"type": "integer",
+"description": "The trade correction indicator (if available)."
+},
+"exchange": {
+"type": "integer",
+"description": "The exchange ID."
+},
+"id": {
+"type": "string",
+"description": "A unique trade identifier."
+},
+"participant_timestamp": {
+"type": "integer",
+"description": "Nanosecond-accuracy participant/exchange timestamp."
+},
+"price": {
+"type": "number",
+"description": "Price per share of the trade."
+},
+"sequence_number": {
+"type": "integer",
+"description": "Sequence number representing the order of trade events."
+},
+"sip_timestamp": {
+"type": "integer",
+"description": "Nanosecond SIP timestamp when the trade was received."
+},
+"size": {
+"type": "number",
+"description": "Trade volume (number of shares)."
+},
+"tape": {
+"type": "integer",
+"description": "Tape indicator (1 = A, 2 = B, 3 = C)."
+},
+"trf_id": {
+"type": "integer",
+"description": "Trade Reporting Facility ID (if available)."
+},
+"trf_timestamp": {
+"type": "integer",
+"description": "Nanosecond TRF timestamp (if available)."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/last/trade/{stocksTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Last Trade",
+"description": "Retrieve the latest available trade for a specified stock ticker, including details such as price, size, exchange, and timestamp. This endpoint supports real-time trade monitoring and provides the most current trade information for the ticker.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "The ticker symbol of the stock (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the latest trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "object",
+"description": "Details of the last trade.",
+"properties": {
+"T": {
+"type": "string",
+"description": "The exchange symbol that this item is traded under."
+},
+"c": {
+"type": "array",
+"description": "A list of condition codes.",
+"items": {
+"type": "integer"
+}
+},
+"f": {
+"type": "integer",
+"description": "Nanosecond-accuracy TRF Unix Timestamp."
+},
+"i": {
+"type": "string",
+"description": "The Trade ID, uniquely identifying the trade."
+},
+"p": {
+"type": "number",
+"description": "The price of the trade per share."
+},
+"q": {
+"type": "integer",
+"description": "The sequence number for the trade."
+},
+"r": {
+"type": "integer",
+"description": "Optional: the TRF ID."
+},
+"s": {
+"type": "number",
+"description": "The size (volume) of the trade."
+},
+"t": {
+"type": "integer",
+"description": "Nanosecond-accuracy SIP Unix Timestamp."
+},
+"x": {
+"type": "integer",
+"description": "The exchange ID."
+},
+"y": {
+"type": "integer",
+"description": "Nanosecond-accuracy Participant/Exchange Unix Timestamp."
+},
+"z": {
+"type": "integer",
+"description": "Optional: Tape indicator (e.g., 1 = A, 2 = B, 3 = C)."
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the last trade data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/last/nbbo/{stocksTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Last NBBO Quote",
+"description": "Retrieve the most recent National Best Bid and Offer (NBBO) quote for a specified stock ticker. This endpoint returns the latest bid/ask prices, sizes, exchange details, and timestamps for the given ticker.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "A case-sensitive ticker symbol (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the last NBBO quote for the ticker.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "The NBBO quote data.",
+"properties": {
+"P": {
+"type": "number",
+"description": "The ask price."
+},
+"S": {
+"type": "integer",
+"description": "The ask size (number of round lot orders)."
+},
+"T": {
+"type": "string",
+"description": "The exchange symbol the item is traded under."
+},
+"X": {
+"type": "integer",
+"description": "The exchange ID."
+},
+"c": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "A list of condition codes."
+},
+"f": {
+"type": "integer",
+"description": "Nanosecond-accuracy TRF Unix Timestamp."
+},
+"i": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "A list of indicator codes."
+},
+"p": {
+"type": "number",
+"description": "The bid price."
+},
+"q": {
+"type": "integer",
+"description": "The sequence number for the quote."
+},
+"s": {
+"type": "integer",
+"description": "The bid size (number of round lot orders)."
+},
+"t": {
+"type": "integer",
+"description": "Nanosecond-accuracy SIP Unix Timestamp."
+},
+"x": {
+"type": "integer",
+"description": "The exchange ID (from NBBO data)."
+},
+"y": {
+"type": "integer",
+"description": "Nanosecond-accuracy Participant/Exchange Unix Timestamp."
+},
+"z": {
+"type": "integer",
+"description": "Tape indicator (1 = A, 2 = B, 3 = C)."
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the last NBBO quote.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/quotes/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Quotes",
+"description": "Retrieve National Best Bid and Offer (NBBO) quotes for a specified stock ticker over a defined time range. Each record includes the best bid/ask prices, sizes, exchanges, and timestamps reflecting the top-of-book quote environment.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol to get quotes for (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp (YYYY-MM-DD format or nanosecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter quotes with timestamp greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter quotes with timestamp greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter quotes with timestamp less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter quotes with timestamp less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 1000 and max is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering. Use 'timestamp'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"timestamp"
+],
+"default": "timestamp"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with NBBO quote data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL for fetching the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of quote objects.",
+"items": {
+"type": "object",
+"properties": {
+"ask_exchange": {
+"type": "integer",
+"description": "The ask exchange ID."
+},
+"ask_price": {
+"type": "number",
+"description": "The ask price."
+},
+"ask_size": {
+"type": "number",
+"description": "The ask size (in round lots)."
+},
+"bid_exchange": {
+"type": "integer",
+"description": "The bid exchange ID."
+},
+"bid_price": {
+"type": "number",
+"description": "The bid price."
+},
+"bid_size": {
+"type": "number",
+"description": "The bid size (in round lots)."
+},
+"conditions": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of condition codes."
+},
+"indicators": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of indicator codes."
+},
+"participant_timestamp": {
+"type": "integer",
+"description": "Nanosecond Participant/Exchange Unix Timestamp."
+},
+"sequence_number": {
+"type": "integer",
+"description": "Sequence number for the quote event."
+},
+"sip_timestamp": {
+"type": "integer",
+"description": "Nanosecond SIP Unix Timestamp."
+},
+"tape": {
+"type": "integer",
+"description": "Tape identifier (e.g., 1 = A, 2 = B, 3 = C)."
+},
+"trf_timestamp": {
+"type": "integer",
+"description": "Nanosecond TRF Unix Timestamp (if available)."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching quotes.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/sma/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Simple Moving Average (SMA)",
+"description": "Retrieve the Simple Moving Average (SMA) for a specified ticker over a defined time range. The SMA calculates the average price across a set number of periods, smoothing price fluctuations to reveal underlying trends and potential signals.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp (YYYY-MM-DD or millisecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter results with timestamps greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter results with timestamps greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter results with timestamps less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter results with timestamps less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timespan",
+"in": "query",
+"description": "The size of the aggregate time window (e.g., day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether the aggregates used to calculate SMA are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "window",
+"in": "query",
+"description": "The window size for calculating the SMA (e.g., 50).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 50
+}
+},
+{
+"name": "series_type",
+"in": "query",
+"description": "The type of price used to calculate the SMA (e.g., close).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "close"
+}
+},
+{
+"name": "expand_underlying",
+"in": "query",
+"description": "Whether to include the underlying aggregates used to calculate this indicator.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "The order to return results by timestamp. Defaults to desc.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "desc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 10 and max is 5000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with SMA indicator data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "SMA indicator data, including underlying aggregates and calculated SMA values.",
+"properties": {
+"underlying": {
+"type": "object",
+"description": "Aggregates used to calculate the SMA.",
+"properties": {
+"aggregates": {
+"type": "array",
+"description": "An array of aggregate bars used in calculation.",
+"items": {
+"type": "object"
+}
+},
+"url": {
+"type": "string",
+"description": "The API URL used for the underlying data."
+}
+}
+},
+"values": {
+"type": "array",
+"description": "Calculated SMA values.",
+"items": {
+"type": "object",
+"properties": {
+"timestamp": {
+"type": "integer",
+"description": "Timestamp of the SMA value."
+},
+"value": {
+"type": "number",
+"description": "The SMA value."
+}
+}
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching SMA data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/ema/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Exponential Moving Average (EMA)",
+"description": "Retrieve the Exponential Moving Average (EMA) for a specified ticker over a defined time range. The EMA places greater weight on recent prices, enabling quicker trend detection and more responsive signals.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp (YYYY-MM-DD format or millisecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter results with timestamps greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter results with timestamps greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter results with timestamps less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter results with timestamps less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timespan",
+"in": "query",
+"description": "The aggregate time window size (e.g., day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether the aggregates used for EMA calculation are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "window",
+"in": "query",
+"description": "The window size for calculating the EMA (e.g., 50).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 50
+}
+},
+{
+"name": "series_type",
+"in": "query",
+"description": "The type of price to use for the EMA calculation (e.g., close).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "close"
+}
+},
+{
+"name": "expand_underlying",
+"in": "query",
+"description": "If true, include the underlying aggregates used in the calculation.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "The order in which to return results by timestamp. Defaults to desc.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "desc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 10 and max is 5000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with EMA indicator data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "EMA indicator data containing underlying aggregates and calculated EMA values.",
+"properties": {
+"underlying": {
+"type": "object",
+"description": "Underlying aggregates used in the calculation.",
+"properties": {
+"aggregates": {
+"type": "array",
+"description": "An array of aggregate bars used in the EMA calculation.",
+"items": {
+"type": "object"
+}
+},
+"url": {
+"type": "string",
+"description": "The API URL for the underlying data."
+}
+}
+},
+"values": {
+"type": "array",
+"description": "Calculated EMA values.",
+"items": {
+"type": "object",
+"properties": {
+"timestamp": {
+"type": "integer",
+"description": "Timestamp of the EMA value."
+},
+"value": {
+"type": "number",
+"description": "The EMA value."
+}
+}
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching EMA data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/macd/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Moving Average Convergence/Divergence (MACD)",
+"description": "Retrieve the Moving Average Convergence/Divergence (MACD) for a specified ticker over a defined time range. MACD is a momentum indicator derived from two moving averages, helping to identify trend strength, direction, and potential trading signals.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp (YYYY-MM-DD or millisecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter by timestamps greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter by timestamps greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter by timestamps less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter by timestamps less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timespan",
+"in": "query",
+"description": "The size of the aggregate time window (e.g., day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether the aggregates used for MACD calculation are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "short_window",
+"in": "query",
+"description": "The short window size used for MACD calculation (e.g., 12).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 12
+}
+},
+{
+"name": "long_window",
+"in": "query",
+"description": "The long window size used for MACD calculation (e.g., 26).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 26
+}
+},
+{
+"name": "signal_window",
+"in": "query",
+"description": "The window size used for calculating the MACD signal line (e.g., 9).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 9
+}
+},
+{
+"name": "series_type",
+"in": "query",
+"description": "The price type used for MACD calculation (e.g., close).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "close"
+}
+},
+{
+"name": "expand_underlying",
+"in": "query",
+"description": "Whether or not to include the aggregates used for calculating MACD in the response.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "The order to return results by timestamp. Defaults to desc.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "desc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 10 and maximum is 5000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with MACD indicator data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "MACD indicator data, including underlying aggregates and calculated values.",
+"properties": {
+"underlying": {
+"type": "object",
+"description": "The underlying data (aggregates) used in the calculation.",
+"properties": {
+"url": {
+"type": "string",
+"description": "The API URL for the underlying data."
+}
+}
+},
+"values": {
+"type": "array",
+"description": "An array of MACD values for each aggregated time period.",
+"items": {
+"type": "object",
+"properties": {
+"histogram": {
+"type": "number",
+"description": "The MACD histogram value."
+},
+"signal": {
+"type": "number",
+"description": "The MACD signal line value."
+},
+"timestamp": {
+"type": "integer",
+"description": "Timestamp for the MACD value."
+},
+"value": {
+"type": "number",
+"description": "The MACD value."
+}
+}
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching MACD data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/rsi/{stockTicker}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Relative Strength Index (RSI)",
+"description": "Retrieve the Relative Strength Index (RSI) for a specified ticker over a defined time range. The RSI measures the speed and magnitude of price changes, oscillating between 0 and 100, to help identify overbought or oversold conditions.",
+"parameters": [
+{
+"name": "stockTicker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp (YYYY-MM-DD or millisecond timestamp).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gte",
+"in": "query",
+"description": "Filter results with timestamps greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.gt",
+"in": "query",
+"description": "Filter results with timestamps greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lte",
+"in": "query",
+"description": "Filter results with timestamps less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timestamp.lt",
+"in": "query",
+"description": "Filter results with timestamps less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timespan",
+"in": "query",
+"description": "The size of the aggregate time window (e.g., day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether the aggregates used for RSI calculation are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "window",
+"in": "query",
+"description": "The window size for calculating the RSI (e.g., 14).",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 14
+}
+},
+{
+"name": "series_type",
+"in": "query",
+"description": "The price type used for calculating the RSI (e.g., close).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "close"
+}
+},
+{
+"name": "expand_underlying",
+"in": "query",
+"description": "Whether or not to include the underlying aggregates used to calculate this indicator in the response.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "The order in which to return the results by timestamp. Defaults to desc.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "desc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 10 and max is 5000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with RSI indicator data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "RSI indicator data, including underlying aggregates and calculated RSI values.",
+"properties": {
+"underlying": {
+"type": "object",
+"description": "Aggregates used in the calculation (if expanded).",
+"properties": {
+"url": {
+"type": "string",
+"description": "The API URL for the underlying data."
+}
+}
+},
+"values": {
+"type": "array",
+"description": "An array of RSI values for each aggregated time period.",
+"items": {
+"type": "object",
+"properties": {
+"timestamp": {
+"type": "integer",
+"description": "Timestamp for the RSI value."
+},
+"value": {
+"type": "number",
+"description": "The calculated RSI value."
+}
+}
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching RSI data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/ipos": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Initial Public Offerings (IPOs)",
+"description": "Retrieve comprehensive information on Initial Public Offerings (IPOs), including upcoming and historical events starting from the year 2008. Key details include issuer name, ticker symbol, security type, IPO date, number of shares offered, expected price ranges, final issue prices, and offering sizes. Users can filter results by IPO status (e.g., pending, new, rumors, historical).",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Specify a case-sensitive ticker symbol (e.g., AAPL).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "us_code",
+"in": "query",
+"description": "Specify a us_code (a unique nine-character alphanumeric code).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "isin",
+"in": "query",
+"description": "Specify an International Securities Identification Number (ISIN).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "listing_date",
+"in": "query",
+"description": "Specify a listing date (the first trading day for the entity).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "listing_date.gte",
+"in": "query",
+"description": "Filter listing_date values greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "listing_date.gt",
+"in": "query",
+"description": "Filter listing_date values greater than the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "listing_date.lte",
+"in": "query",
+"description": "Filter listing_date values less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "listing_date.lt",
+"in": "query",
+"description": "Filter listing_date values less than the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "ipo_status",
+"in": "query",
+"description": "Specify an IPO status (e.g., pending, new, rumor, history).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "desc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned; default is 10 and max is 1000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering (e.g., listing_date).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"listing_date"
+],
+"default": "listing_date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with IPO data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL for fetching the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of IPO event objects.",
+"items": {
+"type": "object",
+"properties": {
+"announced_date": {
+"type": "string",
+"description": "Date when the IPO event was announced."
+},
+"currency_code": {
+"type": "string",
+"description": "The underlying currency."
+},
+"final_issue_price": {
+"type": "number",
+"description": "The final issue price set before the IPO."
+},
+"highest_offer_price": {
+"type": "number",
+"description": "The highest price in the offer range."
+},
+"ipo_status": {
+"type": "string",
+"description": "The status of the IPO (e.g., history, new, pending, rumor, withdrawn, direct_listing_process)."
+},
+"isin": {
+"type": "string",
+"description": "The International Securities Identification Number."
+},
+"issuer_name": {
+"type": "string",
+"description": "The name of the issuer."
+},
+"last_updated": {
+"type": "string",
+"description": "The date when the IPO event was last updated."
+},
+"listing_date": {
+"type": "string",
+"description": "The first trading date for the newly listed entity."
+},
+"lot_size": {
+"type": "number",
+"description": "The minimum number of shares per transaction."
+},
+"lowest_offer_price": {
+"type": "number",
+"description": "The lowest offer price."
+},
+"max_shares_offered": {
+"type": "number",
+"description": "The maximum number of shares offered."
+},
+"min_shares_offered": {
+"type": "number",
+"description": "The minimum number of shares offered."
+},
+"primary_exchange": {
+"type": "string",
+"description": "The primary exchange's Market Identifier Code (MIC)."
+},
+"security_description": {
+"type": "string",
+"description": "Description of the security."
+},
+"security_type": {
+"type": "string",
+"description": "The classification of the stock (e.g., CS for common stock)."
+},
+"shares_outstanding": {
+"type": "number",
+"description": "The total number of shares outstanding."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol of the IPO event."
+},
+"total_offer_size": {
+"type": "number",
+"description": "The total amount raised by the company."
+},
+"us_code": {
+"type": "string",
+"description": "A unique nine-character alphanumeric code identifying a North American financial security."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching IPO data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/financials": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Financials",
+"description": "Retrieve historical financial data for a specified stock ticker, derived from company SEC filings via XBRL. This experimental endpoint provides a range of financial metrics (income statements, balance sheets, cash flow statements, comprehensive income, etc.) which can be filtered using various query parameters.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Specify the company ticker (e.g., AAPL).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cik",
+"in": "query",
+"description": "Specify the central index key (CIK) number.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "company_name",
+"in": "query",
+"description": "Specify the company name.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "company_name.search",
+"in": "query",
+"description": "Search by company name.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "sic",
+"in": "query",
+"description": "Query by standard industrial classification (SIC) code.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "filing_date",
+"in": "query",
+"description": "Query by filing date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "filing_date.gte",
+"in": "query",
+"description": "Filter filings with dates greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "filing_date.gt",
+"in": "query",
+"description": "Filter filings with dates greater than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "filing_date.lte",
+"in": "query",
+"description": "Filter filings with dates less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "filing_date.lt",
+"in": "query",
+"description": "Filter filings with dates less than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "period_of_report_date",
+"in": "query",
+"description": "The period of report date in YYYY-MM-DD format.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "timeframe",
+"in": "query",
+"description": "Specify the timeframe (e.g., annual, quarterly, ttm).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "include_sources",
+"in": "query",
+"description": "Include xpath and formula attributes for each data point. Defaults to false.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default is 10, max is 1000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering (e.g., filing_date).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"filing_date"
+],
+"default": "filing_date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with IPO data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "If present, the URL to fetch the next page of data."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of IPO objects with event details.",
+"items": {
+"type": "object",
+"properties": {
+"announced_date": {
+"type": "string",
+"description": "The date the IPO was announced."
+},
+"currency_code": {
+"type": "string",
+"description": "Underlying currency of the security."
+},
+"final_issue_price": {
+"type": "number",
+"description": "The final issue price before the IPO went live."
+},
+"highest_offer_price": {
+"type": "number",
+"description": "The highest price within the IPO price range."
+},
+"ipo_status": {
+"type": "string",
+"description": "The status of the IPO event (e.g., history, new, pending, rumor, withdrawn, direct_listing_process)."
+},
+"isin": {
+"type": "string",
+"description": "The International Securities Identification Number."
+},
+"issuer_name": {
+"type": "string",
+"description": "The name of the issuer."
+},
+"last_updated": {
+"type": "string",
+"description": "The date when the IPO event was last updated."
+},
+"listing_date": {
+"type": "string",
+"description": "The first trading date for the newly listed entity."
+},
+"lot_size": {
+"type": "number",
+"description": "The minimum lot size for a transaction."
+},
+"lowest_offer_price": {
+"type": "number",
+"description": "The lowest offer price for the IPO."
+},
+"max_shares_offered": {
+"type": "number",
+"description": "The upper limit of shares offered in the IPO."
+},
+"min_shares_offered": {
+"type": "number",
+"description": "The lower limit of shares offered in the IPO."
+},
+"primary_exchange": {
+"type": "string",
+"description": "The primary exchange's Market Identifier Code (MIC)."
+},
+"security_description": {
+"type": "string",
+"description": "Description of the security."
+},
+"security_type": {
+"type": "string",
+"description": "The classification of the stock (e.g., CS for common stock)."
+},
+"shares_outstanding": {
+"type": "number",
+"description": "The total number of shares outstanding."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol of the IPO event."
+},
+"total_offer_size": {
+"type": "number",
+"description": "The total amount raised in the IPO."
+},
+"us_code": {
+"type": "string",
+"description": "The unique nine-character US code for the security."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching IPO data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/short-interest": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Short Interest",
+"description": "Retrieve bi-monthly aggregated short interest data reported to FINRA by broker-dealers. Short interest represents the total number of shares that have been sold short but not yet covered. This endpoint helps gauge market sentiment and potential price movement.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "The primary ticker symbol for the stock.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Filter tickers greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Filter tickers greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Filter tickers less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Filter tickers less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "days_to_cover",
+"in": "query",
+"description": "Calculated as short_interest divided by avg_daily_volume.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "days_to_cover.gte",
+"in": "query",
+"description": "Filter days_to_cover values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "days_to_cover.gt",
+"in": "query",
+"description": "Filter days_to_cover values greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "days_to_cover.lte",
+"in": "query",
+"description": "Filter days_to_cover values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "days_to_cover.lt",
+"in": "query",
+"description": "Filter days_to_cover values less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "settlement_date",
+"in": "query",
+"description": "The date on which the short interest data is settled (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "settlement_date.gte",
+"in": "query",
+"description": "Filter settlement_date values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "settlement_date.gt",
+"in": "query",
+"description": "Filter settlement_date values greater than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "settlement_date.lte",
+"in": "query",
+"description": "Filter settlement_date values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "settlement_date.lt",
+"in": "query",
+"description": "Filter settlement_date values less than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "avg_daily_volume",
+"in": "query",
+"description": "The average daily trading volume for the stock.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "avg_daily_volume.gte",
+"in": "query",
+"description": "Filter avg_daily_volume values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "avg_daily_volume.gt",
+"in": "query",
+"description": "Filter avg_daily_volume values greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "avg_daily_volume.lte",
+"in": "query",
+"description": "Filter avg_daily_volume values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "avg_daily_volume.lt",
+"in": "query",
+"description": "Filter avg_daily_volume values less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default is 10, max is 50000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field used for ordering results, typically 'ticker'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+],
+"default": "ticker"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with short interest data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL for fetching the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of short interest records.",
+"items": {
+"type": "object",
+"properties": {
+"avg_daily_volume": {
+"type": "integer",
+"description": "The average daily trading volume."
+},
+"days_to_cover": {
+"type": "number",
+"description": "Estimated number of days to cover all short positions."
+},
+"settlement_date": {
+"type": "string",
+"description": "The settlement date (YYYY-MM-DD)."
+},
+"short_interest": {
+"type": "integer",
+"description": "The total number of shares sold short."
+},
+"ticker": {
+"type": "string",
+"description": "The primary ticker symbol."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching short interest data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/short-volume": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Short Volume",
+"description": "Retrieve daily aggregated short sale volume data reported to FINRA from off-exchange trading venues and ATS. Unlike short interest (which measures outstanding shares sold short), short volume captures the daily trading activity of short sales.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "The primary ticker symbol for the stock.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Filter ticker values greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Filter ticker values greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Filter ticker values less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Filter ticker values less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "The date of trade activity reported in YYYY-MM-DD format.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "date.gte",
+"in": "query",
+"description": "Filter date values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "date.gt",
+"in": "query",
+"description": "Filter date values greater than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "date.lte",
+"in": "query",
+"description": "Filter date values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "date.lt",
+"in": "query",
+"description": "Filter date values less than this value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "short_volume_ratio",
+"in": "query",
+"description": "The percentage of total volume that was sold short ((short_volume / total_volume) * 100).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "short_volume_ratio.gte",
+"in": "query",
+"description": "Filter short_volume_ratio values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "short_volume_ratio.gt",
+"in": "query",
+"description": "Filter short_volume_ratio values greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "short_volume_ratio.lte",
+"in": "query",
+"description": "Filter short_volume_ratio values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "short_volume_ratio.lt",
+"in": "query",
+"description": "Filter short_volume_ratio values less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "total_volume",
+"in": "query",
+"description": "Total reported volume across all venues for the ticker on the given date.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "total_volume.gte",
+"in": "query",
+"description": "Filter total_volume values greater than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "total_volume.gt",
+"in": "query",
+"description": "Filter total_volume values greater than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "total_volume.lte",
+"in": "query",
+"description": "Filter total_volume values less than or equal to this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "total_volume.lt",
+"in": "query",
+"description": "Filter total_volume values less than this value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 10 and max is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Field used for ordering results. Typically 'ticker'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+],
+"default": "ticker"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with short volume data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL for the next page of results, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of records containing short volume data.",
+"items": {
+"type": "object",
+"properties": {
+"adf_short_volume": {
+"type": "integer",
+"description": "Short volume reported via ADF, excluding exempt volume."
+},
+"adf_short_volume_exempt": {
+"type": "integer",
+"description": "Short volume via ADF that was marked as exempt."
+},
+"date": {
+"type": "string",
+"description": "The date of the reported activity in YYYY-MM-DD format."
+},
+"exempt_volume": {
+"type": "integer",
+"description": "Portion of short volume marked as exempt."
+},
+"nasdaq_carteret_short_volume": {
+"type": "integer",
+"description": "Short volume from Nasdaq Carteret (excluding exempt volume)."
+},
+"nasdaq_carteret_short_volume_exempt": {
+"type": "integer",
+"description": "Nasdaq Carteret short volume marked as exempt."
+},
+"nasdaq_chicago_short_volume": {
+"type": "integer",
+"description": "Short volume from Nasdaq Chicago (excluding exempt volume)."
+},
+"nasdaq_chicago_short_volume_exempt": {
+"type": "integer",
+"description": "Nasdaq Chicago short volume marked as exempt."
+},
+"non_exempt_volume": {
+"type": "integer",
+"description": "Short volume that is not exempt."
+},
+"nyse_short_volume": {
+"type": "integer",
+"description": "Short volume reported from NYSE (excluding exempt volume)."
+},
+"nyse_short_volume_exempt": {
+"type": "integer",
+"description": "NYSE short volume that was marked as exempt."
+},
+"short_volume": {
+"type": "integer",
+"description": "Total number of shares sold short across all venues."
+},
+"short_volume_ratio": {
+"type": "number",
+"description": "Percentage of total volume sold short ((short_volume / total_volume) * 100)."
+},
+"ticker": {
+"type": "string",
+"description": "The primary ticker symbol."
+},
+"total_volume": {
+"type": "integer",
+"description": "Total reported volume for the ticker on the given date."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "The status of the response.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching short volume data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/open-close/{stocksTicker}/{date}": {
+"get": {
+"tags": [
+"Stocks"
+],
+"summary": "Daily Ticker Summary (OHLC)",
+"description": "Retrieve the opening and closing prices for a specific stock ticker on a given date, along with pre-market and after-hours trade prices. Use this endpoint for daily performance analysis, historical data collection, after-hours insights, and portfolio tracking.",
+"parameters": [
+{
+"name": "stocksTicker",
+"in": "path",
+"description": "A case-sensitive ticker symbol (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "date",
+"in": "path",
+"description": "The date for which to retrieve data (format: YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily ticker summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"afterHours": {
+"type": "number",
+"description": "Optional: Closing price during after-hours trading."
+},
+"close": {
+"type": "number",
+"description": "Closing price on the specified date."
+},
+"from": {
+"type": "string",
+"description": "The requested date."
+},
+"high": {
+"type": "number",
+"description": "Highest price on the specified date."
+},
+"low": {
+"type": "number",
+"description": "Lowest price on the specified date."
+},
+"open": {
+"type": "number",
+"description": "Opening price on the specified date."
+},
+"preMarket": {
+"type": "number",
+"description": "Optional: Opening price in pre-market trading."
+},
+"status": {
+"type": "string",
+"description": "Response status."
+},
+"symbol": {
+"type": "string",
+"description": "Ticker symbol."
+},
+"volume": {
+"type": "number",
+"description": "Trading volume for the specified date."
+}
+}
+},
+"example": {
+"afterHours": 322.1,
+"close": 325.12,
+"from": "2023-01-09",
+"high": 326.2,
+"low": 322.3,
+"open": 324.66,
+"preMarket": 324.5,
+"status": "OK",
+"symbol": "AAPL",
+"volume": 26122646
+}
+}
+}
+},
+"404": {
+"description": "Daily ticker summary not found.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string",
+"example": "Daily ticker summary not found"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/exchanges": {
+"get": {
+"tags": [
+"Market Info"
+],
+"summary": "Exchanges",
+"description": "Retrieve a list of known exchanges with their identifiers, names, market types, and other relevant attributes. Query parameters allow filtering by asset class and locale.",
+"parameters": [
+{
+"name": "asset_class",
+"in": "query",
+"description": "Filter by asset class. Allowed values: stocks, options, crypto, fx.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"stocks",
+"options",
+"crypto",
+"fx"
+]
+}
+},
+{
+"name": "locale",
+"in": "query",
+"description": "Filter by locale. Allowed values: us, global.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"us",
+"global"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with list of exchanges.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"count": {
+"type": "integer",
+"description": "The total number of results returned."
+},
+"request_id": {
+"type": "string",
+"description": "Unique request identifier."
+},
+"results": {
+"type": "object",
+"description": "Details of the exchange.",
+"properties": {
+"acronym": {
+"type": "string",
+"description": "Acronym of the exchange."
+},
+"asset_class": {
+"type": "string",
+"description": "Asset class (stocks, options, crypto, fx)."
+},
+"id": {
+"type": "integer",
+"description": "Unique identifier for the exchange."
+},
+"locale": {
+"type": "string",
+"description": "Locale of the exchange (us, global)."
+},
+"mic": {
+"type": "string",
+"description": "Market Identifier Code."
+},
+"name": {
+"type": "string",
+"description": "Name of the exchange."
+},
+"operating_mic": {
+"type": "string",
+"description": "Operating MIC of the exchange."
+},
+"participant_id": {
+"type": "string",
+"description": "Participant ID."
+},
+"type": {
+"type": "string",
+"description": "Type of the exchange."
+},
+"url": {
+"type": "string",
+"description": "URL of the exchange."
+}
+}
+},
+"status": {
+"type": "string",
+"description": "Response status."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching exchanges.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/market-holidays": {
+"get": {
+"tags": [
+"Market Info"
+],
+"summary": "Market Holidays",
+"description": "Retrieve upcoming market holidays and their corresponding open/close times. This endpoint is forward-looking only, listing future holidays that affect market hours.",
+"responses": {
+"200": {
+"description": "Successful response with upcoming market holidays.",
+"content": {
+"application/json": {
+"schema": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"date": {
+"type": "string",
+"description": "The date of the holiday."
+},
+"exchange": {
+"type": "string",
+"description": "Which market the record is for."
+},
+"name": {
+"type": "string",
+"description": "The name of the holiday."
+},
+"open": {
+"type": "string",
+"description": "Market open time on the holiday (if applicable)."
+},
+"close": {
+"type": "string",
+"description": "Market close time on the holiday (if applicable)."
+},
+"status": {
+"type": "string",
+"description": "The status of the market on the holiday."
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching market holidays.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/market-status": {
+"get": {
+"tags": [
+"Market Info"
+],
+"summary": "Market Status",
+"description": "Retrieve the current trading status for various exchanges and overall financial markets. The response provides real-time indicators such as after-hours, pre-market status, and general market state.",
+"responses": {
+"200": {
+"description": "Successful response with current market status.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"afterHours": {
+"type": "boolean",
+"description": "Whether the market is in post-market hours."
+},
+"currencies": {
+"type": "object",
+"description": "Status of various currency markets.",
+"properties": {
+"crypto": {
+"type": "string",
+"description": "Status of the crypto market."
+},
+"fx": {
+"type": "string",
+"description": "Status of the forex market."
+}
+}
+},
+"earlyHours": {
+"type": "boolean",
+"description": "Whether the market is in pre-market hours."
+},
+"exchanges": {
+"type": "object",
+"description": "Status details for US stock exchanges.",
+"properties": {
+"nasdaq": {
+"type": "string",
+"description": "Status of the Nasdaq market."
+},
+"nyse": {
+"type": "string",
+"description": "Status of the NYSE market."
+},
+"otc": {
+"type": "string",
+"description": "Status of the OTC market."
+}
+}
+},
+"indicesGroups": {
+"type": "object",
+"description": "Status of various index groups.",
+"properties": {
+"cccy": {
+"type": "string",
+"description": "Status of Cboe Streaming Market Indices Cryptocurrency (CCCY) indices trading hours."
+},
+"cgi": {
+"type": "string",
+"description": "Status of Cboe Global Indices (CGI) trading hours."
+},
+"dow_jones": {
+"type": "string",
+"description": "Status of Dow Jones indices trading hours."
+},
+"ftse_russell": {
+"type": "string",
+"description": "Status of FTSE Russell indices trading hours."
+},
+"msci": {
+"type": "string",
+"description": "Status of MSCI indices trading hours."
+},
+"mstar": {
+"type": "string",
+"description": "Status of Morningstar indices trading hours."
+},
+"mstarc": {
+"type": "string",
+"description": "Status of Morningstar Customer indices trading hours."
+},
+"nasdaq": {
+"type": "string",
+"description": "Status of Nasdaq indices trading hours."
+},
+"s_and_p": {
+"type": "string",
+"description": "Status of S&P indices trading hours."
+},
+"societe_generale": {
+"type": "string",
+"description": "Status of Societe Generale indices trading hours."
+}
+}
+},
+"market": {
+"type": "string",
+"description": "Overall status of the market."
+},
+"serverTime": {
+"type": "string",
+"description": "Current server time in RFC3339 format."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching market status.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/splits": {
+"get": {
+"tags": [
+"Market Info"
+],
+"summary": "Splits",
+"description": "Retrieve historical stock split events, including execution dates and ratio factors. Use this data for understanding changes in a company’s share structure and for price adjustments in historical analyses.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Case-sensitive ticker symbol (e.g., AAPL).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "execution_date",
+"in": "query",
+"description": "Execution date (YYYY-MM-DD) for the split.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "execution_date.gte",
+"in": "query",
+"description": "Filter by execution date greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "execution_date.gt",
+"in": "query",
+"description": "Filter by execution date greater than the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "execution_date.lte",
+"in": "query",
+"description": "Filter by execution date less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "execution_date.lt",
+"in": "query",
+"description": "Filter by execution date less than the given value.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "reverse_split",
+"in": "query",
+"description": "Query for reverse stock splits.",
+"required": false,
+"schema": {
+"type": "boolean"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default 10, max 1000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field for ordering the results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"execution_date"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with stock splits data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of split event objects.",
+"items": {
+"type": "object",
+"properties": {
+"execution_date": {
+"type": "string",
+"description": "The execution date of the split."
+},
+"id": {
+"type": "string",
+"description": "Unique identifier for the split event."
+},
+"split_from": {
+"type": "number",
+"description": "The numerator of the split ratio."
+},
+"split_to": {
+"type": "number",
+"description": "The denominator of the split ratio."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "Response status."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching splits data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/stocks/dividends": {
+"get": {
+"tags": [
+"Market Info"
+],
+"summary": "Dividends",
+"description": "Retrieve a historical record of cash dividend distributions for a given ticker, including important dates and payout amounts.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Case-sensitive ticker symbol (e.g., AAPL).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ex_dividend_date",
+"in": "query",
+"description": "Filter by ex-dividend date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "record_date",
+"in": "query",
+"description": "Filter by record date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "declaration_date",
+"in": "query",
+"description": "Filter by declaration date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "pay_date",
+"in": "query",
+"description": "Filter by pay date (YYYY-MM-DD).",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "frequency",
+"in": "query",
+"description": "Frequency of dividend payments (0, 1, 2, 4, 12, 24, 52).",
+"required": false,
+"schema": {
+"type": "integer"
+}
+},
+{
+"name": "cash_amount",
+"in": "query",
+"description": "Cash amount of the dividend.",
+"required": false,
+"schema": {
+"type": "number"
+}
+},
+{
+"name": "dividend_type",
+"in": "query",
+"description": "Type of dividend (e.g., CD, SC, LT, ST).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned (default 10, max 1000).",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 10
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field for ordering results (ex_dividend_date).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ex_dividend_date"
+],
+"default": "ex_dividend_date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with dividend data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "URL to fetch the next page of data, if available."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request identifier."
+},
+"results": {
+"type": "array",
+"description": "An array of dividend objects.",
+"items": {
+"type": "object",
+"properties": {
+"cash_amount": {
+"type": "number",
+"description": "The cash amount per share."
+},
+"currency": {
+"type": "string",
+"description": "Currency of the dividend payout."
+},
+"declaration_date": {
+"type": "string",
+"description": "The date the dividend was declared."
+},
+"dividend_type": {
+"type": "string",
+"description": "The dividend type (CD, SC, LT, ST)."
+},
+"ex_dividend_date": {
+"type": "string",
+"description": "The ex-dividend date."
+},
+"frequency": {
+"type": "integer",
+"description": "Number of dividend payments per year."
+},
+"id": {
+"type": "string",
+"description": "Unique dividend identifier."
+},
+"pay_date": {
+"type": "string",
+"description": "The pay date."
+},
+"record_date": {
+"type": "string",
+"description": "The record date."
+},
+"ticker": {
+"type": "string",
+"description": "The ticker symbol."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "Response status."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching dividend data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/indices/tickers": {
+"get": {
+"tags": [
+"Indices"
+],
+"summary": "All Tickers",
+"description": "Retrieve a comprehensive list of ticker symbols supported by Polygon.io across various asset classes. For indices, the query is automatically filtered by market=indices. Use this endpoint for asset discovery, data integration, and filtering/selection in applications.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Specify a ticker symbol. Defaults to empty string to query all tickers.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Search ticker for values that are greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Search ticker for values that are greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Search ticker for values that are less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Search ticker for values that are less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "type",
+"in": "query",
+"description": "Specify the type of the tickers. Defaults to empty string which queries all types.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "market",
+"in": "query",
+"description": "Market type of the asset. For indices this is forced to 'indices'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"indices"
+],
+"default": "indices"
+}
+},
+{
+"name": "exchange",
+"in": "query",
+"description": "Specify the primary exchange of the asset (ISO code format).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cusip",
+"in": "query",
+"description": "Specify the CUSIP code of the asset (not returned in the response).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cik",
+"in": "query",
+"description": "Specify the CIK of the asset.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "Specify a point in time to retrieve tickers available on that date. Defaults to the most recent available date.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "search",
+"in": "query",
+"description": "Search for terms within the ticker and/or company name.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "active",
+"in": "query",
+"description": "Specify if the tickers returned should be actively traded on the queried date. Default is true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 100 and maximum is 1000.",
+"required": false,
+"schema": {
+"type": "number",
+"default": 100
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with indices tickers data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"count": {
+"type": "integer",
+"description": "The total number of results."
+},
+"next_url": {
+"type": "string",
+"description": "If present, this value can be used to fetch the next page of data."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "array",
+"description": "An array of tickers that match your query.",
+"items": {
+"type": "object",
+"properties": {
+"active": {
+"type": "boolean",
+"description": "Whether or not the asset is actively traded. False means the asset has been delisted."
+},
+"cik": {
+"type": "string",
+"description": "The CIK number for this ticker."
+},
+"composite_figi": {
+"type": "string",
+"description": "The composite OpenFIGI number for this ticker."
+},
+"currency_name": {
+"type": "string",
+"description": "The name of the currency that this asset is traded with."
+},
+"delisted_utc": {
+"type": "string",
+"description": "The last date that the asset was traded."
+},
+"last_updated_utc": {
+"type": "string",
+"description": "The information is accurate up to this time."
+},
+"locale": {
+"type": "string",
+"description": "The locale of the asset (us or global)."
+},
+"market": {
+"type": "string",
+"description": "The market type of the asset."
+},
+"name": {
+"type": "string",
+"description": "The name of the asset."
+},
+"primary_exchange": {
+"type": "string",
+"description": "The ISO code of the primary listing exchange for this asset."
+},
+"share_class_figi": {
+"type": "string",
+"description": "The share Class OpenFIGI number for this ticker."
+},
+"ticker": {
+"type": "string",
+"description": "The exchange symbol that this item is traded under."
+},
+"type": {
+"type": "string",
+"description": "The type of the asset."
+},
+"status": {
+"type": "string",
+"description": "The status of this request's response."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"description": "Response status.",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching indices tickers data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/indices/{ticker}": {
+"get": {
+"tags": [
+"Indices"
+],
+"summary": "Ticker Overview",
+"description": "Retrieve comprehensive details for a single ticker supported by Polygon.io. This endpoint offers a deep look into a company’s fundamental attributes, including its primary exchange, standardized identifiers (CIK, composite FIGI, share class FIGI), market capitalization, industry classification, key dates, and branding assets such as logos and icons.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "The ticker symbol of the asset (e.g., AAPL).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AAPL"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "Specify a point in time to get ticker information as of that date (YYYY-MM-DD). When provided, details from SEC filings and period of report dates are used for comparison.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with ticker details.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"count": {
+"type": "integer",
+"description": "The total number of results for this request."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "object",
+"description": "Ticker with details.",
+"properties": {
+"active": {
+"type": "boolean",
+"description": "Whether or not the asset is actively traded. False means the asset has been delisted."
+},
+"address": {
+"type": "object",
+"description": "Company headquarters address details."
+},
+"branding": {
+"type": "object",
+"description": "Provides URLs for visual identification (logos, icons, etc.)."
+},
+"cik": {
+"type": "string",
+"description": "The CIK number for this ticker."
+},
+"composite_figi": {
+"type": "string",
+"description": "The composite OpenFIGI number for this ticker."
+},
+"currency_name": {
+"type": "string",
+"description": "The name of the currency that this asset is traded with."
+},
+"delisted_utc": {
+"type": "string",
+"description": "The last date that the asset was traded, if delisted."
+},
+"description": {
+"type": "string",
+"description": "A description of the company."
+},
+"homepage_url": {
+"type": "string",
+"description": "The URL of the company's homepage."
+},
+"list_date": {
+"type": "string",
+"description": "The date that the symbol was first publicly listed (YYYY-MM-DD)."
+},
+"locale": {
+"type": "string",
+"description": "The locale of the asset (e.g., us or global)."
+},
+"market": {
+"type": "string",
+"description": "The market type of the asset (e.g., stocks, indices)."
+},
+"market_cap": {
+"type": "number",
+"description": "Market capitalization calculated as the most recent close price multiplied by weighted outstanding shares."
+},
+"name": {
+"type": "string",
+"description": "The name of the asset. For equities this is the company's registered name."
+},
+"phone_number": {
+"type": "string",
+"description": "The phone number of the company."
+},
+"primary_exchange": {
+"type": "string",
+"description": "The ISO code of the primary listing exchange for this asset."
+},
+"round_lot": {
+"type": "number",
+"description": "Round lot size of the security."
+},
+"share_class_figi": {
+"type": "string",
+"description": "The share Class OpenFIGI number for this ticker."
+},
+"share_class_shares_outstanding": {
+"type": "number",
+"description": "The recorded number of outstanding shares for this share class."
+},
+"sic_code": {
+"type": "string",
+"description": "The standard industrial classification code for this ticker."
+},
+"sic_description": {
+"type": "string",
+"description": "A description of this ticker's SIC code."
+},
+"ticker": {
+"type": "string",
+"description": "The exchange symbol that this item is traded under."
+},
+"ticker_root": {
+"type": "string",
+"description": "The root of the specified ticker (e.g., for BRK.A, the root is BRK)."
+},
+"ticker_suffix": {
+"type": "string",
+"description": "The suffix of the specified ticker (e.g., for BRK.A, the suffix is A)."
+},
+"total_employees": {
+"type": "number",
+"description": "Approximate number of employees for the company."
+},
+"type": {
+"type": "string",
+"description": "The type of the asset."
+},
+"weighted_shares_outstanding": {
+"type": "number",
+"description": "Weighted outstanding shares assuming conversion of other classes."
+},
+"status": {
+"type": "string",
+"description": "The status of this request's response."
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/indices/aggs/ticker/{indicesTicker}/range/{multiplier}/{timespan}/{from}/{to}": {
+"get": {
+"tags": [
+"Indices"
+],
+"summary": "Custom Bars (OHLC)",
+"description": "Retrieve aggregated historical OHLC (Open, High, Low, Close) and value data for a specified index over a custom date range and time interval in Eastern Time (ET). Unlike stocks or options, these aggregates are derived from index values rather than individual trades, reflecting the performance of a market segment, sector, or benchmark. If no index updates occur within a given timeframe, no aggregate bar is produced, resulting in an empty interval that indicates a period without new index data. Users can customize their view by adjusting the multiplier and timespan parameters (e.g., a 5-minute interval).",
+"parameters": [
+{
+"name": "indicesTicker",
+"in": "path",
+"description": "The ticker symbol of the index (e.g., I:NDX).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "I:NDX"
+}
+},
+{
+"name": "multiplier",
+"in": "path",
+"description": "The size of the timespan multiplier.",
+"required": true,
+"schema": {
+"type": "integer",
+"example": 1
+}
+},
+{
+"name": "timespan",
+"in": "path",
+"description": "The timespan for each aggregate bar (e.g., day).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "day"
+}
+},
+{
+"name": "from",
+"in": "path",
+"description": "The start of the aggregate time window (YYYY-MM-DD or millisecond timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-03-13"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The end of the aggregate time window (YYYY-MM-DD or millisecond timestamp).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-03-24"
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort the results by timestamp. Allowed values: asc (oldest first) or desc (newest first).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+],
+"default": "asc"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limits the number of base aggregates queried to create the aggregate results. Default is 5000 and maximum is 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 5000
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with aggregated index OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The exchange symbol for the index."
+},
+"queryCount": {
+"type": "integer",
+"description": "The number of base aggregates used in the query."
+},
+"request_id": {
+"type": "string",
+"description": "A unique request id assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "The total number of results for the query."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"results": {
+"type": "array",
+"description": "An array of aggregate bar objects.",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "The open value for the time period."
+},
+"h": {
+"type": "number",
+"description": "The highest value for the time period."
+},
+"l": {
+"type": "number",
+"description": "The lowest value for the time period."
+},
+"c": {
+"type": "number",
+"description": "The close value for the time period."
+},
+"t": {
+"type": "integer",
+"description": "The Unix millisecond timestamp for the start of the aggregate window."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching custom bars data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/indices/prev/{indicesTicker}": {
+"get": {
+"tags": [
+"Indices"
+],
+"summary": "Previous Day Bar (OHLC)",
+"description": "Retrieve the previous trading day's open, high, low, and close (OHLC) data for a specified index ticker. This endpoint provides key pricing metrics, including volume, to help users assess recent performance and inform trading strategies.",
+"parameters": [
+{
+"name": "indicesTicker",
+"in": "path",
+"description": "The ticker symbol of the index (e.g., I:NDX).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "I:NDX"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with previous day OHLC data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The exchange symbol for the index."
+},
+"queryCount": {
+"type": "integer",
+"description": "The number of aggregates used to generate the response."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "The total number of results."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"results": {
+"type": "array",
+"description": "An array of OHLC data objects.",
+"items": {
+"type": "object",
+"properties": {
+"o": {
+"type": "number",
+"description": "Open value for the period."
+},
+"h": {
+"type": "number",
+"description": "High value for the period."
+},
+"l": {
+"type": "number",
+"description": "Low value for the period."
+},
+"c": {
+"type": "number",
+"description": "Close value for the period."
+},
+"t": {
+"type": "integer",
+"description": "Unix millisecond timestamp for the start of the period."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/indices/open-close/{indicesTicker}/{date}": {
+"get": {
+"tags": [
+"Indices"
+],
+"summary": "Daily Ticker Summary (OHLC)",
+"description": "Retrieve the opening and closing prices for a specific index on a given date, along with any pre-market and after-hours details. This endpoint provides essential daily pricing data for performance analysis and historical tracking.",
+"parameters": [
+{
+"name": "indicesTicker",
+"in": "path",
+"description": "The ticker symbol of the index (e.g., I:NDX).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "I:NDX"
+}
+},
+{
+"name": "date",
+"in": "path",
+"description": "The date for which to retrieve data (format: YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-03-10"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily ticker summary data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"afterHours": {
+"type": "number",
+"description": "After-hours closing price (if available)."
+},
+"close": {
+"type": "number",
+"description": "Closing price on the specified date."
+},
+"from": {
+"type": "string",
+"description": "The requested date."
+},
+"high": {
+"type": "number",
+"description": "Highest price during the day."
+},
+"low": {
+"type": "number",
+"description": "Lowest price during the day."
+},
+"open": {
+"type": "number",
+"description": "Opening price on the specified date."
+},
+"preMarket": {
+"type": "number",
+"description": "Pre-market opening price (if available)."
+},
+"status": {
+"type": "string",
+"description": "The status of the response."
+},
+"symbol": {
+"type": "string",
+"description": "The exchange symbol for the index."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching daily ticker summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/tickers": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Forex Tickers",
+"description": "Retrieve a comprehensive list of ticker symbols supported by Polygon.io across various asset classes including Forex. Each entry provides essential details such as symbol, name, market, currency, and active status.",
+"parameters": [
+{
+"name": "ticker",
+"in": "query",
+"description": "Specify a ticker symbol. Defaults to an empty string to query all tickers.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gte",
+"in": "query",
+"description": "Search ticker for values that are greater than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.gt",
+"in": "query",
+"description": "Search ticker for values that are greater than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lte",
+"in": "query",
+"description": "Search ticker for values that are less than or equal to the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "ticker.lt",
+"in": "query",
+"description": "Search ticker for values that are less than the given value.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "type",
+"in": "query",
+"description": "Specify the type of the tickers. Defaults to empty string to query all types.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "market",
+"in": "query",
+"description": "Filter by market type. For Forex, use 'fx'.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"stocks",
+"crypto",
+"fx",
+"otc",
+"indices"
+]
+}
+},
+{
+"name": "exchange",
+"in": "query",
+"description": "Specify the primary exchange of the asset (ISO code format).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cusip",
+"in": "query",
+"description": "Specify the CUSIP code of the asset (not returned in the response).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "cik",
+"in": "query",
+"description": "Specify the CIK of the asset.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "Specify a point in time to retrieve tickers available on that date. Defaults to the most recent available date.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+},
+{
+"name": "search",
+"in": "query",
+"description": "Search for terms within the ticker and/or company name.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "active",
+"in": "query",
+"description": "Specify if the tickers returned should be actively traded on the queried date. Default is true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results based on the sort field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default is 100 and maximum is 1000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 100
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering results.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"ticker"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with Forex tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "success"
+},
+"data": {
+"type": "object"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching Forex tickers.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/{ticker}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Ticker Overview",
+"description": "Retrieve comprehensive details for a single ticker supported by Polygon.io (e.g., C:EURUSD), including CIK, FIGIs, market cap, classification, branding assets, etc.",
+"parameters": [
+{
+"name": "ticker",
+"in": "path",
+"description": "The forex ticker symbol (e.g., C:EURUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "C:EURUSD"
+}
+},
+{
+"name": "date",
+"in": "query",
+"description": "A point in time to retrieve ticker details. Defaults to most recent available.",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with ticker overview details.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"request_id": {
+"type": "string"
+},
+"results": {
+"type": "object",
+"properties": {
+"active": {
+"type": "boolean"
+},
+"address": {
+"type": "object"
+},
+"branding": {
+"type": "object"
+},
+"cik": {
+"type": "string"
+},
+"composite_figi": {
+"type": "string"
+},
+"currency_name": {
+"type": "string"
+},
+"delisted_utc": {
+"type": "string"
+},
+"description": {
+"type": "string"
+},
+"homepage_url": {
+"type": "string"
+},
+"list_date": {
+"type": "string",
+"format": "date"
+},
+"locale": {
+"type": "string",
+"enum": [
+"us",
+"global"
+]
+},
+"market": {
+"type": "string",
+"enum": [
+"stocks",
+"crypto",
+"fx",
+"otc",
+"indices"
+]
+},
+"market_cap": {
+"type": "number"
+},
+"name": {
+"type": "string"
+},
+"phone_number": {
+"type": "string"
+},
+"primary_exchange": {
+"type": "string"
+},
+"round_lot": {
+"type": "number"
+},
+"share_class_figi": {
+"type": "string"
+},
+"share_class_shares_outstanding": {
+"type": "number"
+},
+"sic_code": {
+"type": "string"
+},
+"sic_description": {
+"type": "string"
+},
+"ticker": {
+"type": "string"
+},
+"ticker_root": {
+"type": "string"
+},
+"ticker_suffix": {
+"type": "string"
+},
+"total_employees": {
+"type": "number"
+},
+"type": {
+"type": "string"
+},
+"weighted_shares_outstanding": {
+"type": "number"
+}
+}
+},
+"status": {
+"type": "string",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching ticker overview.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/aggs/grouped/locale/global/market/fx/{date}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Daily Market Summary (OHLC)",
+"description": "Retrieve daily OHLC (open, high, low, close), volume, and VWAP for all forex tickers on a specified date.",
+"parameters": [
+{
+"name": "date",
+"in": "path",
+"description": "The trading date for which to retrieve aggregates (YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether results are split‑adjusted. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily market summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"adjusted": {
+"type": "boolean"
+},
+"queryCount": {
+"type": "integer"
+},
+"request_id": {
+"type": "string"
+},
+"resultsCount": {
+"type": "integer"
+},
+"status": {
+"type": "string",
+"example": "OK"
+},
+"results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"T": {
+"type": "string",
+"description": "Ticker"
+},
+"c": {
+"type": "number",
+"description": "Close"
+},
+"h": {
+"type": "number",
+"description": "High"
+},
+"l": {
+"type": "number",
+"description": "Low"
+},
+"o": {
+"type": "number",
+"description": "Open"
+},
+"v": {
+"type": "number",
+"description": "Volume"
+},
+"vw": {
+"type": "number",
+"description": "VWAP"
+},
+"n": {
+"type": "integer",
+"description": "Number of transactions"
+},
+"t": {
+"type": "integer",
+"description": "Unix ms timestamp (end of window)"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching daily summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/aggs/ticker/{forexTicker}/prev": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Previous Day Bar (OHLC)",
+"description": "Retrieve the previous trading day's open, high, low, close, volume and VWAP for a specified forex pair.",
+"parameters": [
+{
+"name": "forexTicker",
+"in": "path",
+"description": "The ticker symbol of the currency pair (e.g., C:EURUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "C:EURUSD"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether results are split‑adjusted. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The FX pair symbol."
+},
+"adjusted": {
+"type": "boolean",
+"description": "Whether the response was adjusted for splits."
+},
+"queryCount": {
+"type": "integer",
+"description": "Number of base aggregates used."
+},
+"request_id": {
+"type": "string",
+"description": "Server request ID."
+},
+"resultsCount": {
+"type": "integer",
+"description": "Number of results returned."
+},
+"status": {
+"type": "string",
+"example": "OK"
+},
+"results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"T": {
+"type": "string",
+"description": "Ticker symbol."
+},
+"o": {
+"type": "number",
+"description": "Open price."
+},
+"h": {
+"type": "number",
+"description": "High price."
+},
+"l": {
+"type": "number",
+"description": "Low price."
+},
+"c": {
+"type": "number",
+"description": "Close price."
+},
+"v": {
+"type": "number",
+"description": "Volume."
+},
+"vw": {
+"type": "number",
+"description": "Volume‑weighted average price."
+},
+"n": {
+"type": "integer",
+"description": "Number of transactions."
+},
+"t": {
+"type": "integer",
+"description": "Unix ms timestamp."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching previous day bar.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/quotes/{fxTicker}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Quotes",
+"description": "Retrieve historical Best Bid and Offer (BBO) quotes for a specified forex pair over a defined time range.",
+"parameters": [
+{
+"name": "fxTicker",
+"in": "path",
+"description": "The ticker symbol of the currency pair (e.g., C:EUR-USD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "C:EUR-USD"
+}
+},
+{
+"name": "timestamp",
+"in": "query",
+"description": "Query by timestamp. Either YYYY-MM-DD or a nanosecond timestamp.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "order",
+"in": "query",
+"description": "Order results by the `sort` field.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"asc",
+"desc"
+]
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Limit the number of results returned. Default 1000, max 50000.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 1000
+}
+},
+{
+"name": "sort",
+"in": "query",
+"description": "Sort field used for ordering. Use `timestamp`.",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"timestamp"
+]
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with BBO quotes.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"next_url": {
+"type": "string",
+"description": "Cursor URL for next page, if any."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"ask_exchange": {
+"type": "integer",
+"description": "Ask exchange ID."
+},
+"ask_price": {
+"type": "number",
+"description": "Ask price."
+},
+"bid_exchange": {
+"type": "integer",
+"description": "Bid exchange ID."
+},
+"bid_price": {
+"type": "number",
+"description": "Bid price."
+},
+"participant_timestamp": {
+"type": "integer",
+"description": "Nanosecond exchange Unix timestamp."
+}
+}
+}
+},
+"status": {
+"type": "string",
+"example": "OK"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching quotes.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/forex/last-quote/{from}/{to}": {
+"get": {
+"tags": [
+"Forex"
+],
+"summary": "Last Quote",
+"description": "Retrieve the most recent quote for a specified forex currency pair, including bid, ask, exchange, and timestamp.",
+"parameters": [
+{
+"name": "from",
+"in": "path",
+"description": "The base currency symbol (e.g., AUD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "AUD"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The quote currency symbol (e.g., USD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "USD"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the most recent forex quote.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"last": {
+"type": "object",
+"properties": {
+"ask": {
+"type": "number",
+"description": "The ask price."
+},
+"bid": {
+"type": "number",
+"description": "The bid price."
+},
+"exchange": {
+"type": "integer",
+"description": "Exchange ID."
+},
+"timestamp": {
+"type": "integer",
+"description": "Unix millisecond timestamp."
+}
+}
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"status": {
+"type": "string",
+"description": "Response status.",
+"example": "success"
+},
+"symbol": {
+"type": "string",
+"description": "The evaluated currency pair (e.g., AUD/USD)."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching last quote.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/grouped/{date}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Daily Market Summary (OHLC)",
+"description": "Retrieve daily OHLC (open, high, low, close), volume, and VWAP data for all crypto tickers on a specified trading date.",
+"parameters": [
+{
+"name": "date",
+"in": "path",
+"description": "The trading date (format: YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether to adjust results for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily market summary data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"adjusted": {
+"type": "boolean",
+"description": "Whether the response is adjusted for splits."
+},
+"queryCount": {
+"type": "integer",
+"description": "Number of base aggregates used."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "Total number of results returned."
+},
+"status": {
+"type": "string",
+"description": "Response status (e.g., OK)."
+},
+"results": {
+"type": "array",
+"description": "Array of OHLC/VWAP bars for each crypto ticker.",
+"items": {
+"type": "object",
+"properties": {
+"T": {
+"type": "string",
+"description": "Ticker symbol (e.g., X:BTCUSD)."
+},
+"c": {
+"type": "number",
+"description": "Close price."
+},
+"h": {
+"type": "number",
+"description": "High price."
+},
+"l": {
+"type": "number",
+"description": "Low price."
+},
+"n": {
+"type": "integer",
+"description": "Number of transactions."
+},
+"o": {
+"type": "number",
+"description": "Open price."
+},
+"t": {
+"type": "integer",
+"description": "Unix ms timestamp for the end of the window."
+},
+"v": {
+"type": "number",
+"description": "Volume."
+},
+"vw": {
+"type": "number",
+"description": "Volume-weighted average price."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching daily market summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/open-close/{from}/{to}/{date}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Daily Ticker Summary (OHLC)",
+"description": "Retrieve the opening and closing trades for a specific crypto pair on a given date.",
+"parameters": [
+{
+"name": "from",
+"in": "path",
+"description": "The 'from' symbol of the crypto pair (e.g., BTC).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "BTC"
+}
+},
+{
+"name": "to",
+"in": "path",
+"description": "The 'to' symbol of the crypto pair (e.g., USD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "USD"
+}
+},
+{
+"name": "date",
+"in": "path",
+"description": "The date to retrieve open/close for (YYYY-MM-DD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "2023-01-09"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether to adjust results for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with daily ticker summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"close": {
+"type": "number",
+"description": "Close price."
+},
+"closingTrades": {
+"type": "array",
+"description": "Array of closing trade objects.",
+"items": {
+"type": "object",
+"properties": {
+"c": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of condition codes."
+},
+"i": {
+"type": "string",
+"description": "Unique trade ID."
+},
+"p": {
+"type": "number",
+"description": "Trade price."
+},
+"s": {
+"type": "number",
+"description": "Trade size."
+},
+"t": {
+"type": "integer",
+"description": "Timestamp (ms)."
+},
+"x": {
+"type": "integer",
+"description": "Exchange ID."
+}
+}
+}
+},
+"day": {
+"type": "string",
+"description": "The requested date as ISO string."
+},
+"isUTC": {
+"type": "boolean",
+"description": "Whether timestamps are UTC."
+},
+"open": {
+"type": "number",
+"description": "Open price."
+},
+"openTrades": {
+"type": "array",
+"description": "Array of opening trade objects.",
+"items": {
+"type": "object",
+"properties": {
+"c": {
+"type": "array",
+"items": {
+"type": "integer"
+},
+"description": "List of condition codes."
+},
+"i": {
+"type": "string",
+"description": "Unique trade ID."
+},
+"p": {
+"type": "number",
+"description": "Trade price."
+},
+"s": {
+"type": "number",
+"description": "Trade size."
+},
+"t": {
+"type": "integer",
+"description": "Timestamp (ms)."
+},
+"x": {
+"type": "integer",
+"description": "Exchange ID."
+}
+}
+}
+},
+"symbol": {
+"type": "string",
+"description": "The evaluated symbol pair (e.g., BTC-USD)."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching daily ticker summary.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/previous-day/{cryptoTicker}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Previous Day Bar (OHLC)",
+"description": "Retrieve the previous trading day's open, high, low, and close (OHLC) data for a specified cryptocurrency pair, including volume and VWAP if available.",
+"parameters": [
+{
+"name": "cryptoTicker",
+"in": "path",
+"description": "The ticker symbol of the cryptocurrency pair (e.g., X:BTCUSD).",
+"required": true,
+"schema": {
+"type": "string",
+"example": "X:BTCUSD"
+}
+},
+{
+"name": "adjusted",
+"in": "query",
+"description": "Whether or not the results are adjusted for splits. Defaults to true.",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with previous day bar data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"ticker": {
+"type": "string",
+"description": "The crypto ticker symbol."
+},
+"adjusted": {
+"type": "boolean",
+"description": "Whether the data was split-adjusted."
+},
+"queryCount": {
+"type": "integer",
+"description": "Number of aggregates used."
+},
+"request_id": {
+"type": "string",
+"description": "A request id assigned by the server."
+},
+"resultsCount": {
+"type": "integer",
+"description": "Total number of results."
+},
+"status": {
+"type": "string",
+"description": "Response status."
+},
+"results": {
+"type": "array",
+"description": "An array of OHLC bars (usually length 1).",
+"items": {
+"type": "object",
+"properties": {
+"T": {
+"type": "string",
+"description": "Ticker symbol."
+},
+"o": {
+"type": "number",
+"description": "Open price."
+},
+"h": {
+"type": "number",
+"description": "High price."
+},
+"l": {
+"type": "number",
+"description": "Low price."
+},
+"c": {
+"type": "number",
+"description": "Close price."
+},
+"v": {
+"type": "number",
+"description": "Volume."
+},
+"vw": {
+"type": "number",
+"description": "Volume-weighted average price."
+},
+"t": {
+"type": "integer",
+"description": "Unix ms timestamp for the bar."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching previous day bar.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/market-movers/{direction}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Top Market Movers",
+"description": "Retrieve snapshot data highlighting the top 20 gainers or losers in the crypto market. Gainers are those with the largest percentage increase since the previous day’s close, and losers are those with the largest percentage decrease. Snapshot data is cleared daily at 12:00 AM EST and begins repopulating as exchanges report new information.",
+"parameters": [
+{
+"name": "direction",
+"in": "path",
+"description": "The direction of the snapshot results. Allowed values: 'gainers' or 'losers'.",
+"required": true,
+"schema": {
+"type": "string",
+"enum": [
+"gainers",
+"losers"
+],
+"example": "gainers"
+}
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with top market mover snapshots.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "OK"
+},
+"tickers": {
+"type": "array",
+"description": "An array of snapshot data for the top market movers.",
+"items": {
+"type": "object",
+"properties": {
+"day": {
+"type": "object",
+"description": "The most recent daily bar for this ticker."
+},
+"lastTrade": {
+"type": "object",
+"description": "The most recent trade.",
+"properties": {
+"c": {
+"type": "array",
+"items": {
+"type": "integer"
+}
+},
+"i": {
+"type": "string"
+},
+"p": {
+"type": "number"
+},
+"s": {
+"type": "number"
+},
+"t": {
+"type": "integer"
+},
+"x": {
+"type": "integer"
+}
+}
+},
+"min": {
+"type": "object",
+"description": "The most recent minute bar."
+},
+"prevDay": {
+"type": "object",
+"description": "The previous day's bar."
+},
+"ticker": {
+"type": "string",
+"description": "The crypto ticker symbol."
+},
+"todaysChange": {
+"type": "number",
+"description": "Change in price since the previous day."
+},
+"todaysChangePerc": {
+"type": "number",
+"description": "Percentage change since the previous day."
+},
+"updated": {
+"type": "integer",
+"description": "Last updated timestamp."
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"400": {
+"description": "Invalid direction value provided.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string",
+"example": "Invalid direction. Use 'gainers' or 'losers'."
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching market movers data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/crypto/last/{from}/{to}": {
+"get": {
+"tags": [
+"Crypto"
+],
+"summary": "Last Trade",
+"description": "Retrieve the most recent trade details for a specified cryptocurrency pair.",
+"parameters": [
+{
+"name": "from",
+"in": "path",
+"required": true,
+"schema": {
+"type": "string",
+"example": "BTC"
+},
+"description": "The 'from' symbol of the pair."
+},
+{
+"name": "to",
+"in": "path",
+"required": true,
+"schema": {
+"type": "string",
+"example": "USD"
+},
+"description": "The 'to' symbol of the pair."
+}
+],
+"responses": {
+"200": {
+"description": "Successful response with the last trade.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"last": {
+"type": "object",
+"properties": {
+"conditions": {
+"type": "array",
+"items": {
+"type": "integer"
+}
+},
+"exchange": {
+"type": "integer"
+},
+"price": {
+"type": "number"
+},
+"size": {
+"type": "number"
+},
+"timestamp": {
+"type": "integer"
+}
+}
+},
+"request_id": {
+"type": "string"
+},
+"status": {
+"type": "string",
+"example": "success"
+},
+"symbol": {
+"type": "string",
+"example": "BTC-USD"
+}
+}
+}
+}
+}
+},
+"500": {
+"description": "Error response when fetching the last trade.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+},
+"/polygon/futures/timeseries.get_range": {
+"get": {
+"tags": [
+"Futures"
+],
+"summary": "Historical Futures Time Series",
+"description": "Retrieve historical futures data over a given time range. All parameters mirror the Databento `/timeseries.get_range` API, passed as URL query parameters. Internally, the service will POST to Databento.",
+"parameters": [
+{
+"name": "dataset",
+"in": "query",
+"description": "Dataset code (e.g. `GLBX.MDP3`).",
+"required": true,
+"schema": {
+"type": "string",
+"default": "GLBX.MDP3"
+}
+},
+{
+"name": "start",
+"in": "query",
+"description": "Start of time range (inclusive), ISO‑8601 or nanosecond timestamp.",
+"required": true,
+"schema": {
+"type": "string",
+"default": "2022-06-06T00:00"
+}
+},
+{
+"name": "end",
+"in": "query",
+"description": "End of time range (exclusive), ISO‑8601 or nanosecond timestamp.",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "symbols",
+"in": "query",
+"description": "One or more futures symbols (comma‑separated).",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "schema",
+"in": "query",
+"description": "Record schema (choose one).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"mbo",
+"mbp-1",
+"mbp-10",
+"tbbo",
+"trades",
+"ohlcv-1s",
+"ohlcv-1m",
+"ohlcv-1h",
+"ohlcv-1d",
+"definition",
+"statistics",
+"status"
+]
+}
+},
+{
+"name": "compression",
+"in": "query",
+"description": "Compression mode (`zstd`, `none`).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"zstd",
+"none"
+]
+}
+},
+{
+"name": "stype_in",
+"in": "query",
+"description": "Input symbol type (`raw_symbol`, `instrument_id`, `parent`, `continuous`).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"raw_symbol",
+"instrument_id",
+"parent",
+"continuous"
+],
+"default": "raw_symbol"
+}
+},
+{
+"name": "stype_out",
+"in": "query",
+"description": "Output symbol type (`raw_symbol`, `instrument_id`, `parent`, `continuous`).",
+"required": false,
+"schema": {
+"type": "string",
+"enum": [
+"raw_symbol",
+"instrument_id",
+"parent",
+"continuous"
+],
+"default": "instrument_id"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"description": "Maximum number of records to return.",
+"required": false,
+"schema": {
+"type": "integer",
+"default": 1000
+}
+},
+{
+"name": "pretty_px",
+"in": "query",
+"description": "Format prices (`true` or `false`).",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "pretty_ts",
+"in": "query",
+"description": "Format timestamps (`true` or `false`).",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": true
+}
+},
+{
+"name": "map_symbols",
+"in": "query",
+"description": "Include symbol field in each record (`true` or `false`).",
+"required": false,
+"schema": {
+"type": "boolean",
+"default": false
+}
+}
+],
+"responses": {
+"200": {
+"description": "An array of time‑series records (JSON).",
+"content": {
+"application/json": {
+"schema": {
+"type": "array",
+"items": {
+"type": "object"
+}
+}
+}
+}
+},
+"500": {
+"description": "Error fetching futures data.",
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"properties": {
+"status": {
+"type": "string",
+"example": "error"
+},
+"message": {
+"type": "string"
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

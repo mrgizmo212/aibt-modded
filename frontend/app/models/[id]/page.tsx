@@ -1,0 +1,495 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import {
+  fetchModelPositions,
+  fetchModelLatestPosition,
+  fetchTradingStatus,
+  startTrading,
+  stopTrading,
+  updateModel,
+  deleteModel
+} from '@/lib/api'
+import type { Model, Position, LatestPosition, TradingStatus } from '@/types/api'
+import { AVAILABLE_MODELS } from '@/lib/constants'
+import { TradingFeed } from '@/components/TradingFeed'
+
+export default function ModelDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const modelId = parseInt(params.id as string)
+  
+  const [positions, setPositions] = useState<Position[]>([])
+  const [latestPosition, setLatestPosition] = useState<LatestPosition | null>(null)
+  const [status, setStatus] = useState<TradingStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
+  
+  const [baseModel, setBaseModel] = useState('openai/gpt-4o')
+  const [startDate, setStartDate] = useState('2025-10-29')
+  const [endDate, setEndDate] = useState('2025-10-30')
+  
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+  
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
+      return
+    }
+    
+    if (user) {
+      loadData()
+    }
+  }, [user, authLoading, router])
+  
+  async function loadData() {
+    try {
+      // Fetch data with error handling for new models
+      const [posData, latestData, statusData] = await Promise.all([
+        fetchModelPositions(modelId).catch(() => ({ positions: [] })),
+        fetchModelLatestPosition(modelId).catch(() => null),
+        fetchTradingStatus(modelId).catch(() => null)
+      ])
+      
+      setPositions(posData.positions || [])
+      setLatestPosition(latestData)
+      setStatus(statusData)
+      
+      // Determine original AI from model signature and pre-select it
+      if (latestData) {
+        const signature = latestData.model_name.toLowerCase()
+        let detectedAI = 'openai/gpt-4o'  // fallback
+        
+        if (signature.includes('claude')) detectedAI = 'anthropic/claude-4.5-sonnet'
+        else if (signature.includes('gemini')) detectedAI = 'google/gemini-2.5-pro'
+        else if (signature.includes('deepseek')) detectedAI = 'deepseek/deepseek-v3.2-exp'
+        else if (signature.includes('gpt-5')) detectedAI = 'openai/gpt-5'
+        else if (signature.includes('gpt-4.1')) detectedAI = 'openai/gpt-4o'  // gpt-4.1 maps to gpt-4o
+        else if (signature.includes('qwen')) detectedAI = 'qwen/qwen3-max'
+        else if (signature.includes('minimax')) detectedAI = 'minimax/minimax-m1'
+        
+        setOriginalAI(detectedAI)
+        setBaseModel(detectedAI)  // Pre-select the original AI!
+      }
+      
+    } catch (error) {
+      console.error('Failed to load model:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  async function handleStart() {
+    setActionLoading(true)
+    try {
+      await startTrading(modelId, baseModel, startDate, endDate)
+      await loadData()
+    } catch (error: any) {
+      alert(`Failed to start: ${error.message}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+  
+  async function handleStop() {
+    setActionLoading(true)
+    try {
+      await stopTrading(modelId)
+      await loadData()
+    } catch (error: any) {
+      alert(`Failed to stop: ${error.message}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+  
+  async function handleOpenEdit() {
+    try {
+      // Fetch model info directly from API for new models
+      const response = await fetch(`http://localhost:8080/api/models/${modelId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      })
+      const model = await response.json()
+      setEditName(model.name || '')
+      setEditDescription(model.description || '')
+      setShowEditModal(true)
+    } catch (error) {
+      console.error('Failed to load model for editing:', error)
+    }
+  }
+  
+  async function handleSaveEdit() {
+    setEditLoading(true)
+    try {
+      await updateModel(modelId, {
+        name: editName,
+        description: editDescription || undefined
+      })
+      setShowEditModal(false)
+      await loadData()
+    } catch (error: any) {
+      alert(`Failed to update model: ${error.message}`)
+    } finally {
+      setEditLoading(false)
+    }
+  }
+  
+  async function handleDelete() {
+    const confirmed = confirm(
+      `Are you sure you want to delete this model? This will remove all trading history and cannot be undone.`
+    )
+    if (!confirmed) return
+    
+    setActionLoading(true)
+    try {
+      await deleteModel(modelId)
+      router.push('/dashboard')
+    } catch (error: any) {
+      alert(`Failed to delete model: ${error.message}`)
+      setActionLoading(false)
+    }
+  }
+  
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="text-gray-400">Loading model...</div>
+      </div>
+    )
+  }
+  
+  // For brand new models without any trading history
+  const isNewModel = !latestPosition
+  
+  const isRunning = status?.status === 'running'
+  
+  return (
+    <div className="min-h-screen bg-black">
+      {/* Simple Navbar */}
+      <nav className="border-b border-zinc-800 bg-zinc-950 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <a href="/dashboard" className="text-green-500 hover:underline">← Back to Dashboard</a>
+          <button
+            onClick={() => {
+              localStorage.removeItem('auth_token')
+              router.push('/login')
+            }}
+            className="text-sm text-gray-400 hover:text-white"
+          >
+            Logout
+          </button>
+        </div>
+      </nav>
+      
+      <main className="container mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              {latestPosition ? latestPosition.model_name : editName || 'Loading...'}
+            </h1>
+            <p className="text-gray-400">Model ID: {modelId}</p>
+            {latestPosition?.model_description && (
+              <p className="text-sm text-gray-500 mt-2">{latestPosition.model_description}</p>
+            )}
+            {editDescription && !latestPosition && (
+              <p className="text-sm text-gray-500 mt-2">{editDescription}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleOpenEdit}
+              className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md text-sm hover:bg-zinc-800 transition-colors"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={actionLoading}
+              className="px-4 py-2 bg-red-600/10 border border-red-600 text-red-500 rounded-md text-sm hover:bg-red-600/20 transition-colors disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        
+        {/* Trading Controls */}
+        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-bold mb-4">Trading Controls</h2>
+          
+          {!isNewModel && (
+            <div className="mb-4 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
+              <p className="text-sm text-gray-400">
+                Originally traded by: <span className="text-green-500 font-medium">
+                  {AVAILABLE_MODELS.find(m => m.id === originalAI)?.name || 'Unknown'}
+                </span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                You can select a different AI below to continue trading this portfolio
+              </p>
+            </div>
+          )}
+          
+          {isNewModel && (
+            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500 rounded-md">
+              <p className="text-sm text-blue-400">
+                <strong>New Model</strong> - Start trading to begin building your portfolio. 
+                You'll start with $10,000 in virtual capital.
+              </p>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">AI Model</label>
+              <select
+                value={baseModel}
+                onChange={(e) => setBaseModel(e.target.value)}
+                disabled={isRunning}
+                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {AVAILABLE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={isRunning}
+                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                disabled={isRunning}
+                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            {isRunning ? (
+              <button
+                onClick={handleStop}
+                disabled={actionLoading}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium disabled:opacity-50"
+              >
+                {actionLoading ? 'Stopping...' : 'Stop Trading'}
+              </button>
+            ) : (
+              <button
+                onClick={handleStart}
+                disabled={actionLoading}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:opacity-50"
+              >
+                {actionLoading ? 'Starting...' : 'Start Trading'}
+              </button>
+            )}
+            
+            <span className="px-4 py-2 text-sm">
+              Status: <span className={isRunning ? 'text-green-500' : 'text-gray-500'}>
+                {status?.status || 'not_running'}
+              </span>
+            </span>
+          </div>
+        </div>
+        
+        {/* Current Position */}
+        {!isNewModel && latestPosition && (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+            <h2 className="text-lg font-bold mb-4">Current Position</h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+              <div>
+                <p className="text-sm text-gray-400">Cash</p>
+                <p className="text-2xl font-bold text-green-500">
+                  ${latestPosition.cash.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Total Value</p>
+                <p className="text-2xl font-bold">
+                  ${latestPosition.total_value.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Last Updated</p>
+                <p className="text-lg">{latestPosition.date}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Holdings</p>
+                <p className="text-lg">
+                  {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length} stocks
+                </p>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-sm text-gray-400 mb-2">Top Holdings:</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(latestPosition.positions)
+                  .filter(([symbol, shares]) => symbol !== 'CASH' && shares > 0)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 10)
+                  .map(([symbol, shares]) => (
+                    <span key={symbol} className="text-xs bg-zinc-900 border border-zinc-800 px-3 py-1 rounded">
+                      {symbol}: {shares}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {isNewModel && (
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+            <h2 className="text-lg font-bold mb-4">Portfolio Status</h2>
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-400 mb-2">No trading history yet</p>
+              <p className="text-sm text-gray-500">
+                Start trading above to begin building your portfolio with $10,000 virtual capital
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Live Trading Feed (when running) */}
+        {isRunning && (
+          <div className="mb-8">
+            <TradingFeed modelId={modelId} />
+          </div>
+        )}
+        
+        {/* Trading History */}
+        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+          <h2 className="text-lg font-bold mb-4">Trading History</h2>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-zinc-800">
+                  <th className="text-left py-3 text-sm text-gray-400">Date</th>
+                  <th className="text-left py-3 text-sm text-gray-400">Action</th>
+                  <th className="text-left py-3 text-sm text-gray-400">Symbol</th>
+                  <th className="text-right py-3 text-sm text-gray-400">Amount</th>
+                  <th className="text-right py-3 text-sm text-gray-400">Cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.slice(0, 20).map((pos) => (
+                  <tr key={pos.id} className="border-b border-zinc-900 hover:bg-zinc-900">
+                    <td className="py-3 text-sm">{pos.date}</td>
+                    <td className="py-3">
+                      {pos.action_type && (
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          pos.action_type === 'buy' ? 'bg-green-500/20 text-green-500' :
+                          pos.action_type === 'sell' ? 'bg-red-500/20 text-red-500' :
+                          'bg-gray-500/20 text-gray-500'
+                        }`}>
+                          {pos.action_type}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 text-sm font-mono">{pos.symbol || '-'}</td>
+                    <td className="py-3 text-sm text-right">{pos.amount || '-'}</td>
+                    <td className="py-3 text-sm text-right text-green-500">
+                      ${pos.cash.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {positions.length > 20 && (
+            <p className="text-sm text-gray-500 mt-4 text-center">
+              Showing latest 20 of {positions.length} positions
+            </p>
+          )}
+          
+          {positions.length === 0 && (
+            <p className="text-center text-gray-500 py-8">
+              No trading history yet
+            </p>
+          )}
+        </div>
+      </main>
+      
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Edit Model</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Model Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Description <span className="text-gray-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={editLoading}
+                className="flex-1 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editLoading || !editName || !editName.trim()}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50"
+              >
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+

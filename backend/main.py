@@ -1,0 +1,785 @@
+"""
+AI-Trader FastAPI Backend
+Main application with authentication and private data access
+"""
+
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from supabase import create_client
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+from contextlib import asynccontextmanager
+
+from config import settings
+from auth import (
+    get_current_user,
+    get_current_admin,
+    require_auth,
+    require_admin,
+    create_user_profile,
+    check_approved_email_for_signup
+)
+from models import (
+    SignupRequest,
+    LoginRequest,
+    AuthResponse,
+    UserProfile,
+    ModelInfo,
+    ModelCreate,
+    ModelListResponse,
+    PositionHistoryResponse,
+    LatestPositionResponse,
+    LogResponse,
+    PerformanceResponse,
+    LeaderboardResponse,
+    UserListResponse,
+    SystemStatsResponse,
+    StartTradingRequest,
+    ErrorResponse
+)
+from pagination import create_pagination_params, PaginationParams
+from errors import NotFoundError, AuthorizationError, log_error
+import services
+from trading.agent_manager import agent_manager
+from trading.mcp_manager import mcp_manager
+from streaming import event_stream
+
+# ============================================================================
+# APP INITIALIZATION WITH LIFESPAN
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler (replaces deprecated on_event)"""
+    # Startup
+    print("🚀 AI-Trader API Starting...")
+    print(f"📊 Environment: {settings.NODE_ENV}")
+    print(f"🔐 Auth: Enabled (Supabase)")
+    print(f"🗄️  Database: PostgreSQL (Supabase)")
+    print(f"🌐 CORS: {settings.ALLOWED_ORIGINS}")
+    
+    # Start MCP services automatically
+    print("🔧 Starting MCP services...")
+    mcp_startup_result = await mcp_manager.start_all_services()
+    if mcp_startup_result.get("status") == "started":
+        print("✅ MCP services ready")
+    else:
+        print("⚠️  MCP services failed to start - AI trading may not work")
+    
+    print(f"✅ API Ready on port {settings.PORT}")
+    
+    yield
+    
+    # Shutdown
+    print("🔧 Stopping MCP services...")
+    try:
+        await asyncio.wait_for(mcp_manager.stop_all_services(), timeout=3.0)
+        print("✅ MCP services stopped")
+    except asyncio.TimeoutError:
+        print("⚠️  MCP services didn't stop gracefully - force killing")
+    print("👋 AI-Trader API Shutting Down...")
+
+
+app = FastAPI(
+    title="AI-Trader API",
+    description="REST API for AI Trading Platform with Multi-User Auth",
+    version="2.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    lifespan=lifespan
+)
+
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Supabase client
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
+
+# ============================================================================
+# HEALTH CHECK
+# ============================================================================
+
+@app.get("/")
+def root():
+    """API health check"""
+    return {
+        "message": "AI-Trader API v2.0",
+        "status": "operational",
+        "environment": settings.NODE_ENV,
+        "auth_enabled": True,
+        "database": "Supabase PostgreSQL"
+    }
+
+
+@app.get("/api/health")
+def health_check():
+    """Detailed health check"""
+    return {
+        "status": "healthy",
+        "supabase_connected": True,
+        "timestamp": str(datetime.now())
+    }
+
+
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/auth/signup", response_model=AuthResponse)
+async def signup(request: SignupRequest):
+    """
+    User signup (whitelist-only)
+    Checks approved_users.json before allowing signup
+    """
+    # Check if email is approved
+    role = check_approved_email_for_signup(request.email)
+    
+    try:
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": request.email,
+            "password": request.password,
+            "options": {
+                "data": {
+                    "role": role  # Store role in user metadata
+                }
+            }
+        })
+        
+        if auth_response.user is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Signup failed. Email may already be registered."
+            )
+        
+        # Check if session exists (depends on email confirmation settings)
+        if auth_response.session:
+            access_token = auth_response.session.access_token
+        else:
+            # No session means email confirmation required
+            # Auto-login the user anyway (since we disabled email confirmation)
+            login_response = supabase.auth.sign_in_with_password({
+                "email": request.email,
+                "password": request.password
+            })
+            
+            if login_response.session:
+                access_token = login_response.session.access_token
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Signup succeeded but auto-login failed. Please log in manually."
+                )
+        
+        # Profile created automatically by database trigger
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": auth_response.user.id,
+                "email": auth_response.user.email,
+                "role": role
+            }
+        }
+        
+    except Exception as e:
+        import traceback
+        error_detail = f"Signup error: {str(e)}"
+        print(f"❌ Signup error details:")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
+        )
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    """User login"""
+    try:
+        # Authenticate with Supabase
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": request.email,
+            "password": request.password
+        })
+        
+        if auth_response.user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
+            )
+        
+        # Get user profile to get role
+        profile = await services.get_user_profile(auth_response.user.id)
+        role = profile.get("role", "user") if profile else "user"
+        
+        return {
+            "access_token": auth_response.session.access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": auth_response.user.id,
+                "email": auth_response.user.email,
+                "role": role
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+
+@app.post("/api/auth/logout")
+async def logout(current_user: Dict = Depends(require_auth)):
+    """User logout"""
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Logged out successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Logout error: {str(e)}"
+        )
+
+
+@app.get("/api/auth/me", response_model=UserProfile)
+async def get_me(current_user: Dict = Depends(require_auth)):
+    """Get current user profile"""
+    profile = await services.get_user_profile(current_user["id"])
+    
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    return profile
+
+
+# ============================================================================
+# USER ENDPOINTS (Private - Own Data Only)
+# ============================================================================
+
+@app.get("/api/models", response_model=ModelListResponse)
+async def get_my_models(current_user: Dict = Depends(require_auth)):
+    """Get current user's AI models"""
+    models = await services.get_user_models(current_user["id"])
+    
+    return {
+        "models": models,
+        "total_models": len(models)
+    }
+
+
+@app.post("/api/models", response_model=ModelInfo)
+async def create_my_model(model_data: ModelCreate, current_user: Dict = Depends(require_auth)):
+    """Create new AI model for current user (signature auto-generated from name)"""
+    model = await services.create_model(
+        user_id=current_user["id"],
+        name=model_data.name,
+        description=model_data.description
+    )
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create model"
+        )
+    
+    return model
+
+
+@app.put("/api/models/{model_id}", response_model=ModelInfo)
+async def update_my_model(model_id: int, model_data: ModelCreate, current_user: Dict = Depends(require_auth)):
+    """Update user's AI model"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found or access denied"
+        )
+    
+    updated_model = await services.update_model(
+        model_id=model_id,
+        user_id=current_user["id"],
+        name=model_data.name,
+        description=model_data.description
+    )
+    
+    if not updated_model:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update model"
+        )
+    
+    return updated_model
+
+
+@app.delete("/api/models/{model_id}")
+async def delete_my_model(model_id: int, current_user: Dict = Depends(require_auth)):
+    """Delete user's AI model"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found or access denied"
+        )
+    
+    success = await services.delete_model(model_id, current_user["id"])
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete model"
+        )
+    
+    return {"message": "Model deleted successfully"}
+
+
+@app.get("/api/models/{model_id}/positions", response_model=PositionHistoryResponse)
+async def get_model_positions_endpoint(
+    model_id: int,
+    current_user: Dict = Depends(require_auth),
+    pagination: PaginationParams = Depends(create_pagination_params)
+):
+    """Get position history for user's model (paginated)"""
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Get all positions (would add pagination to DB query in production)
+    positions = await services.get_model_positions(model_id, current_user["id"])
+    
+    # Apply pagination
+    start = pagination.offset
+    end = start + pagination.limit
+    paginated_positions = positions[start:end]
+    
+    return {
+        "model_id": model_id,
+        "model_name": model["signature"],
+        "positions": paginated_positions,
+        "total_records": len(positions),
+        "page": pagination.page,
+        "page_size": pagination.page_size
+    }
+
+
+@app.get("/api/models/{model_id}/positions/latest", response_model=LatestPositionResponse)
+async def get_latest_position_endpoint(model_id: int, current_user: Dict = Depends(require_auth)):
+    """Get latest position for user's model"""
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found or access denied"
+        )
+    
+    position = await services.get_latest_position(model_id, current_user["id"])
+    
+    if not position:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No positions found for this model"
+        )
+    
+    positions_data = position.get("positions", {})
+    cash = position.get("cash", positions_data.get("CASH", 0.0))
+    
+    # Use calculated total value from services (includes stock valuations)
+    total_value = position.get("total_value_calculated", cash)
+    
+    return {
+        "model_id": model_id,
+        "model_name": position.get("model_name", model["signature"]),
+        "date": str(position["date"]),
+        "positions": positions_data,
+        "cash": cash,
+        "total_value": total_value  # ✅ FIXED: Uses calculated value including stocks
+    }
+
+
+@app.get("/api/models/{model_id}/logs", response_model=LogResponse)
+async def get_model_logs_endpoint(model_id: int, trade_date: Optional[str] = None, current_user: Dict = Depends(require_auth)):
+    """Get trading logs for user's model"""
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found or access denied"
+        )
+    
+    logs = await services.get_model_logs(model_id, current_user["id"], trade_date)
+    
+    return {
+        "model_id": model_id,
+        "model_name": model["signature"],
+        "date": trade_date or "all",
+        "logs": logs,
+        "total_entries": len(logs)
+    }
+
+
+@app.get("/api/models/{model_id}/performance", response_model=PerformanceResponse)
+async def get_model_performance_endpoint(model_id: int, current_user: Dict = Depends(require_auth)):
+    """Get performance metrics for user's model"""
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found or access denied"
+        )
+    
+    # Check if cached metrics exist
+    cached_metrics = await services.get_model_performance(model_id, current_user["id"])
+    
+    if cached_metrics:
+        # Return cached
+        return {
+            "model_id": model_id,
+            "model_name": model["signature"],
+            "start_date": cached_metrics["start_date"],
+            "end_date": cached_metrics["end_date"],
+            "metrics": cached_metrics,
+            "portfolio_values": {}  # Could retrieve from positions if needed
+        }
+    else:
+        # Calculate fresh metrics
+        metrics = await services.calculate_and_cache_performance(model_id, model["signature"])
+        
+        return {
+            "model_id": model_id,
+            "model_name": model["signature"],
+            "start_date": metrics.get("start_date"),
+            "end_date": metrics.get("end_date"),
+            "metrics": metrics,
+            "portfolio_values": {}
+        }
+
+
+# ============================================================================
+# ADMIN ENDPOINTS (Admin Only)
+# ============================================================================
+
+@app.get("/api/admin/users", response_model=UserListResponse)
+async def get_all_users_admin(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get all users"""
+    users = await services.get_all_users()
+    
+    return {
+        "users": users,
+        "total_users": len(users)
+    }
+
+
+@app.get("/api/admin/models", response_model=ModelListResponse)
+async def get_all_models_admin(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get all models across all users"""
+    models = await services.get_all_models_admin()
+    
+    return {
+        "models": models,
+        "total_models": len(models)
+    }
+
+
+@app.get("/api/admin/leaderboard", response_model=LeaderboardResponse)
+async def get_leaderboard_admin(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get leaderboard of all models"""
+    leaderboard = await services.get_admin_leaderboard()
+    
+    return {
+        "leaderboard": leaderboard,
+        "total_models": len(leaderboard)
+    }
+
+
+@app.get("/api/admin/stats", response_model=SystemStatsResponse)
+async def get_system_stats_admin(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get system statistics"""
+    stats = await services.get_system_stats()
+    
+    return stats
+
+
+@app.put("/api/admin/users/{user_id}/role")
+async def update_user_role_admin(user_id: str, new_role: str, current_user: Dict = Depends(require_admin)):
+    """Admin only: Update user role"""
+    if new_role not in ["user", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role must be 'user' or 'admin'"
+        )
+    
+    updated_user = await services.update_user_role(user_id, new_role)
+    
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return updated_user
+
+
+# ============================================================================
+# PUBLIC ENDPOINTS (No auth required)
+# ============================================================================
+
+@app.get("/api/stock-prices")
+async def get_stock_prices_endpoint(
+    symbol: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Get stock price data (public)"""
+    prices = await services.get_stock_prices(symbol, start_date, end_date)
+    
+    return {
+        "prices": prices,
+        "total_records": len(prices)
+    }
+
+
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Custom HTTP exception handler"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "status_code": exc.status_code
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle unexpected errors"""
+    if settings.is_development:
+        # In dev, show full error
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": str(exc),
+                "type": type(exc).__name__
+            }
+        )
+    else:
+        # In production, hide details
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+
+
+# Startup/shutdown handled by lifespan context manager above
+
+
+# ============================================================================
+# TRADING CONTROL ENDPOINTS (User's own models)
+# ============================================================================
+
+@app.post("/api/trading/start/{model_id}")
+async def start_trading(
+    model_id: int,
+    request: StartTradingRequest,
+    current_user: Dict = Depends(require_auth)
+):
+    """Start AI trading agent for user's model"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Start agent
+    result = await agent_manager.start_agent(
+        model_id=model_id,
+        user_id=current_user["id"],
+        model_signature=model["signature"],
+        basemodel=request.base_model,
+        start_date=request.start_date,
+        end_date=request.end_date
+    )
+    
+    return result
+
+
+@app.post("/api/trading/stop/{model_id}")
+async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)):
+    """Stop AI trading agent for user's model"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Stop agent
+    result = await agent_manager.stop_agent(model_id)
+    
+    return result
+
+
+@app.get("/api/trading/status/{model_id}")
+async def get_trading_status(model_id: int, current_user: Dict = Depends(require_auth)):
+    """Get trading status for user's model"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Get status
+    status_info = agent_manager.get_agent_status(model_id)
+    
+    if status_info is None:
+        return {
+            "status": "not_running",
+            "model_id": model_id
+        }
+    
+    return status_info
+
+
+@app.get("/api/trading/status")
+async def get_all_trading_status(current_user: Dict = Depends(require_auth)):
+    """Get status of all user's running agents"""
+    all_status = agent_manager.get_all_running_agents()
+    
+    # Filter to only user's models
+    user_models = await services.get_user_models(current_user["id"])
+    user_model_ids = {m["id"] for m in user_models}
+    
+    filtered_status = {
+        model_id: info
+        for model_id, info in all_status.items()
+        if model_id in user_model_ids
+    }
+    
+    return {
+        "running_agents": filtered_status,
+        "total_running": len(filtered_status)
+    }
+
+
+# ============================================================================
+# MCP SERVICE CONTROL (Admin Only)
+# ============================================================================
+
+@app.post("/api/mcp/start")
+async def start_mcp_services(current_user: Dict = Depends(require_admin)):
+    """Admin only: Start all MCP services"""
+    results = mcp_manager.start_all_services()
+    return results
+
+
+@app.post("/api/mcp/stop")
+async def stop_mcp_services(current_user: Dict = Depends(require_admin)):
+    """Admin only: Stop all MCP services"""
+    mcp_manager.stop_all_services()
+    return {"status": "stopped", "message": "All MCP services stopped"}
+
+
+@app.get("/api/mcp/status")
+async def get_mcp_status(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get MCP service status"""
+    return mcp_manager.get_all_status()
+
+
+# ============================================================================
+# STREAMING ENDPOINTS (Real-time trading updates)
+# ============================================================================
+
+@app.get("/api/trading/stream/{model_id}")
+async def stream_trading_events(model_id: int, token: Optional[str] = None):
+    """Stream real-time trading events for a model (Server-Sent Events)"""
+    from fastapi.responses import StreamingResponse
+    from auth import verify_token_string
+    import json
+    import asyncio
+    
+    # Verify token (EventSource can't send headers, so token is in query param)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+    
+    try:
+        token_payload = verify_token_string(token)
+        user_id = token_payload.get("sub")  # JWT uses 'sub' for user ID
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, user_id)
+    if not model:
+        raise NotFoundError("Model")
+    
+    async def event_generator():
+        """Generate SSE events"""
+        queue = event_stream.subscribe(model_id)
+        
+        try:
+            # Send initial connection message
+            yield f"data: {json.dumps({'type': 'connected', 'model_id': model_id})}\n\n"
+            
+            # Stream events
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+                
+        except asyncio.CancelledError:
+            event_stream.unsubscribe(model_id, queue)
+            raise
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+# ============================================================================
+# RUN SERVER
+# ============================================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    from datetime import datetime
+    from typing import Optional
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=settings.PORT,
+        reload=settings.is_development,
+        log_level="info"
+    )
+
