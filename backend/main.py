@@ -604,26 +604,62 @@ async def get_model_performance_endpoint(model_id: int, current_user: Dict = Dep
     cached_metrics = await services.get_model_performance(model_id, current_user["id"])
     
     if cached_metrics:
-        # Return cached
+        # Return cached (validate required fields)
         return {
             "model_id": model_id,
             "model_name": model["signature"],
-            "start_date": cached_metrics["start_date"],
-            "end_date": cached_metrics["end_date"],
-            "metrics": cached_metrics,
-            "portfolio_values": {}  # Could retrieve from positions if needed
+            "start_date": cached_metrics.get("start_date") or "2025-01-01",
+            "end_date": cached_metrics.get("end_date") or "2025-01-01",
+            "metrics": {
+                **cached_metrics,
+                "initial_value": cached_metrics.get("initial_value", model.get("initial_cash", 10000.0)),
+                "final_value": cached_metrics.get("final_value", model.get("initial_cash", 10000.0)),
+                "max_drawdown_start": cached_metrics.get("max_drawdown_start") or None,
+                "max_drawdown_end": cached_metrics.get("max_drawdown_end") or None
+            },
+            "portfolio_values": {}
         }
     else:
         # Calculate fresh metrics
         metrics = await services.calculate_and_cache_performance(model_id, model["signature"])
         
+        # Handle no trading history case
+        if metrics.get("error") or not metrics.get("start_date"):
+            return {
+                "model_id": model_id,
+                "model_name": model["signature"],
+                "start_date": "2025-01-01",
+                "end_date": "2025-01-01",
+                "metrics": {
+                    "sharpe_ratio": 0.0,
+                    "max_drawdown": 0.0,
+                    "max_drawdown_start": None,
+                    "max_drawdown_end": None,
+                    "cumulative_return": 0.0,
+                    "annualized_return": 0.0,
+                    "volatility": 0.0,
+                    "win_rate": 0.0,
+                    "profit_loss_ratio": 0.0,
+                    "total_trading_days": 0,
+                    "initial_value": model.get("initial_cash", 10000.0),
+                    "final_value": model.get("initial_cash", 10000.0)
+                },
+                "portfolio_values": {}
+            }
+        
         return {
             "model_id": model_id,
             "model_name": model["signature"],
-            "start_date": metrics.get("start_date"),
-            "end_date": metrics.get("end_date"),
-            "metrics": metrics,
-            "portfolio_values": {}
+            "start_date": metrics.get("start_date", "2025-01-01"),
+            "end_date": metrics.get("end_date", "2025-01-01"),
+            "metrics": {
+                **metrics,
+                "initial_value": metrics.get("initial_value", model.get("initial_cash", 10000.0)),
+                "final_value": metrics.get("final_value", model.get("initial_cash", 10000.0)),
+                "max_drawdown_start": metrics.get("max_drawdown_start") or None,
+                "max_drawdown_end": metrics.get("max_drawdown_end") or None
+            },
+            "portfolio_values": metrics.get("portfolio_values", {})
         }
 
 
