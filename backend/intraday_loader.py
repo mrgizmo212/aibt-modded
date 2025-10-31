@@ -5,7 +5,7 @@ Fetches tick data from apiv3-ttg, aggregates to minute bars, caches in Redis
 
 import httpx
 from typing import List, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from config import settings
 from utils.redis_client import redis_client
 
@@ -224,10 +224,15 @@ async def cache_intraday_bars(
     
     cached = 0
     
+    # EDT timezone offset (UTC-4 for EDT, UTC-5 for EST)
+    # For simplicity, using -4 (should check DST in production)
+    edt_offset = timedelta(hours=-4)
+    
     for bar in bars:
-        # Convert timestamp to HH:MM format
-        ts = datetime.fromtimestamp(bar['timestamp'] / 1000, tz=timezone.utc)
-        minute_str = ts.strftime('%H:%M')
+        # Convert timestamp to HH:MM format IN EDT (not UTC!)
+        ts_utc = datetime.fromtimestamp(bar['timestamp'] / 1000, tz=timezone.utc)
+        ts_edt = ts_utc + edt_offset  # Convert UTC to EDT
+        minute_str = ts_edt.strftime('%H:%M')
         
         # Per-model key for isolation
         key = f"intraday:model_{model_id}:{date}:{symbol}:{minute_str}"
