@@ -34,7 +34,7 @@ export default function ChatInterface({
   async function loadChatHistory() {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/models/${modelId}/runs/${runId}/chat-history`,
+        `http://localhost:8000/api/models/${modelId}/runs/${runId}/chat-history`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -69,7 +69,7 @@ export default function ChatInterface({
     
     try {
       const response = await fetch(
-        `http://localhost:8080/api/models/${modelId}/runs/${runId}/chat`,
+        `http://localhost:8000/api/models/${modelId}/runs/${runId}/chat`,
         {
           method: 'POST',
           headers: {

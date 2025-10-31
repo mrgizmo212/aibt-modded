@@ -24,6 +24,25 @@ import { fetchMyModels } from '@/lib/api'
 
 type TabType = 'performance' | 'chart' | 'logs' | 'history'
 
+interface ModelUpdateData {
+  name: string
+  description?: string
+  default_ai_model: string
+  model_parameters: Record<string, unknown>
+  custom_rules?: string
+  custom_instructions?: string
+}
+
+interface RunSummary {
+  id: number
+  run_number: number
+  trading_mode: string
+  final_return?: number
+  total_trades?: number
+  intraday_symbol?: string
+  intraday_date?: string
+}
+
 export default function ModelDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -38,7 +57,7 @@ export default function ModelDetailPage() {
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
   const [activeTab, setActiveTab] = useState<TabType>('performance')
   const [currentModel, setCurrentModel] = useState<Model | null>(null)
-  const [runs, setRuns] = useState<unknown[]>([])
+  const [runs, setRuns] = useState<RunSummary[]>([])
   
   // Calculate default trading dates (skip weekends)
   const getRecentTradingDate = (daysBack: number): string => {
@@ -72,7 +91,7 @@ export default function ModelDetailPage() {
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editAIModel, setEditAIModel] = useState('openai/gpt-5')
-  const [editParameters, setEditParameters] = useState<Record<string, any>>({})
+  const [editParameters, setEditParameters] = useState<Record<string, unknown>>({})
   const [editRules, setEditRules] = useState('')
   const [editInstructions, setEditInstructions] = useState('')
   const [editInitialCash, setEditInitialCash] = useState('10000')
@@ -83,7 +102,7 @@ export default function ModelDetailPage() {
   const [confirmData, setConfirmData] = useState<{
     success: boolean
     savedModel: Model | null
-    sentData: Record<string, unknown>
+    sentData: ModelUpdateData
     verificationStatus: string
   } | null>(null)
   
@@ -145,7 +164,18 @@ export default function ModelDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [modelId])
+  
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
+      return
+    }
+    
+    if (user) {
+      loadData()
+    }
+  }, [user, authLoading, router, loadData])
   
   async function handleStart() {
     setActionLoading(true)
@@ -162,8 +192,9 @@ export default function ModelDetailPage() {
         await startTrading(modelId, aiModel, startDate, endDate)
       }
       await loadData()
-    } catch (error: any) {
-      alert(`Failed to start: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to start: ${message}`)
     } finally {
       setActionLoading(false)
     }
@@ -174,8 +205,9 @@ export default function ModelDetailPage() {
     try {
       await stopTrading(modelId)
       await loadData()
-    } catch (error: any) {
-      alert(`Failed to stop: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to stop: ${message}`)
     } finally {
       setActionLoading(false)
     }
@@ -277,13 +309,14 @@ export default function ModelDetailPage() {
       
       // Reload full data in background
       await loadData()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
       // Show error in confirmation modal
       setConfirmData({
         success: false,
         savedModel: null,
         sentData,
-        verificationStatus: `error: ${error.message}`
+        verificationStatus: `error: ${message}`
       })
       setShowEditModal(false)
       setShowConfirmModal(true)
@@ -302,8 +335,9 @@ export default function ModelDetailPage() {
     try {
       await deleteModel(modelId)
       router.push('/dashboard')
-    } catch (error: any) {
-      alert(`Failed to delete model: ${error.message}`)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to delete model: ${message}`)
       setActionLoading(false)
     }
   }
@@ -393,7 +427,7 @@ export default function ModelDetailPage() {
             <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500 rounded-md">
               <p className="text-sm text-blue-400">
                 <strong>New Model</strong> - Start trading to begin building your portfolio. 
-                You'll start with $10,000 in virtual capital.
+                You&apos;ll start with $10,000 in virtual capital.
               </p>
             </div>
           )}
@@ -586,7 +620,7 @@ export default function ModelDetailPage() {
               <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
                 <h3 className="text-md font-bold mb-3">Recent Runs</h3>
                 <div className="space-y-2">
-                  {runs.slice(0, 5).map((run: any) => (
+                  {runs.slice(0, 5).map((run) => (
                     <a
                       key={run.id}
                       href={`/models/${modelId}/r/${run.id}`}
@@ -843,8 +877,8 @@ export default function ModelDetailPage() {
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
                   <ModelSettings
                     selectedAIModel={editAIModel}
-                    currentParams={editParameters}
-                    onParamsChange={setEditParameters}
+                    currentParams={editParameters as Parameters<typeof ModelSettings>[0]['currentParams']}
+                    onParamsChange={(params) => setEditParameters(params as Record<string, unknown>)}
                   />
                 </div>
               </div>
