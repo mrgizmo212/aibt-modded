@@ -478,68 +478,77 @@ export default function ModelDetailPage() {
           </div>
           </div>
         
-          {/* Current Position */}
-          {!isNewModel && latestPosition && (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">Current Position</h2>
+          {/* Right Column: Portfolio Summary + Current Position */}
+          <div className="space-y-6">
+            {/* Portfolio Summary */}
+            {!isNewModel && latestPosition && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+                <h3 className="text-md font-bold mb-3">Portfolio Summary</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
+                    <span className="text-sm text-gray-400">Cash Balance</span>
+                    <span className="text-lg font-semibold text-green-500">
+                      ${latestPosition.cash.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
+                    <span className="text-sm text-gray-400">Total Value</span>
+                    <span className="text-lg font-semibold">
+                      ${latestPosition.total_value.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
+                    <span className="text-sm text-gray-400">Last Updated</span>
+                    <span className="text-sm">{latestPosition.date}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-sm text-gray-400">Active Holdings</span>
+                    <span className="text-sm font-semibold">
+                      {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length} stocks
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Current Position */}
+            {!isNewModel && latestPosition && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+              <h3 className="text-md font-bold mb-3">Current Position</h3>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-              <div>
-                <p className="text-sm text-gray-400">Cash</p>
-                <p className="text-2xl font-bold text-green-500">
-                  ${latestPosition.cash.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Total Value</p>
-                <p className="text-2xl font-bold">
-                  ${latestPosition.total_value.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Last Updated</p>
-                <p className="text-lg">{latestPosition.date}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Holdings</p>
-                <p className="text-lg">
-                  {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length} stocks
-                </p>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-400 mb-2">Top Holdings:</p>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-400">Top Holdings:</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(latestPosition.positions)
                   .filter(([symbol, shares]) => symbol !== 'CASH' && shares > 0)
                   .sort(([,a], [,b]) => b - a)
-                  .slice(0, 10)
+                  .slice(0, 8)
                   .map(([symbol, shares]) => (
-                    <span key={symbol} className="text-xs bg-zinc-900 border border-zinc-800 px-3 py-1 rounded">
+                    <span key={symbol} className="text-xs bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">
                       {symbol}: {shares}
                     </span>
                   ))}
               </div>
             </div>
-            </div>
-          )}
-        
-          {/* New Model Placeholder */}
-          {isNewModel && (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">Portfolio Status</h2>
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-gray-400 mb-2">No trading history yet</p>
-              <p className="text-sm text-gray-500">
-                Start trading above to begin building your portfolio with $10,000 virtual capital
-              </p>
-            </div>
-            </div>
-          )}
+              </div>
+            )}
+            
+            {/* New Model Placeholder */}
+            {isNewModel && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+              <h2 className="text-lg font-bold mb-4">Portfolio Status</h2>
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-gray-400 mb-2">No trading history yet</p>
+                <p className="text-sm text-gray-500">
+                  Start trading above to begin building your portfolio with $10,000 virtual capital
+                </p>
+              </div>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Live Trading Feed (when running) */}
@@ -583,35 +592,8 @@ export default function ModelDetailPage() {
             {/* Tab Content */}
             <div className="mb-8">
               {activeTab === 'overview' && latestPosition && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Portfolio Summary */}
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
-                    <h3 className="text-lg font-bold mb-4">Portfolio Summary</h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
-                        <span className="text-gray-400">Cash Balance</span>
-                        <span className="text-xl font-semibold text-green-500">
-                          ${latestPosition.cash.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
-                        <span className="text-gray-400">Total Portfolio Value</span>
-                        <span className="text-xl font-semibold">
-                          ${latestPosition.total_value.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
-                        <span className="text-gray-400">Last Updated</span>
-                        <span className="text-sm">{latestPosition.date}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-400">Active Holdings</span>
-                        <span className="text-sm font-semibold">
-                          {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length} stocks
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="text-center py-8 text-gray-500">
+                  Portfolio information is displayed above.
                 </div>
               )}
 
