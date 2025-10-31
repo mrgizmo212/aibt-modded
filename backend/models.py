@@ -108,6 +108,31 @@ class LatestPositionResponse(BaseModel):
 
 
 # ============================================================================
+# CHAT/RUN MODELS (NEW)
+# ============================================================================
+
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    suggested_rules: List[Dict] = []
+
+class RunInfo(BaseModel):
+    id: int
+    model_id: int
+    run_number: int
+    started_at: str
+    ended_at: Optional[str]
+    status: str
+    trading_mode: str
+    strategy_snapshot: Dict
+    total_trades: int
+    final_return: Optional[float]
+    final_portfolio_value: Optional[float]
+
+
+# ============================================================================
 # LOG MODELS
 # ============================================================================
 

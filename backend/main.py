@@ -38,7 +38,10 @@ from models import (
     SystemStatsResponse,
     StartTradingRequest,
     IntradayTradingRequest,
-    ErrorResponse
+    ErrorResponse,
+    ChatRequest,
+    ChatResponse,
+    RunInfo
 )
 from pagination import create_pagination_params, PaginationParams
 from errors import NotFoundError, AuthorizationError, log_error
@@ -1048,6 +1051,118 @@ async def stop_mcp_services(current_user: Dict = Depends(require_admin)):
 async def get_mcp_status(current_user: Dict = Depends(require_admin)):
     """Admin only: Get MCP service status"""
     return mcp_manager.get_all_status()
+
+
+# ============================================================================
+# RUN TRACKING & SYSTEM AGENT (NEW)
+# ============================================================================
+
+@app.get("/api/models/{model_id}/runs")
+async def get_model_runs_endpoint(
+    model_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Get all trading runs for a model"""
+    try:
+        runs = await services.get_model_runs(model_id, current_user["id"])
+        return {"runs": runs, "total": len(runs)}
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
+
+
+@app.get("/api/models/{model_id}/runs/{run_id}")
+async def get_run_details_endpoint(
+    model_id: int,
+    run_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Get detailed info about a specific run"""
+    try:
+        run = await services.get_run_by_id(model_id, run_id, current_user["id"])
+        
+        if not run:
+            raise HTTPException(404, "Run not found")
+        
+        return run
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
+
+
+@app.post("/api/models/{model_id}/runs/{run_id}/chat", response_model=ChatResponse)
+async def chat_with_system_agent(
+    model_id: int,
+    run_id: int,
+    request: ChatRequest,
+    current_user: Dict = Depends(require_auth)
+):
+    """Chat with system agent about a specific run"""
+    
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    if not model:
+        raise HTTPException(404, "Model not found")
+    
+    try:
+        # Create system agent
+        from agents.system_agent import create_system_agent
+        
+        agent = create_system_agent(
+            model_id=model_id,
+            run_id=run_id,
+            user_id=current_user["id"],
+            supabase=services.get_supabase()
+        )
+        
+        # Get conversation history
+        from services.chat_service import get_chat_messages
+        chat_history = await get_chat_messages(model_id, run_id, current_user["id"])
+        
+        # Get AI response
+        result = await agent.chat(request.message, chat_history)
+        
+        # Save messages to database
+        from services.chat_service import save_chat_message
+        
+        await save_chat_message(
+            model_id=model_id,
+            run_id=run_id,
+            role="user",
+            content=request.message
+        )
+        
+        await save_chat_message(
+            model_id=model_id,
+            run_id=run_id,
+            role="assistant",
+            content=result["response"],
+            tool_calls=result.get("tool_calls")
+        )
+        
+        return {
+            "response": result["response"],
+            "suggested_rules": result.get("suggested_rules", [])
+        }
+    
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
+    except Exception as e:
+        print(f"Chat error: {e}")
+        raise HTTPException(500, f"Chat error: {str(e)}")
+
+
+@app.get("/api/models/{model_id}/runs/{run_id}/chat-history")
+async def get_chat_history_endpoint(
+    model_id: int,
+    run_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Get chat message history for a run"""
+    try:
+        from services.chat_service import get_chat_messages
+        messages = await get_chat_messages(model_id, run_id, current_user["id"])
+        return {"messages": messages}
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
 
 
 # ============================================================================

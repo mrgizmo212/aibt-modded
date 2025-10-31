@@ -26,8 +26,14 @@ from utils.result_tools_db import (
     get_available_date_range_db
 )
 
-# NEW: Run tracking and reasoning services
-from services.run_service import (
+# Import path for services subdirectory
+import sys
+from pathlib import Path
+services_path = Path(__file__).parent / "services"
+sys.path.insert(0, str(services_path))
+
+# NEW: Run tracking, reasoning, and chat services
+from run_service import (
     create_trading_run,
     complete_trading_run,
     fail_trading_run,
@@ -35,11 +41,16 @@ from services.run_service import (
     get_run_by_id,
     get_active_run
 )
-from services.reasoning_service import (
+from reasoning_service import (
     save_ai_reasoning,
     get_reasoning_for_run,
     get_recent_reasoning,
     get_reasoning_by_type
+)
+from chat_service import (
+    get_or_create_chat_session,
+    save_chat_message,
+    get_chat_messages
 )
 
 
