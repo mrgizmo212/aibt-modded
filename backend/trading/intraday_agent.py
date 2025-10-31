@@ -273,9 +273,25 @@ async def _ai_decide_intraday(
             {"recursion_limit": 5}  # Fast decisions for intraday
         )
         
+        # DEBUG: Log actual response structure
+        print(f"    🔍 DEBUG - Response keys: {list(response.keys())}")
+        print(f"    🔍 DEBUG - Full response: {response}")
+        
         # Parse AI response
-        # Expected format: "BUY 10 shares - reason" or "SELL 5 shares - reason" or "HOLD - reason"
-        content = response.get("output", "HOLD - no data")
+        # LangChain agent returns {"messages": [...]} not {"output": "..."}
+        # Get the last AI message content
+        messages = response.get("messages", [])
+        if messages:
+            # Last message is the AI's response
+            last_msg = messages[-1]
+            if hasattr(last_msg, "content"):
+                content = last_msg.content
+            else:
+                content = str(last_msg)
+        else:
+            # Fallback: check for "output" key
+            content = response.get("output", "HOLD - no data")
+        
         content_upper = content.upper()
         
         # Extract reasoning (text after dash)
