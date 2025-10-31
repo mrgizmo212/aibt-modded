@@ -33,10 +33,19 @@ export default function DashboardPage() {
         fetchAllTradingStatus()
       ])
       
-      setModels(modelsData.models)
-      setTradingStatus(statusData.statuses)
+      setModels(modelsData.models || [])
+      
+      // Convert array to record indexed by model_id
+      const statusRecord = (statusData?.statuses || []).reduce((acc, status) => {
+        acc[status.model_id] = status
+        return acc
+      }, {} as Record<number, TradingStatus>)
+      
+      setTradingStatus(statusRecord)
     } catch (error) {
       console.error('Failed to load data:', error)
+      setModels([])
+      setTradingStatus({})
     } finally {
       setLoading(false)
     }
@@ -194,7 +203,7 @@ export default function DashboardPage() {
           <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
             <p className="text-sm text-gray-400 mb-1">Running</p>
             <p className="text-3xl font-bold text-blue-500">
-              {Object.keys(tradingStatus).length}
+              {Object.keys(tradingStatus || {}).length}
             </p>
           </div>
           
