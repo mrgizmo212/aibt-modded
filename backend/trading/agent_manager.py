@@ -70,6 +70,15 @@ class AgentManager:
         # Set model ID in environment for multi-user isolation
         os.environ["CURRENT_MODEL_ID"] = str(model_id)
         
+        # Fetch model data to get custom rules/instructions
+        from config import settings
+        from supabase import create_client
+        
+        supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+        result = supabase.table("models").select("*").eq("id", model_id).execute()
+        
+        model_data = result.data[0] if result.data and len(result.data) > 0 else {}
+        
         # Get custom rules/instructions from model (if any)
         custom_rules = model_data.get("custom_rules")
         custom_instructions = model_data.get("custom_instructions")

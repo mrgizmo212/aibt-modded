@@ -472,18 +472,23 @@ async def calculate_and_cache_performance(model_id: int, model_signature: str) -
     
     supabase = get_supabase()
     
+    # Helper function to convert empty strings to None for date fields
+    def clean_date(value):
+        """Convert empty strings to None for PostgreSQL date columns"""
+        return None if value == "" or value is None else value
+    
     # Prepare data for database
     perf_data = {
         "model_id": model_id,
-        "start_date": metrics.get("start_date"),
-        "end_date": metrics.get("end_date"),
+        "start_date": clean_date(metrics.get("start_date")),
+        "end_date": clean_date(metrics.get("end_date")),
         "total_trading_days": metrics.get("total_trading_days", 0),
         "cumulative_return": metrics.get("cumulative_return", 0.0),
         "annualized_return": metrics.get("annualized_return", 0.0),
         "sharpe_ratio": metrics.get("sharpe_ratio", 0.0),
         "max_drawdown": metrics.get("max_drawdown", 0.0),
-        "max_drawdown_start": metrics.get("max_drawdown_start"),
-        "max_drawdown_end": metrics.get("max_drawdown_end"),
+        "max_drawdown_start": clean_date(metrics.get("max_drawdown_start")),
+        "max_drawdown_end": clean_date(metrics.get("max_drawdown_end")),
         "volatility": metrics.get("volatility", 0.0),
         "win_rate": metrics.get("win_rate", 0.0),
         "profit_loss_ratio": metrics.get("profit_loss_ratio", 0.0),
