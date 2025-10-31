@@ -103,15 +103,28 @@ async def run_intraday_session(
     from intraday_loader import get_minute_bar_from_cache
     
     minutes = _get_session_minutes(date, session)
+    print(f"  📊 Expected {len(minutes)} minute bars for {session} session")
+    print(f"  🔍 First few minutes: {minutes[:5]}")
+    print(f"  🔍 Last few minutes: {minutes[-5:]}")
+    
     all_bars = {}  # minute_str -> bar_data
     
     # Load all bars in one batch
+    found_count = 0
+    missing_count = 0
     for minute in minutes:
         bar = await get_minute_bar_from_cache(model_id, date, symbol, minute)
         if bar:
             all_bars[minute] = bar
+            found_count += 1
+        else:
+            missing_count += 1
+            if missing_count <= 3:  # Show first 3 missing
+                print(f"  ⚠️  Missing bar for {minute}")
     
-    print(f"  ✅ Loaded {len(all_bars)} bars into memory (no more Redis calls needed)")
+    print(f"  ✅ Loaded {len(all_bars)} bars into memory")
+    print(f"  ⚠️  Missing {missing_count} bars")
+    print(f"  📊 Success rate: {(found_count / len(minutes) * 100):.1f}%")
     
     print(f"\n🕐 Step 3: Minute-by-Minute Trading")
     print("-" * 80)
@@ -238,27 +251,27 @@ async def run_intraday_session(
 
 def _get_session_minutes(date: str, session: str) -> List[str]:
     """
-    Get list of minute timestamps for a session
+    Get list of minute timestamps for a session IN EDT
     
     Args:
         date: YYYY-MM-DD
         session: 'pre', 'regular', 'after'
     
     Returns:
-        List of HH:MM strings
+        List of HH:MM strings in EDT (matching Redis cache keys)
     """
     
     if session == "pre":
-        # 4:00 AM - 9:29 AM ET = 329 minutes
+        # 4:00 AM - 9:29 AM EDT = 329 minutes
         start_hour, start_min = 4, 0
         end_hour, end_min = 9, 29
     elif session == "regular":
-        # 9:30 AM - 4:00 PM ET = 390 minutes
+        # 9:30 AM - 4:00 PM EDT = 390 minutes
         start_hour, start_min = 9, 30
-        end_hour, end_min = 16, 0
+        end_hour, end_min = 15, 59  # ← FIX: Should be 15:59 not 16:00 (4:00 PM = 16:00 but last minute is 15:59)
     elif session == "after":
-        # 4:01 PM - 8:00 PM ET = 239 minutes
-        start_hour, start_min = 16, 1
+        # 4:00 PM - 8:00 PM EDT = 240 minutes
+        start_hour, start_min = 16, 0
         end_hour, end_min = 20, 0
     else:
         return []
