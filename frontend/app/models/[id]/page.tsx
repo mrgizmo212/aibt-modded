@@ -304,9 +304,11 @@ export default function ModelDetailPage() {
           </div>
         </div>
         
-        {/* Trading Controls */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-bold mb-4">Trading Controls</h2>
+        {/* Trading Controls and Current Position Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Trading Controls */}
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+            <h2 className="text-lg font-bold mb-4">Trading Controls</h2>
           
           {!isNewModel && (
               <div className="mb-4 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
@@ -474,11 +476,11 @@ export default function ModelDetailPage() {
               </span>
             </span>
           </div>
-        </div>
+          </div>
         
-        {/* Current Position */}
-        {!isNewModel && latestPosition && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+          {/* Current Position */}
+          {!isNewModel && latestPosition && (
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
             <h2 className="text-lg font-bold mb-4">Current Position</h2>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
@@ -520,11 +522,12 @@ export default function ModelDetailPage() {
                   ))}
               </div>
             </div>
-          </div>
-        )}
+            </div>
+          )}
         
-        {isNewModel && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+          {/* New Model Placeholder */}
+          {isNewModel && (
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
             <h2 className="text-lg font-bold mb-4">Portfolio Status</h2>
             <div className="text-center py-12">
               <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -535,8 +538,9 @@ export default function ModelDetailPage() {
                 Start trading above to begin building your portfolio with $10,000 virtual capital
               </p>
             </div>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
         
         {/* Live Trading Feed (when running) */}
         {isRunning && (
