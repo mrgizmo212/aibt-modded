@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createModel } from '@/lib/api'
+import { AVAILABLE_MODELS } from '@/lib/constants'
+import { ModelSettings } from '@/components/ModelSettings'
 
 export default function CreateModelPage() {
   const { user, loading: authLoading } = useAuth()
@@ -15,6 +17,8 @@ export default function CreateModelPage() {
   const [selectedTickers, setSelectedTickers] = useState<string[]>([])
   const [tickerInput, setTickerInput] = useState('')
   const [useAllStocks, setUseAllStocks] = useState(true)
+  const [selectedAIModel, setSelectedAIModel] = useState('openai/gpt-5-pro')
+  const [modelParameters, setModelParameters] = useState<Record<string, any>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
@@ -60,7 +64,9 @@ export default function CreateModelPage() {
         name, 
         description: description || undefined,
         initial_cash: parseFloat(initialCash),
-        allowed_tickers: useAllStocks ? undefined : selectedTickers
+        allowed_tickers: useAllStocks ? undefined : selectedTickers,
+        default_ai_model: selectedAIModel,
+        model_parameters: modelParameters
       })
       
       // Redirect to the newly created model's detail page
@@ -291,6 +297,34 @@ export default function CreateModelPage() {
                     ? 'AI will analyze and trade across all NASDAQ 100 stocks'
                     : 'AI will only trade the stocks you select'
                   }
+                </p>
+              </div>
+              
+              {/* AI Model Selection & Configuration */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Default AI Model <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedAIModel}
+                  onChange={(e) => setSelectedAIModel(e.target.value)}
+                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4"
+                >
+                  {AVAILABLE_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+                  <ModelSettings
+                    selectedAIModel={selectedAIModel}
+                    currentParams={modelParameters}
+                    onParamsChange={setModelParameters}
+                  />
+                </div>
+                
+                <p className="mt-2 text-xs text-gray-500">
+                  Configure AI behavior parameters. You can change these anytime later.
                 </p>
               </div>
               

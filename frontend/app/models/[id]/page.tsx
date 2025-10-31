@@ -18,6 +18,8 @@ import { TradingFeed } from '@/components/TradingFeed'
 import { PerformanceMetrics } from '@/components/PerformanceMetrics'
 import { PortfolioChart } from '@/components/PortfolioChart'
 import { LogsViewer } from '@/components/LogsViewer'
+import { ModelSettings } from '@/components/ModelSettings'
+import { fetchMyModels } from '@/lib/api'
 
 type TabType = 'overview' | 'performance' | 'chart' | 'logs' | 'history'
 
@@ -66,6 +68,8 @@ export default function ModelDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [editAIModel, setEditAIModel] = useState('openai/gpt-5')
+  const [editParameters, setEditParameters] = useState<Record<string, any>>({})
   const [editLoading, setEditLoading] = useState(false)
   
   useEffect(() => {
@@ -125,7 +129,7 @@ export default function ModelDetailPage() {
       if (tradingMode === 'intraday') {
         // Intraday trading
         const { startIntradayTrading } = await import('@/lib/api')
-        await startIntradayTrading(modelId, baseModel, intradaySymbol, intradayDate, intradaySession)
+        await startIntradayTrading(modelId, intradaySymbol, intradayDate, intradaySession as 'pre' | 'regular' | 'after', baseModel)
       } else {
         // Daily trading
         await startTrading(modelId, baseModel, startDate, endDate)
@@ -152,15 +156,17 @@ export default function ModelDetailPage() {
   
   async function handleOpenEdit() {
     try {
-      // Fetch model info directly from API for new models
-      const response = await fetch(`http://localhost:8080/api/models/${modelId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
-      })
-      const model = await response.json()
-      setEditName(model.name || '')
-      setEditDescription(model.description || '')
+      // Fetch current model data
+      const modelsData = await fetchMyModels()
+      const currentModel = modelsData.models.find(m => m.id === modelId)
+      
+      if (currentModel) {
+        setEditName(currentModel.name || '')
+        setEditDescription(currentModel.description || '')
+        setEditAIModel(currentModel.default_ai_model || 'openai/gpt-5')
+        setEditParameters(currentModel.model_parameters || {})
+      }
+      
       setShowEditModal(true)
     } catch (error) {
       console.error('Failed to load model for editing:', error)
@@ -172,7 +178,9 @@ export default function ModelDetailPage() {
     try {
       await updateModel(modelId, {
         name: editName,
-        description: editDescription || undefined
+        description: editDescription || undefined,
+        default_ai_model: editAIModel,
+        model_parameters: editParameters
       })
       setShowEditModal(false)
       await loadData()
@@ -238,10 +246,7 @@ export default function ModelDetailPage() {
               {latestPosition ? latestPosition.model_name : editName || 'Loading...'}
             </h1>
             <p className="text-gray-400">Model ID: {modelId}</p>
-            {latestPosition?.model_description && (
-              <p className="text-sm text-gray-500 mt-2">{latestPosition.model_description}</p>
-            )}
-            {editDescription && !latestPosition && (
+            {editDescription && (
               <p className="text-sm text-gray-500 mt-2">{editDescription}</p>
             )}
           </div>
@@ -681,21 +686,39 @@ export default function ModelDetailPage() {
       
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-3xl w-full my-8">
             <h3 className="text-xl font-bold mb-4">Edit Model</h3>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Model Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Model Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Default AI Model <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editAIModel}
+                    onChange={(e) => setEditAIModel(e.target.value)}
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    {AVAILABLE_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               
               <div>
@@ -705,9 +728,21 @@ export default function ModelDetailPage() {
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  rows={4}
+                  rows={3}
                   className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                 />
+              </div>
+              
+              {/* AI Model Configuration */}
+              <div className="border-t border-zinc-800 pt-4">
+                <h4 className="text-sm font-semibold mb-3">AI Model Configuration</h4>
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+                  <ModelSettings
+                    selectedAIModel={editAIModel}
+                    currentParams={editParameters}
+                    onParamsChange={setEditParameters}
+                  />
+                </div>
               </div>
             </div>
             
