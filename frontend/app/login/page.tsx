@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { login as apiLogin } from '@/lib/api'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -10,7 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { login } = useAuth()
+  const { login: setAuthToken } = useAuth()
   const router = useRouter()
   
   async function handleSubmit(e: React.FormEvent) {
@@ -19,7 +20,12 @@ export default function LoginPage() {
     setLoading(true)
     
     try {
-      await login(email, password)
+      // Call the API login endpoint
+      const response = await apiLogin(email, password)
+      
+      // Set the token in auth context
+      setAuthToken(response.access_token)
+      
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Login failed')

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
-import { fetchMyModels, fetchAllTradingStatus, startTrading, stopTrading } from '@/lib/api'
+import { fetchMyModels, fetchAllTradingStatus, startTrading, stopTrading, deleteModel } from '@/lib/api'
 import type { Model, TradingStatus } from '@/types/api'
 
 export default function DashboardPage() {
@@ -12,6 +12,8 @@ export default function DashboardPage() {
   const [models, setModels] = useState<Model[]>([])
   const [tradingStatus, setTradingStatus] = useState<Record<number, TradingStatus>>({})
   const [loading, setLoading] = useState(true)
+  const [selectedModels, setSelectedModels] = useState<Set<number>>(new Set())
+  const [deleting, setDeleting] = useState(false)
   
   useEffect(() => {
     if (!authLoading && !user) {
@@ -64,6 +66,54 @@ export default function DashboardPage() {
     }
   }
   
+  function toggleModelSelection(modelId: number) {
+    const newSelected = new Set(selectedModels)
+    if (newSelected.has(modelId)) {
+      newSelected.delete(modelId)
+    } else {
+      newSelected.add(modelId)
+    }
+    setSelectedModels(newSelected)
+  }
+  
+  function toggleSelectAll() {
+    if (selectedModels.size === models.length) {
+      // Deselect all
+      setSelectedModels(new Set())
+    } else {
+      // Select all
+      setSelectedModels(new Set(models.map(m => m.id)))
+    }
+  }
+  
+  async function handleDeleteSelected() {
+    if (selectedModels.size === 0) return
+    
+    const confirmed = confirm(
+      `Are you sure you want to delete ${selectedModels.size} model(s)? This action cannot be undone.`
+    )
+    if (!confirmed) return
+    
+    setDeleting(true)
+    
+    try {
+      // Delete all selected models
+      await Promise.all(
+        Array.from(selectedModels).map(modelId => deleteModel(modelId))
+      )
+      
+      // Clear selection and reload
+      setSelectedModels(new Set())
+      await loadData()
+      
+      alert(`Successfully deleted ${selectedModels.size} model(s)`)
+    } catch (error: any) {
+      alert(`Failed to delete models: ${error.message}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
+  
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -87,7 +137,7 @@ export default function DashboardPage() {
             )}
             <button
               onClick={() => {
-                localStorage.removeItem('auth_token')
+                localStorage.removeItem('token')
                 router.push('/login')
               }}
               className="text-sm text-gray-400 hover:text-white"
@@ -100,9 +150,38 @@ export default function DashboardPage() {
       
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">My AI Models</h2>
-          <p className="text-gray-400">Manage your autonomous trading agents</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">My AI Models</h2>
+            <p className="text-gray-400">Manage your autonomous trading agents</p>
+          </div>
+          
+          {models.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-gray-400 hover:text-white cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedModels.size === models.length && models.length > 0}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-600 focus:ring-green-500 focus:ring-offset-0"
+                />
+                Select All
+              </label>
+              
+              {selectedModels.size > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
+                >
+                  {deleting 
+                    ? 'Deleting...' 
+                    : `Delete Selected (${selectedModels.size})`
+                  }
+                </button>
+              )}
+            </div>
+          )}
         </div>
         
         {/* Stats Grid */}
@@ -137,13 +216,26 @@ export default function DashboardPage() {
           {models.map((model) => {
             const status = tradingStatus[model.id]
             const isRunning = status?.status === 'running'
+            const isSelected = selectedModels.has(model.id)
             
             return (
               <div
                 key={model.id}
-                className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors"
+                className={`bg-zinc-950 border rounded-lg p-6 hover:border-zinc-700 transition-colors relative ${
+                  isSelected ? 'border-green-500 ring-2 ring-green-500/20' : 'border-zinc-800'
+                }`}
               >
-                <div className="flex items-start justify-between mb-4">
+                {/* Selection Checkbox */}
+                <div className="absolute top-4 right-4">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleModelSelection(model.id)}
+                    className="w-5 h-5 rounded border-zinc-700 bg-zinc-900 text-green-600 focus:ring-green-500 focus:ring-offset-0 cursor-pointer"
+                  />
+                </div>
+                
+                <div className="flex items-start justify-between mb-4 pr-8">
                   <div>
                     <h3 className="text-lg font-bold mb-1">{model.name}</h3>
                     <p className="text-xs text-gray-500">{model.signature}</p>

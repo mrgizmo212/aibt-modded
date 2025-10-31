@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { signup as apiSignup } from '@/lib/api'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -11,7 +12,7 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { signup } = useAuth()
+  const { login: setAuthToken } = useAuth()
   const router = useRouter()
   
   async function handleSubmit(e: React.FormEvent) {
@@ -31,7 +32,12 @@ export default function SignupPage() {
     setLoading(true)
     
     try {
-      await signup(email, password)
+      // Call the API signup endpoint
+      const response = await apiSignup(email, password, email.split('@')[0])
+      
+      // Set the token in auth context
+      setAuthToken(response.access_token)
+      
       router.push('/dashboard')
     } catch (err: any) {
       if (err.message.includes('invite-only') || err.message.includes('not approved')) {

@@ -39,6 +39,7 @@ export interface Model {
   signature: string
   description?: string
   is_active: boolean
+  allowed_tickers?: string[]
   created_at: string
   updated_at?: string
 }
@@ -47,6 +48,7 @@ export interface ModelCreateRequest {
   name: string
   description?: string
   initial_cash?: number
+  allowed_tickers?: string[]
 }
 
 export interface IntradayTradingRequest {
@@ -121,7 +123,7 @@ export interface TradingStatus {
 }
 
 // Admin Types
-export interface SystemStats {
+export interface AdminStats {
   total_users: number
   total_models: number
   total_positions: number
@@ -130,6 +132,9 @@ export interface SystemStats {
   admin_count: number
   user_count: number
 }
+
+// Alias for compatibility with backend naming
+export type SystemStats = AdminStats
 
 export interface LeaderboardEntry {
   rank: number

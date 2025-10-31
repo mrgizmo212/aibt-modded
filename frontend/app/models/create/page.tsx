@@ -12,8 +12,37 @@ export default function CreateModelPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [initialCash, setInitialCash] = useState('10000')
+  const [selectedTickers, setSelectedTickers] = useState<string[]>([])
+  const [tickerInput, setTickerInput] = useState('')
+  const [useAllStocks, setUseAllStocks] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  
+  // Popular NASDAQ stocks for quick selection
+  const popularTickers = [
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'AMD',
+    'NFLX', 'INTC', 'CSCO', 'ADBE', 'AVGO', 'QCOM', 'TXN', 'COST'
+  ]
+  
+  function addTicker(ticker: string) {
+    const upperTicker = ticker.toUpperCase().trim()
+    if (upperTicker && !selectedTickers.includes(upperTicker)) {
+      setSelectedTickers([...selectedTickers, upperTicker])
+      setTickerInput('')
+    }
+  }
+  
+  function removeTicker(ticker: string) {
+    setSelectedTickers(selectedTickers.filter(t => t !== ticker))
+  }
+  
+  function togglePopularTicker(ticker: string) {
+    if (selectedTickers.includes(ticker)) {
+      removeTicker(ticker)
+    } else {
+      addTicker(ticker)
+    }
+  }
   
   // Redirect if not authenticated
   if (!authLoading && !user) {
@@ -30,7 +59,8 @@ export default function CreateModelPage() {
       const model = await createModel({ 
         name, 
         description: description || undefined,
-        initial_cash: parseFloat(initialCash)
+        initial_cash: parseFloat(initialCash),
+        allowed_tickers: useAllStocks ? undefined : selectedTickers
       })
       
       // Redirect to the newly created model's detail page
@@ -142,6 +172,128 @@ export default function CreateModelPage() {
                 </p>
               </div>
               
+              {/* Stock Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Stock Universe
+                </label>
+                
+                {/* Toggle: All Stocks vs Custom */}
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={useAllStocks}
+                      onChange={() => setUseAllStocks(true)}
+                      className="w-4 h-4 text-green-600"
+                    />
+                    <span className="text-sm">All NASDAQ 100 (Recommended)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={!useAllStocks}
+                      onChange={() => setUseAllStocks(false)}
+                      className="w-4 h-4 text-green-600"
+                    />
+                    <span className="text-sm">Custom Selection</span>
+                  </label>
+                </div>
+                
+                {/* Custom Ticker Selection */}
+                {!useAllStocks && (
+                  <div className="space-y-3">
+                    {/* Popular Tickers */}
+                    <div>
+                      <p className="text-xs text-gray-400 mb-2">Popular stocks:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {popularTickers.map(ticker => (
+                          <button
+                            key={ticker}
+                            type="button"
+                            onClick={() => togglePopularTicker(ticker)}
+                            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                              selectedTickers.includes(ticker)
+                                ? 'bg-green-600 text-white'
+                                : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
+                            }`}
+                          >
+                            {ticker}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Manual Input */}
+                    <div>
+                      <p className="text-xs text-gray-400 mb-2">Add custom ticker:</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={tickerInput}
+                          onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              addTicker(tickerInput)
+                            }
+                          }}
+                          placeholder="e.g., AAPL"
+                          maxLength={5}
+                          className="flex-1 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm uppercase"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addTicker(tickerInput)}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Selected Tickers */}
+                    {selectedTickers.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-2">
+                          Selected tickers ({selectedTickers.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
+                          {selectedTickers.map(ticker => (
+                            <span
+                              key={ticker}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs rounded"
+                            >
+                              {ticker}
+                              <button
+                                type="button"
+                                onClick={() => removeTicker(ticker)}
+                                className="hover:text-red-300"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {selectedTickers.length === 0 && (
+                      <p className="text-xs text-yellow-500">
+                        ⚠ No tickers selected. Please select at least one ticker or use "All NASDAQ 100".
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                <p className="mt-2 text-xs text-gray-500">
+                  {useAllStocks 
+                    ? 'AI will analyze and trade across all NASDAQ 100 stocks'
+                    : 'AI will only trade the stocks you select'
+                  }
+                </p>
+              </div>
+              
               {/* Info Box */}
               <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -152,8 +304,8 @@ export default function CreateModelPage() {
                     <p className="font-medium mb-1">How it works:</p>
                     <ul className="space-y-1 text-blue-300">
                       <li>• Choose your starting capital amount above</li>
+                      <li>• Select which stocks the AI can trade (or use all NASDAQ 100)</li>
                       <li>• Select an AI model (GPT, Claude, etc.) to begin trading</li>
-                      <li>• AI analyzes 100 NASDAQ stocks and makes trading decisions</li>
                       <li>• View real-time portfolio value and trading history</li>
                     </ul>
                   </div>
@@ -178,7 +330,7 @@ export default function CreateModelPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !name.trim()}
+                  disabled={loading || !name.trim() || (!useAllStocks && selectedTickers.length === 0)}
                   className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? 'Creating...' : 'Create Model'}

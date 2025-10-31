@@ -15,6 +15,11 @@ import {
 import type { Model, Position, LatestPosition, TradingStatus } from '@/types/api'
 import { AVAILABLE_MODELS } from '@/lib/constants'
 import { TradingFeed } from '@/components/TradingFeed'
+import { PerformanceMetrics } from '@/components/PerformanceMetrics'
+import { PortfolioChart } from '@/components/PortfolioChart'
+import { LogsViewer } from '@/components/LogsViewer'
+
+type TabType = 'overview' | 'performance' | 'chart' | 'logs' | 'history'
 
 export default function ModelDetailPage() {
   const params = useParams()
@@ -28,6 +33,7 @@ export default function ModelDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
+  const [activeTab, setActiveTab] = useState<TabType>('overview')
   
   // Calculate default trading dates (skip weekends)
   const getRecentTradingDate = (daysBack: number): string => {
@@ -519,59 +525,155 @@ export default function ModelDetailPage() {
           </div>
         )}
         
-        {/* Trading History */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
-          <h2 className="text-lg font-bold mb-4">Trading History</h2>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left py-3 text-sm text-gray-400">Date</th>
-                  <th className="text-left py-3 text-sm text-gray-400">Action</th>
-                  <th className="text-left py-3 text-sm text-gray-400">Symbol</th>
-                  <th className="text-right py-3 text-sm text-gray-400">Amount</th>
-                  <th className="text-right py-3 text-sm text-gray-400">Cash</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.slice(0, 20).map((pos) => (
-                  <tr key={pos.id} className="border-b border-zinc-900 hover:bg-zinc-900">
-                    <td className="py-3 text-sm">{pos.date}</td>
-                    <td className="py-3">
-                      {pos.action_type && (
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          pos.action_type === 'buy' ? 'bg-green-500/20 text-green-500' :
-                          pos.action_type === 'sell' ? 'bg-red-500/20 text-red-500' :
-                          'bg-gray-500/20 text-gray-500'
-                        }`}>
-                          {pos.action_type}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 text-sm font-mono">{pos.symbol || '-'}</td>
-                    <td className="py-3 text-sm text-right">{pos.amount || '-'}</td>
-                    <td className="py-3 text-sm text-right text-green-500">
-                      ${pos.cash.toFixed(2)}
-                    </td>
-                  </tr>
+        {/* Tabs Navigation */}
+        {!isNewModel && (
+          <>
+            <div className="mb-6 border-b border-zinc-800">
+              <div className="flex gap-1">
+                {[
+                  { id: 'overview', label: 'Overview', icon: '📊' },
+                  { id: 'performance', label: 'Performance', icon: '📈' },
+                  { id: 'chart', label: 'Chart', icon: '📉' },
+                  { id: 'logs', label: 'AI Logs', icon: '🤖' },
+                  { id: 'history', label: 'Trade History', icon: '📜' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as TabType)}
+                    className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+                      activeTab === tab.id
+                        ? 'text-green-500'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="mr-2">{tab.icon}</span>
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500"></div>
+                    )}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {positions.length > 20 && (
-            <p className="text-sm text-gray-500 mt-4 text-center">
-              Showing latest 20 of {positions.length} positions
-            </p>
-          )}
-          
-          {positions.length === 0 && (
-            <p className="text-center text-gray-500 py-8">
-              No trading history yet
-            </p>
-          )}
-        </div>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="mb-8">
+              {activeTab === 'overview' && latestPosition && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Portfolio Summary */}
+                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+                    <h3 className="text-lg font-bold mb-4">Portfolio Summary</h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
+                        <span className="text-gray-400">Cash Balance</span>
+                        <span className="text-xl font-semibold text-green-500">
+                          ${latestPosition.cash.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
+                        <span className="text-gray-400">Total Portfolio Value</span>
+                        <span className="text-xl font-semibold">
+                          ${latestPosition.total_value.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-zinc-800">
+                        <span className="text-gray-400">Last Updated</span>
+                        <span className="text-sm">{latestPosition.date}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-400">Active Holdings</span>
+                        <span className="text-sm font-semibold">
+                          {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length} stocks
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Holdings */}
+                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+                    <h3 className="text-lg font-bold mb-4">Top Holdings</h3>
+                    <div className="space-y-2">
+                      {Object.entries(latestPosition.positions)
+                        .filter(([symbol, shares]) => symbol !== 'CASH' && shares > 0)
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, 8)
+                        .map(([symbol, shares]) => (
+                          <div key={symbol} className="flex justify-between items-center py-2 border-b border-zinc-800 last:border-0">
+                            <span className="font-mono font-semibold text-sm">{symbol}</span>
+                            <span className="text-sm text-gray-400">{shares} shares</span>
+                          </div>
+                        ))}
+                      {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length === 0 && (
+                        <p className="text-center text-gray-500 py-4">No holdings</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'performance' && (
+                <PerformanceMetrics modelId={modelId} />
+              )}
+
+              {activeTab === 'chart' && (
+                <PortfolioChart modelId={modelId} />
+              )}
+
+              {activeTab === 'logs' && (
+                <LogsViewer modelId={modelId} />
+              )}
+
+              {activeTab === 'history' && (
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
+                  <h2 className="text-lg font-bold mb-4">Complete Trading History</h2>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-zinc-800">
+                          <th className="text-left py-3 text-sm text-gray-400">Date</th>
+                          <th className="text-left py-3 text-sm text-gray-400">Action</th>
+                          <th className="text-left py-3 text-sm text-gray-400">Symbol</th>
+                          <th className="text-right py-3 text-sm text-gray-400">Amount</th>
+                          <th className="text-right py-3 text-sm text-gray-400">Cash</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {positions.map((pos) => (
+                          <tr key={pos.id} className="border-b border-zinc-900 hover:bg-zinc-900">
+                            <td className="py-3 text-sm">{pos.date}</td>
+                            <td className="py-3">
+                              {pos.action_type && (
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  pos.action_type === 'buy' ? 'bg-green-500/20 text-green-500' :
+                                  pos.action_type === 'sell' ? 'bg-red-500/20 text-red-500' :
+                                  'bg-gray-500/20 text-gray-500'
+                                }`}>
+                                  {pos.action_type}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 text-sm font-mono">{pos.symbol || '-'}</td>
+                            <td className="py-3 text-sm text-right">{pos.amount || '-'}</td>
+                            <td className="py-3 text-sm text-right text-green-500">
+                              ${pos.cash.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {positions.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">
+                      No trading history yet
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </main>
       
       {/* Edit Modal */}
