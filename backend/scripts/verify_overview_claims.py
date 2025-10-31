@@ -21,7 +21,7 @@ print("="*80)
 print("\n📊 API ENDPOINTS:")
 print("-"*80)
 main_py = Path(__file__).parent.parent / "main.py"
-with open(main_py) as f:
+with open(main_py, encoding='utf-8') as f:
     content = f.read()
     
 endpoints = {
@@ -79,7 +79,7 @@ print("-"*80)
 print("  Backend:")
 req_file = Path(__file__).parent.parent / "requirements.txt"
 if req_file.exists():
-    with open(req_file) as f:
+    with open(req_file, encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#'):
@@ -90,7 +90,7 @@ print("\n  Frontend:")
 pkg_file = Path(__file__).parent.parent.parent / "frontend" / "package.json"
 if pkg_file.exists():
     import json
-    with open(pkg_file) as f:
+    with open(pkg_file, encoding='utf-8') as f:
         pkg = json.load(f)
         deps = pkg.get('dependencies', {})
         for key in ['next', 'react', 'react-dom']:
@@ -102,7 +102,7 @@ print("\n📊 DATABASE TABLES:")
 print("-"*80)
 migration_001 = Path(__file__).parent.parent / "migrations" / "001_initial_schema.sql"
 if migration_001.exists():
-    with open(migration_001) as f:
+    with open(migration_001, encoding='utf-8') as f:
         content = f.read()
         tables = []
         for line in content.split('\n'):
@@ -140,7 +140,7 @@ print(f"  MCP Price: localhost:{os.getenv('GETPRICE_HTTP_PORT', '8003')}")
 
 frontend_env = Path(__file__).parent.parent.parent / "frontend" / ".env.local"
 if frontend_env.exists():
-    with open(frontend_env) as f:
+    with open(frontend_env, encoding='utf-8') as f:
         for line in f:
             if 'PORT' in line or 'NEXT_PUBLIC' in line:
                 print(f"  Frontend: {line.strip()}")
