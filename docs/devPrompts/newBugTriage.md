@@ -570,4 +570,12 @@ What would you like to do?"
 
 ```
 
+- ANY NEW MARKDOWN FILES THAT YOU WANT TO CREATE CAN BE DONE IN C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\tempDocs AND WILL BE USED TO UPDATE THE FILES BELOW:
+
+ANY MARKDOWN YOU CREATE DATE IT... THAT DIR IS FOR YOU
+
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\bugs-and-fixes.md
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\overview.md
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\wip.md
+
 ***BUG FIX TASK ENDS***

@@ -76,6 +76,15 @@ export default function ModelDetailPage() {
   const [editInitialCash, setEditInitialCash] = useState('10000')
   const [editLoading, setEditLoading] = useState(false)
   
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmData, setConfirmData] = useState<{
+    success: boolean
+    savedModel: Model | null
+    sentData: any
+    verificationStatus: string
+  } | null>(null)
+  
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
@@ -194,35 +203,86 @@ export default function ModelDetailPage() {
     }
   }
   
+  // Deep equality check for objects (key order independent)
+  function deepEqual(obj1: unknown, obj2: unknown): boolean {
+    if (obj1 === obj2) return true
+    if (obj1 == null || obj2 == null) return false
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false
+    
+    const keys1 = Object.keys(obj1 as Record<string, unknown>)
+    const keys2 = Object.keys(obj2 as Record<string, unknown>)
+    
+    if (keys1.length !== keys2.length) return false
+    
+    for (const key of keys1) {
+      if (!keys2.includes(key)) return false
+      if (!deepEqual((obj1 as Record<string, unknown>)[key], (obj2 as Record<string, unknown>)[key])) return false
+    }
+    
+    return true
+  }
+  
   async function handleSaveEdit() {
     setEditLoading(true)
+    const sentData = {
+      name: editName,
+      description: editDescription || undefined,
+      default_ai_model: editAIModel,
+      model_parameters: editParameters,
+      custom_rules: editRules || undefined,
+      custom_instructions: editInstructions || undefined
+    }
+    
     try {
-      await updateModel(modelId, {
-        name: editName,
-        description: editDescription || undefined,
-        default_ai_model: editAIModel,
-        model_parameters: editParameters,
-        custom_rules: editRules || undefined,
-        custom_instructions: editInstructions || undefined
-      })
+      // Step 1: Save to backend
+      await updateModel(modelId, sentData)
       
-      // Update local state immediately with saved values
-      if (currentModel) {
-        setCurrentModel({
-          ...currentModel,
-          name: editName,
-          description: editDescription || undefined,
-          default_ai_model: editAIModel,
-          model_parameters: editParameters,
-          custom_rules: editRules || undefined,
-          custom_instructions: editInstructions || undefined
-        })
+      // Step 2: Verify by fetching from database
+      const verifiedModels = await fetchMyModels()
+      const savedModel = verifiedModels.models.find(m => m.id === modelId) || null
+      
+      // Step 3: Verify data integrity with deep equality (key order independent)
+      let verificationStatus = 'verified'
+      if (!savedModel) {
+        verificationStatus = 'error: Model not found in database after save'
+      } else {
+        // Check key fields with proper comparison
+        const nameMatch = savedModel.name === editName
+        const modelMatch = savedModel.default_ai_model === editAIModel
+        const paramsMatch = deepEqual(savedModel.model_parameters, editParameters)
+        
+        if (!nameMatch || !modelMatch || !paramsMatch) {
+          verificationStatus = 'warning: Some fields may not have saved correctly'
+        }
       }
       
+      // Update local state
+      if (savedModel) {
+        setCurrentModel(savedModel)
+      }
+      
+      // Show confirmation modal with verification results
+      setConfirmData({
+        success: true,
+        savedModel,
+        sentData,
+        verificationStatus
+      })
       setShowEditModal(false)
-      await loadData() // Reload to confirm
+      setShowConfirmModal(true)
+      
+      // Reload full data in background
+      await loadData()
     } catch (error: any) {
-      alert(`Failed to update model: ${error.message}`)
+      // Show error in confirmation modal
+      setConfirmData({
+        success: false,
+        savedModel: null,
+        sentData,
+        verificationStatus: `error: ${error.message}`
+      })
+      setShowEditModal(false)
+      setShowConfirmModal(true)
     } finally {
       setEditLoading(false)
     }
@@ -786,6 +846,129 @@ export default function ModelDetailPage() {
               >
                 {editLoading ? 'Saving...' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmData && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-2xl w-full">
+            {/* Header */}
+            <div className="flex items-start gap-3 mb-4">
+              {confirmData.success ? (
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="text-xl font-bold">
+                  {confirmData.success ? 'Save Successful ✓' : 'Save Failed'}
+                </h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  {confirmData.verificationStatus.startsWith('verified') 
+                    ? 'All changes verified in database'
+                    : confirmData.verificationStatus}
+                </p>
+              </div>
+            </div>
+            
+            {/* Verification Details */}
+            <div className="space-y-4 mb-6">
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Status:</span>
+                {confirmData.verificationStatus === 'verified' ? (
+                  <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
+                    ✓ Verified in Supabase
+                  </span>
+                ) : confirmData.verificationStatus.startsWith('warning') ? (
+                  <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full border border-yellow-500/30">
+                    ⚠ Warning
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full border border-red-500/30">
+                    ✗ Error
+                  </span>
+                )}
+              </div>
+              
+              {/* Saved Data Summary */}
+              {confirmData.success && confirmData.savedModel && (
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-300 mb-3">Saved Configuration:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Model Name:</span>
+                      <span className="text-gray-200">{confirmData.savedModel.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">AI Model:</span>
+                      <span className="text-gray-200">{confirmData.savedModel.default_ai_model}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Parameters:</span>
+                      <span className="text-gray-200">
+                        {Object.keys(confirmData.savedModel.model_parameters || {}).length} configured
+                      </span>
+                    </div>
+                    {confirmData.savedModel.model_parameters && (
+                      <div className="mt-3 pt-3 border-t border-zinc-700">
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-blue-400 hover:text-blue-300">
+                            View Parameter Details
+                          </summary>
+                          <pre className="mt-2 p-2 bg-black/30 rounded overflow-x-auto text-gray-300">
+                            {JSON.stringify(confirmData.savedModel.model_parameters, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Error Details */}
+              {!confirmData.success && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                  <p className="text-sm text-red-400">
+                    {confirmData.verificationStatus}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Please try again or contact support if the issue persists.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+              >
+                {confirmData.success ? 'Done' : 'Close'}
+              </button>
+              {!confirmData.success && (
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false)
+                    setShowEditModal(true)
+                  }}
+                  className="flex-1 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -312,3 +312,11 @@ MCP transforms static LLMs into dynamic AI agents that can access real-time info
   - ALL CURRENT AI MODELS. NO ONE USES GPT 3.5, 4o, 4 turbo, claude 3.5 etc... use @web and check https://platform.openai.com/docs/models & https://docs.claude.com/en/docs/about-claude/models/overview & https://openrouter.ai/models & https://ai.google.dev/gemini-api/docs/models & https://docs.x.ai/docs/models. DO NOT assume anything provide proof of all context by link and citation. IMPROTANT some new models like gpt 5 do not use parameters like tempature here is an example of a usage guide: https://platform.openai.com/docs/guides/latest-model. We primarily use the COMPLETIONS API for everything, rarely. 
 
     - YOU HAVE ACCESS TO THE CONTEXT7 MCP TOOL ON YOUR APPROVED LIST! USE IT!
+
+    - ANY NEW MARKDOWN FILES THAT YOU WANT TO CREATE CAN BE DONE IN C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\tempDocs AND WILL BE USED TO UPDATE THE FILES BELOW:
+
+ANY MARKDOWN YOU CREATE DATE IT... THAT DIR IS FOR YOU
+
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\bugs-and-fixes.md
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\overview.md
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\wip.md

@@ -66,11 +66,13 @@ npm run dev
 ## 📖 Project Overview
 
 TTG AI is an AI-powered trading platform that allows users to:
-- Create and manage AI trading models
-- Execute daily and intraday trading strategies
-- Monitor portfolio performance in real-time
-- View AI reasoning and decision logs
-- Compare strategies on a global leaderboard
+- ✅ Create and manage AI trading models (Create/Edit/Delete - functional)
+- ✅ Execute daily and intraday trading strategies (Backend implemented)
+- ✅ Monitor portfolio performance in real-time (SSE feed implemented, may have UX issues)
+- ✅ View AI reasoning and decision logs (LogsViewer component exists)
+- ⚠️ Compare strategies on a global leaderboard (Admin-only, may not be fully functional)
+
+**Note:** Core features are implemented but may need refinement. Frontend UI/UX is functional but not polished.
 
 ### Architecture
 
@@ -81,22 +83,31 @@ TTG AI is an AI-powered trading platform that allows users to:
 └────────┬─────────┘
          │ REST API + JWT
          ▼
-┌──────────────────┐
-│  FastAPI         │  34 endpoints, MCP-compliant
-│  Backend         │  Port: 8080
-└────────┬─────────┘
-         │ Supabase SDK
-         ▼
-┌──────────────────┐
-│  PostgreSQL      │  6 tables, Row Level Security
-│  (Supabase)      │  Multi-user isolation
-└──────────────────┘
-
-┌──────────────────┐
-│  MCP Services    │  4 services, 6 tools
-│  (Localhost)     │  Ports: 8000-8003
-└──────────────────┘
+┌──────────────────────────────────────────┐
+│  FastAPI Backend                          │
+│  - 34 REST endpoints                      │
+│  - AI Trading Engine (LangChain)          │
+│  - Port: 8080                             │
+└────┬─────────────────┬─────────────┬──────┘
+     │                 │             │
+     │ Supabase SDK    │ REST API    │ HTTP
+     ▼                 ▼             ▼
+┌─────────────┐  ┌──────────────┐  ┌────────────────┐
+│ PostgreSQL  │  │ Upstash      │  │ MCP Services   │
+│ (Supabase)  │  │ Redis        │  │ (Localhost)    │
+├─────────────┤  ├──────────────┤  ├────────────────┤
+│ 6 tables    │  │ Intraday     │  │ 4 services     │
+│ RLS enabled │  │ cache        │  │ 6 tools        │
+│ Multi-user  │  │ 2hr TTL      │  │ Ports:         │
+│ isolation   │  │ Per-model    │  │ 8000-8003      │
+└─────────────┘  └──────────────┘  └────────────────┘
 ```
+
+**Data Flow:**
+- **Persistent Data** → PostgreSQL (positions, logs, performance)
+- **Intraday Cache** → Upstash Redis (minute bars, 2hr TTL)
+- **AI Tools** → MCP Services (math, search, trade, price)
+
 
 ---
 
@@ -506,63 +517,66 @@ curl https://aibt-backend.onrender.com/api/health
 
 ---
 
-### Frontend Deployment on Vercel (Recommended)
+### Frontend Deployment on Render
 
-#### 1. Create New Project
+#### 1. Create New Web Service
 
-1. Go to https://vercel.com/new
-2. Import your repository
-3. Configure:
+1. Go to https://dashboard.render.com
+2. Click "New" → "Web Service"
+3. Connect your GitHub repository
+4. Configure:
 
 **Settings:**
 ```
-Framework Preset: Next.js
+Name: ttgai-frontend
+Region: Oregon (or closest to you)
+Branch: main
 Root Directory: frontend
-Build Command: npm run build
-Output Directory: .next
-Install Command: npm install
+Runtime: Node
+Build Command: npm install && npm run build
+Start Command: npm start
+Instance Type: Free (or Starter for better performance)
 ```
 
 #### 2. Environment Variables
 
+Add in Render dashboard → Environment:
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://[your-project].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
-NEXT_PUBLIC_API_URL=https://aibt-backend.onrender.com
+NEXT_PUBLIC_API_URL=https://ttgai-backend.onrender.com
+NODE_ENV=production
 ```
 
 #### 3. Deploy
 
-- Click "Deploy"
-- Wait for build to complete
-- Frontend will be at: `https://your-app.vercel.app`
+- Click "Create Web Service"
+- Wait for build to complete (~3-5 minutes)
+- Frontend will be at: `https://ttgai-frontend.onrender.com`
 
 #### 4. Update Backend CORS
 
-Update `ALLOWED_ORIGINS` in Render backend:
+**Important:** Update backend environment variables to allow frontend origin:
+
+In Render backend dashboard, update `ALLOWED_ORIGINS`:
 ```
-ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:3000,http://localhost:3100
-```
-
-Redeploy backend for CORS changes to take effect.
-
----
-
-### Alternative: Frontend on Render
-
-If deploying frontend to Render instead of Vercel:
-
-**Settings:**
-```
-Name: aibt-frontend
-Runtime: Node
-Root Directory: frontend
-Build Command: npm install && npm run build
-Start Command: npm start
+ALLOWED_ORIGINS=https://ttgai-frontend.onrender.com,http://localhost:3000,http://localhost:3100
 ```
 
-**Environment Variables:**
-Same as Vercel setup above.
+**Then manually deploy** backend for CORS changes to take effect:
+- Go to backend service → Manual Deploy → Deploy latest commit
+
+#### 5. Verify Deployment
+
+```powershell
+# Test frontend
+curl https://ttgai-frontend.onrender.com
+
+# Test frontend → backend connection
+# Visit: https://ttgai-frontend.onrender.com
+# Login and verify dashboard loads
+```
 
 ---
 
