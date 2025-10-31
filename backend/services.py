@@ -154,7 +154,9 @@ async def create_model(
     initial_cash: float = 10000.0, 
     allowed_tickers: Optional[List[str]] = None,
     default_ai_model: Optional[str] = None,
-    model_parameters: Optional[Dict] = None
+    model_parameters: Optional[Dict] = None,
+    custom_rules: Optional[str] = None,
+    custom_instructions: Optional[str] = None
 ) -> Dict:
     """
     Create new AI model with auto-generated signature
@@ -165,8 +167,10 @@ async def create_model(
         description: Optional description
         initial_cash: Starting capital amount (defaults to $10,000)
         allowed_tickers: Optional list of allowed stock tickers (if None, trades all NASDAQ 100)
-        default_ai_model: Default AI model to use (e.g., 'openai/gpt-5-pro')
+        default_ai_model: Default AI model to use (e.g., 'openai/gpt-5')
         model_parameters: AI model parameters (temperature, verbosity, etc.)
+        custom_rules: Optional custom trading rules
+        custom_instructions: Optional custom instructions
         
     Returns:
         Created model dict
@@ -196,6 +200,12 @@ async def create_model(
     if model_parameters is not None:
         insert_data["model_parameters"] = model_parameters
     
+    if custom_rules is not None:
+        insert_data["custom_rules"] = custom_rules
+    
+    if custom_instructions is not None:
+        insert_data["custom_instructions"] = custom_instructions
+    
     result = supabase.table("models").insert(insert_data).execute()
     
     if result.data and len(result.data) > 0:
@@ -210,7 +220,9 @@ async def update_model(
     description: Optional[str] = None, 
     allowed_tickers: Optional[List[str]] = None,
     default_ai_model: Optional[str] = None,
-    model_parameters: Optional[Dict] = None
+    model_parameters: Optional[Dict] = None,
+    custom_rules: Optional[str] = None,
+    custom_instructions: Optional[str] = None
 ) -> Optional[Dict]:
     """
     Update AI model (checks ownership)
@@ -223,6 +235,8 @@ async def update_model(
         allowed_tickers: Optional list of allowed stock tickers
         default_ai_model: Default AI model to use
         model_parameters: AI model parameters configuration
+        custom_rules: Optional custom trading rules
+        custom_instructions: Optional custom instructions
         
     Returns:
         Updated model dict or None
@@ -249,6 +263,12 @@ async def update_model(
     
     if model_parameters is not None:
         update_data["model_parameters"] = model_parameters
+    
+    if custom_rules is not None:
+        update_data["custom_rules"] = custom_rules
+    
+    if custom_instructions is not None:
+        update_data["custom_instructions"] = custom_instructions
     
     result = supabase.table("models").update(update_data).eq("id", model_id).eq("user_id", user_id).execute()
     

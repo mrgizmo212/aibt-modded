@@ -51,6 +51,8 @@ class ModelInfo(BaseModel):
     allowed_tickers: Optional[List[str]] = None
     default_ai_model: Optional[str] = None
     model_parameters: Optional[Dict[str, Any]] = None
+    custom_rules: Optional[str] = None
+    custom_instructions: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -62,6 +64,8 @@ class ModelCreate(BaseModel):
     allowed_tickers: Optional[List[str]] = None
     default_ai_model: Optional[str] = None
     model_parameters: Optional[Dict[str, Any]] = None
+    custom_rules: Optional[str] = None
+    custom_instructions: Optional[str] = None
 
 
 class ModelListResponse(BaseModel):

@@ -432,7 +432,9 @@ async def create_my_model(model_data: ModelCreate, current_user: Dict = Depends(
         initial_cash=model_data.initial_cash,
         allowed_tickers=model_data.allowed_tickers,
         default_ai_model=model_data.default_ai_model,
-        model_parameters=model_data.model_parameters
+        model_parameters=model_data.model_parameters,
+        custom_rules=model_data.custom_rules,
+        custom_instructions=model_data.custom_instructions
     )
     
     if not model:
@@ -463,7 +465,9 @@ async def update_my_model(model_id: int, model_data: ModelCreate, current_user: 
         description=model_data.description,
         allowed_tickers=model_data.allowed_tickers,
         default_ai_model=model_data.default_ai_model,
-        model_parameters=model_data.model_parameters
+        model_parameters=model_data.model_parameters,
+        custom_rules=model_data.custom_rules,
+        custom_instructions=model_data.custom_instructions
     )
     
     if not updated_model:

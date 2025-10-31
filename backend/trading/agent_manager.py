@@ -70,6 +70,10 @@ class AgentManager:
         # Set model ID in environment for multi-user isolation
         os.environ["CURRENT_MODEL_ID"] = str(model_id)
         
+        # Get custom rules/instructions from model (if any)
+        custom_rules = model_data.get("custom_rules")
+        custom_instructions = model_data.get("custom_instructions")
+        
         # Create agent instance
         agent = BaseAgent(
             signature=model_signature,
@@ -79,7 +83,9 @@ class AgentManager:
             max_steps=max_steps,
             initial_cash=initial_cash,
             init_date=start_date,
-            model_id=model_id  # Pass model_id for streaming
+            model_id=model_id,  # Pass model_id for streaming
+            custom_rules=custom_rules,
+            custom_instructions=custom_instructions
         )
         
         # Store agent info

@@ -99,15 +99,35 @@ Yesterday's Profit/Loss by Stock:
 BEGIN YOUR AUTONOMOUS TRADING SESSION NOW.
 """
 
-def get_agent_system_prompt(today_date: str, signature: str) -> str:
+def get_agent_system_prompt(
+    today_date: str, 
+    signature: str, 
+    custom_rules: Optional[str] = None,
+    custom_instructions: Optional[str] = None
+) -> str:
+    """
+    Generate system prompt with optional custom rules/instructions
+    
+    Args:
+        today_date: Trading date
+        signature: Model signature
+        custom_rules: Optional custom trading rules (overrides default behavior)
+        custom_instructions: Optional strategy instructions (guides AI behavior)
+    
+    Returns:
+        Complete system prompt
+    """
     print(f"signature: {signature}")
     print(f"today_date: {today_date}")
+    
     # Get yesterday's buy and sell prices
     yesterday_buy_prices, yesterday_sell_prices = get_yesterday_open_and_close_price(today_date, all_nasdaq_100_symbols)
     today_buy_price = get_open_prices(today_date, all_nasdaq_100_symbols)
     today_init_position = get_today_init_position(today_date, signature)
     yesterday_profit = get_yesterday_profit(today_date, yesterday_buy_prices, yesterday_sell_prices, today_init_position)
-    return agent_system_prompt.format(
+    
+    # Build base prompt
+    base_prompt = agent_system_prompt.format(
         date=today_date, 
         positions=today_init_position, 
         STOP_SIGNAL=STOP_SIGNAL,
@@ -115,6 +135,38 @@ def get_agent_system_prompt(today_date: str, signature: str) -> str:
         today_buy_price=today_buy_price,
         yesterday_profit=yesterday_profit
     )
+    
+    # Append custom rules/instructions if provided
+    additions = []
+    
+    if custom_rules:
+        additions.append(f"""
+🎯 CUSTOM TRADING RULES (MUST FOLLOW):
+{custom_rules}
+
+These are MANDATORY rules you MUST follow. Override default behavior if these conflict.
+""")
+    
+    if custom_instructions:
+        additions.append(f"""
+📋 CUSTOM STRATEGY INSTRUCTIONS:
+{custom_instructions}
+
+Consider these instructions when making trading decisions.
+""")
+    
+    if additions:
+        base_prompt += "\n\n" + "\n".join(additions)
+        base_prompt += f"\n\n{'='*80}\n"
+        if custom_rules and custom_instructions:
+            base_prompt += "⚠️  You have BOTH custom rules and instructions. Follow the rules strictly and use instructions as guidance.\n"
+        elif custom_rules:
+            base_prompt += "⚠️  You have custom rules. These override default trading behavior.\n"
+        else:
+            base_prompt += "⚠️  You have custom instructions. Use these to guide your strategy.\n"
+        base_prompt += f"{'='*80}\n"
+    
+    return base_prompt
 
 
 

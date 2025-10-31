@@ -69,7 +69,9 @@ class BaseAgent:
         openai_api_key: Optional[str] = None,
         initial_cash: float = 10000.0,
         init_date: str = "2025-10-13",
-        model_id: Optional[int] = None
+        model_id: Optional[int] = None,
+        custom_rules: Optional[str] = None,
+        custom_instructions: Optional[str] = None
     ):
         """
         Initialize BaseAgent
@@ -87,6 +89,8 @@ class BaseAgent:
             openai_api_key: OpenAI API key
             initial_cash: Initial cash amount
             init_date: Initialization date
+            custom_rules: Optional custom trading rules
+            custom_instructions: Optional custom instructions
         """
         self.signature = signature
         self.basemodel = basemodel
@@ -96,6 +100,8 @@ class BaseAgent:
         self.base_delay = base_delay
         self.initial_cash = initial_cash
         self.init_date = init_date
+        self.custom_rules = custom_rules
+        self.custom_instructions = custom_instructions
         
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
@@ -281,7 +287,12 @@ class BaseAgent:
         self.agent = create_agent(
             self.model,
             tools=self.tools,
-            system_prompt=get_agent_system_prompt(today_date, self.signature),
+            system_prompt=get_agent_system_prompt(
+                today_date, 
+                self.signature,
+                custom_rules=self.custom_rules,
+                custom_instructions=self.custom_instructions
+            ),
         )
         
         # Initial user query
