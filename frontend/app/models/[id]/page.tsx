@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import {
@@ -10,7 +10,8 @@ import {
   startTrading,
   stopTrading,
   updateModel,
-  deleteModel
+  deleteModel,
+  fetchModelRuns
 } from '@/lib/api'
 import type { Model, Position, LatestPosition, TradingStatus } from '@/types/api'
 import { AVAILABLE_MODELS } from '@/lib/constants'
@@ -37,6 +38,7 @@ export default function ModelDetailPage() {
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
   const [activeTab, setActiveTab] = useState<TabType>('performance')
   const [currentModel, setCurrentModel] = useState<Model | null>(null)
+  const [runs, setRuns] = useState<unknown[]>([])
   
   // Calculate default trading dates (skip weekends)
   const getRecentTradingDate = (daysBack: number): string => {
@@ -81,33 +83,35 @@ export default function ModelDetailPage() {
   const [confirmData, setConfirmData] = useState<{
     success: boolean
     savedModel: Model | null
-    sentData: any
+    sentData: Record<string, unknown>
     verificationStatus: string
   } | null>(null)
   
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-      return
-    }
-    
-    if (user) {
-      loadData()
-    }
-  }, [user, authLoading, router])
-  
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       // Fetch data with error handling for new models
-      const [posData, latestData, statusData, modelsData] = await Promise.all([
+      const [posData, latestData, statusData, modelsData, runsData] = await Promise.all([
         fetchModelPositions(modelId).catch(() => ({ positions: [] })),
         fetchModelLatestPosition(modelId).catch(() => null),
         fetchTradingStatus(modelId).catch(() => null),
-        fetchMyModels().catch(() => ({ models: [] }))
+        fetchMyModels().catch(() => ({ models: [] })),
+        fetchModelRuns(modelId).catch(() => ({ runs: [], total: 0 }))
       ])
       
       setPositions(posData.positions || [])
-      setLatestPosition(latestData)
+      setRuns(runsData.runs || [])
+      
+      // Add stocks_value to latestData if missing (calculated from total_value - cash)
+      if (latestData) {
+        const dataWithStocksValue = {
+          ...latestData,
+          stocks_value: latestData.total_value - latestData.cash
+        }
+        setLatestPosition(dataWithStocksValue)
+      } else {
+        setLatestPosition(null)
+      }
+      
       setStatus(statusData)
       
       // Find and set current model
@@ -577,6 +581,51 @@ export default function ModelDetailPage() {
               </div>
             )}
 
+            {/* Recent Runs (NEW) */}
+            {runs.length > 0 && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+                <h3 className="text-md font-bold mb-3">Recent Runs</h3>
+                <div className="space-y-2">
+                  {runs.slice(0, 5).map((run: any) => (
+                    <a
+                      key={run.id}
+                      href={`/models/${modelId}/r/${run.id}`}
+                      className="block p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-semibold">Run #{run.run_number}</span>
+                          <span className="ml-2 text-xs text-gray-500">
+                            {run.trading_mode === 'intraday' ? '⚡' : '📅'} {run.trading_mode}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-semibold ${
+                            (run.final_return || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                          }`}>
+                            {run.final_return ? `${(run.final_return * 100).toFixed(2)}%` : '--'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {run.total_trades || 0} trades
+                          </div>
+                        </div>
+                      </div>
+                      {run.trading_mode === 'intraday' && run.intraday_symbol && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {run.intraday_symbol} on {run.intraday_date}
+                        </div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+                {runs.length > 5 && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    + {runs.length - 5} more runs
+                  </p>
+                )}
+              </div>
+            )}
+            
             {/* Current Position */}
             {!isNewModel && latestPosition && (
               <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">

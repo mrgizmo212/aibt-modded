@@ -131,7 +131,19 @@ async def run_intraday_session(
     print("-" * 80)
     print(f"  Trading {len(minutes)} minutes with in-memory data")
     
+    # NEW: Initialize rule enforcer and risk gates
+    from utils.rule_enforcer import create_rule_enforcer
+    from utils.risk_gates import create_risk_gates
+    
+    enforcer = create_rule_enforcer(supabase, model_id)
+    risk_gates = create_risk_gates(model_id)
+    
+    print(f"  ✅ Rule enforcer loaded ({len(enforcer.rules)} active rules)")
+    print(f"  ✅ Risk gates initialized")
+    
     trades_executed = 0
+    trades_rejected_rules = 0
+    trades_rejected_gates = 0
     current_position = {"CASH": agent.initial_cash}
     
     # Step 4: Trade each minute using in-memory bars
@@ -167,10 +179,51 @@ async def run_intraday_session(
             cost = amount * current_price
             available_cash = current_position.get("CASH", 0)
             
-            # DEBUG: Show cash check
-            print(f"    🔍 Cash Check: Need ${cost:,.2f} | Have ${available_cash:,.2f}")
+            # NEW: Calculate current portfolio value for validation
+            total_value = available_cash + sum(
+                current_position.get(s, 0) * current_price 
+                for s in current_position if s != 'CASH'
+            )
             
-            # CRITICAL: Validate sufficient funds
+            portfolio_snapshot = {
+                'cash': available_cash,
+                'positions': current_position,
+                'total_value': total_value,
+                'initial_value': agent.initial_cash
+            }
+            
+            # NEW: Risk Gates (hard-coded safety)
+            gates_passed, gate_reason = risk_gates.validate_all(
+                action="buy",
+                symbol=symbol,
+                amount=amount,
+                price=current_price,
+                portfolio_snapshot=portfolio_snapshot
+            )
+            
+            if not gates_passed:
+                print(f"    🛑 RISK GATE BLOCKED: {gate_reason}")
+                trades_rejected_gates += 1
+                continue
+            
+            # NEW: Rule Enforcer (user-defined rules)
+            rules_passed, rule_reason = enforcer.validate_trade(
+                action="buy",
+                symbol=symbol,
+                amount=amount,
+                price=current_price,
+                current_position=current_position,
+                total_portfolio_value=total_value,
+                asset_type='equity',
+                current_time=datetime.now()
+            )
+            
+            if not rules_passed:
+                print(f"    ❌ RULE VIOLATION: {rule_reason}")
+                trades_rejected_rules += 1
+                continue
+            
+            # EXISTING: Cash validation
             if cost > available_cash:
                 print(f"    ❌ INSUFFICIENT FUNDS for BUY {amount} shares")
                 print(f"       Need: ${cost:,.2f} | Have: ${available_cash:,.2f}")
@@ -243,6 +296,8 @@ async def run_intraday_session(
     print(f"\n✅ Session Complete:")
     print(f"   Minutes Processed: {len(minutes)}")
     print(f"   Trades Executed: {trades_executed}")
+    print(f"   Trades Rejected (Rules): {trades_rejected_rules}")
+    print(f"   Trades Rejected (Safety Gates): {trades_rejected_gates}")
     print(f"   Final Position: {current_position}")
     print("=" * 80)
     

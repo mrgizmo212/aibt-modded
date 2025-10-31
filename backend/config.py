@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_URL: str = ""
     UPSTASH_REDIS_REST_TOKEN: str = ""
     
+    # MCP Server Tokens (Market Intelligence)
+    FINMCP_TOKEN: str = ""
+    UWMCP_MCP_TOKEN: str = ""
+    FINVIZ_SERVER_TOKEN: str = ""
+    
+    # MCP Server URLs
+    FINMCP_URL: str = "https://finmcp-f2xz.onrender.com/mcp"
+    UWMCP_URL: str = "https://uwmcp.onrender.com/mcp"
+    FINVIZ_URL: str = "https://mcp-finviz.onrender.com/mcp"
+    
     # Environment
     NODE_ENV: str = "development"
     
