@@ -46,6 +46,7 @@ import services
 from trading.agent_manager import agent_manager
 from trading.mcp_manager import mcp_manager
 from streaming import event_stream
+from utils.redis_client import redis_client
 
 # ============================================================================
 # APP INITIALIZATION WITH LIFESPAN
@@ -80,6 +81,15 @@ async def lifespan(app: FastAPI):
         print("✅ MCP services stopped")
     except asyncio.TimeoutError:
         print("⚠️  MCP services didn't stop gracefully - force killing")
+    
+    # Close Redis client connection pool
+    print("🔧 Closing Redis connection pool...")
+    try:
+        await redis_client.close()
+        print("✅ Redis connection pool closed")
+    except Exception as e:
+        print(f"⚠️  Redis cleanup error: {e}")
+    
     print("👋 AI-Trader API Shutting Down...")
 
 
