@@ -285,12 +285,12 @@ export default function DashboardPage() {
                 )}
                 
                 <div className="flex gap-2">
-                  <a
+                  <Link
                     href={`/models/${model.id}`}
                     className="flex-1 text-center px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md text-sm hover:bg-zinc-800 transition-colors"
                   >
                     View Details
-                  </a>
+                  </Link>
                   
                   <button 
                     onClick={() => isRunning ? handleStopModel(model.id) : handleStartModel(model.id)}
