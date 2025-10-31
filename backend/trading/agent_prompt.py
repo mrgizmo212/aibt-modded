@@ -135,6 +135,10 @@ def get_intraday_system_prompt(minute: str, symbol: str, bar: dict, position: di
     cash = position.get("CASH", 0)
     holdings = position.get(symbol, 0)
     
+    # Calculate max shares we can afford
+    current_price = bar.get('close', 0)
+    max_affordable_shares = int(cash / current_price) if current_price > 0 else 0
+    
     prompt = f"""You are trading {symbol} on a minute-by-minute basis.
 
 CURRENT TIME: {minute}
@@ -149,12 +153,16 @@ CURRENT PORTFOLIO:
 - Cash: ${cash:.2f}
 - {symbol} Holdings: {holdings} shares
 
+⚠️ TRADING LIMITS:
+- Maximum BUY: {max_affordable_shares} shares (based on available cash)
+- Maximum SELL: {holdings} shares (can't sell more than you own)
+
 INSTRUCTIONS:
 Make a FAST trading decision for this minute. You have limited time.
 
 Respond in ONE of these formats with BRIEF reasoning:
-- "BUY X shares - [reason in 5-10 words]"
-- "SELL X shares - [reason in 5-10 words]"
+- "BUY X shares - [reason in 5-10 words]" (X must be ≤ {max_affordable_shares})
+- "SELL X shares - [reason in 5-10 words]" (X must be ≤ {holdings})
 - "HOLD - [reason in 5-10 words]"
 
 Examples:
@@ -162,10 +170,12 @@ Examples:
 - "SELL 5 shares - taking profit, momentum weakening"
 - "HOLD - consolidating, no clear signal"
 
+🚨 CRITICAL: DO NOT exceed your trading limits or your order will be rejected!
+
 Consider:
 - Price movement this minute (open vs close)
-- Available cash
-- Current holdings
+- Available cash (${cash:.2f})
+- Current holdings ({holdings} shares)
 - Volume (market activity)
 
 Make your decision NOW (action + brief reasoning):"""

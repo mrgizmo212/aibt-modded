@@ -48,6 +48,9 @@ class ModelInfo(BaseModel):
     signature: str
     description: Optional[str] = None
     is_active: Optional[bool] = True
+    allowed_tickers: Optional[List[str]] = None
+    default_ai_model: Optional[str] = None
+    model_parameters: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -56,6 +59,9 @@ class ModelCreate(BaseModel):
     name: str
     description: Optional[str] = None
     initial_cash: float = 10000.0
+    allowed_tickers: Optional[List[str]] = None
+    default_ai_model: Optional[str] = None
+    model_parameters: Optional[Dict[str, Any]] = None
 
 
 class ModelListResponse(BaseModel):

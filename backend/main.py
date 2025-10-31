@@ -141,6 +141,135 @@ def health_check():
     }
 
 
+@app.get("/api/model-config")
+async def get_model_configuration(model_id: str):
+    """
+    Get recommended configuration for a specific AI model
+    Returns default parameters and model type information
+    
+    Query param: ?model_id=openai/gpt-5
+    """
+    from utils.model_config import get_default_params_for_model, get_model_type, PARAMETER_TEMPLATES
+    
+    model_type = get_model_type(model_id)
+    default_params = get_default_params_for_model(model_id)
+    template = PARAMETER_TEMPLATES.get(model_type, PARAMETER_TEMPLATES['standard'])
+    
+    return {
+        "model_id": model_id,
+        "model_type": model_type,
+        "default_parameters": default_params,
+        "template": template,
+        "supports_temperature": template.get('supports_temperature', True),
+        "supports_verbosity": template.get('supports_verbosity', False),
+        "supports_reasoning_effort": template.get('supports_reasoning_effort', False)
+    }
+
+
+@app.get("/api/available-models")
+async def get_available_models():
+    """
+    Fetch available AI models from OpenRouter
+    Returns list of models with their IDs, names, and capabilities
+    """
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get("data", [])
+                
+                # Filter and format models for trading (text generation only)
+                filtered_models = []
+                for model in models:
+                    model_id = model.get("id", "").lower()
+                    
+                    # Skip image/vision/audio models
+                    if any(skip in model_id for skip in ["image", "vision", "vl-", "audio", "whisper", "tts", "dall-e"]):
+                        continue
+                    
+                    # Skip embedding and moderation models
+                    if any(skip in model_id for skip in ["embed", "moderation", "search"]):
+                        continue
+                    
+                    # Only include text-generation models suitable for trading
+                    if any(include in model_id for include in [
+                        "instruct", "gpt", "claude", "gemini", "llama", 
+                        "qwen", "deepseek", "mistral", "phi", "gemma",
+                        "mixtral", "command", "yi", "falcon", "codex"
+                    ]):
+                        filtered_models.append({
+                            "id": model.get("id"),
+                            "name": model.get("name", model.get("id")),
+                            "provider": model.get("id", "").split("/")[0] if "/" in model.get("id", "") else "unknown",
+                            "context_length": model.get("context_length", 0),
+                            "pricing": model.get("pricing", {})
+                        })
+                
+                # Sort models: prioritize popular trading models
+                def get_priority(model_id):
+                    """Higher number = higher priority"""
+                    mid = model_id.lower()
+                    # Tier 1: Best for trading
+                    if "gpt-5-pro" in mid or "claude-sonnet-4.5" in mid or "gemini-2.5-pro" in mid:
+                        return 1000
+                    # Tier 2: Excellent
+                    if "gpt-5" in mid or "claude-4.5" in mid or "gemini-2.5" in mid:
+                        return 900
+                    # Tier 3: Very good
+                    if "gpt-4o" in mid or "claude-3.5" in mid or "gemini-2" in mid:
+                        return 800
+                    # Tier 4: Good
+                    if "deepseek" in mid or "qwen" in mid or "llama-3.3" in mid:
+                        return 700
+                    # Default
+                    return 500
+                
+                sorted_models = sorted(filtered_models, key=lambda m: get_priority(m["id"]), reverse=True)
+                
+                return {
+                    "models": sorted_models[:50],  # Limit to 50 most relevant
+                    "total": len(filtered_models),
+                    "source": "openrouter",
+                    "cached": False
+                }
+            else:
+                # Return fallback hardcoded list if API fails
+                return {
+                    "models": [
+                        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "openai"},
+                        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai"},
+                        {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "anthropic"},
+                        {"id": "google/gemini-2.0-flash-exp", "name": "Gemini 2.0 Flash", "provider": "google"},
+                    ],
+                    "total": 4,
+                    "source": "fallback",
+                    "cached": True
+                }
+    except Exception as e:
+        print(f"Error fetching models: {e}")
+        # Return fallback list on error
+        return {
+            "models": [
+                {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "openai"},
+                {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai"},
+                {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "anthropic"},
+                {"id": "google/gemini-2.0-flash-exp", "name": "Gemini 2.0 Flash", "provider": "google"},
+            ],
+            "total": 4,
+            "source": "fallback",
+            "cached": True,
+            "error": str(e)
+        }
+
+
 # ============================================================================
 # AUTHENTICATION ENDPOINTS
 # ============================================================================
@@ -300,7 +429,10 @@ async def create_my_model(model_data: ModelCreate, current_user: Dict = Depends(
         user_id=current_user["id"],
         name=model_data.name,
         description=model_data.description,
-        initial_cash=model_data.initial_cash
+        initial_cash=model_data.initial_cash,
+        allowed_tickers=model_data.allowed_tickers,
+        default_ai_model=model_data.default_ai_model,
+        model_parameters=model_data.model_parameters
     )
     
     if not model:
@@ -328,7 +460,10 @@ async def update_my_model(model_id: int, model_data: ModelCreate, current_user: 
         model_id=model_id,
         user_id=current_user["id"],
         name=model_data.name,
-        description=model_data.description
+        description=model_data.description,
+        allowed_tickers=model_data.allowed_tickers,
+        default_ai_model=model_data.default_ai_model,
+        model_parameters=model_data.model_parameters
     )
     
     if not updated_model:
@@ -522,6 +657,76 @@ async def get_leaderboard_admin(current_user: Dict = Depends(require_admin)):
     return {
         "leaderboard": leaderboard,
         "total_models": len(leaderboard)
+    }
+
+
+# ============================================================================
+# GLOBAL SETTINGS ENDPOINTS (Admin Only)
+# ============================================================================
+
+@app.get("/api/admin/global-settings")
+async def get_all_global_settings(current_user: Dict = Depends(require_admin)):
+    """Admin only: Get all global settings"""
+    from utils.settings_manager import get_settings_manager
+    
+    supabase = services.get_supabase()
+    manager = get_settings_manager(supabase)
+    settings = manager.get_all_global_settings()
+    
+    return {
+        "settings": settings,
+        "total": len(settings)
+    }
+
+
+@app.get("/api/admin/global-settings/{setting_key}")
+async def get_global_setting(setting_key: str, current_user: Dict = Depends(require_admin)):
+    """Admin only: Get specific global setting"""
+    from utils.settings_manager import get_settings_manager
+    
+    supabase = services.get_supabase()
+    manager = get_settings_manager(supabase)
+    setting = manager.get_global_setting(setting_key)
+    
+    if not setting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Setting '{setting_key}' not found"
+        )
+    
+    return {
+        "setting_key": setting_key,
+        "setting_value": setting
+    }
+
+
+@app.put("/api/admin/global-settings/{setting_key}")
+async def update_global_setting(
+    setting_key: str,
+    data: Dict[str, Any],
+    current_user: Dict = Depends(require_admin)
+):
+    """Admin only: Update global setting"""
+    from utils.settings_manager import get_settings_manager
+    
+    supabase = services.get_supabase()
+    manager = get_settings_manager(supabase)
+    
+    success = manager.set_global_setting(
+        setting_key,
+        data.get("setting_value"),
+        data.get("description", "")
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update setting"
+        )
+    
+    return {
+        "message": "Setting updated successfully",
+        "setting_key": setting_key
     }
 
 

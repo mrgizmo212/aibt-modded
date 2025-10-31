@@ -147,7 +147,15 @@ def generate_signature(name: str, user_id: str) -> str:
         signature = f"{base_signature}-{counter}"
 
 
-async def create_model(user_id: str, name: str, description: Optional[str] = None, initial_cash: float = 10000.0) -> Dict:
+async def create_model(
+    user_id: str, 
+    name: str, 
+    description: Optional[str] = None, 
+    initial_cash: float = 10000.0, 
+    allowed_tickers: Optional[List[str]] = None,
+    default_ai_model: Optional[str] = None,
+    model_parameters: Optional[Dict] = None
+) -> Dict:
     """
     Create new AI model with auto-generated signature
     
@@ -156,6 +164,9 @@ async def create_model(user_id: str, name: str, description: Optional[str] = Non
         name: Model name
         description: Optional description
         initial_cash: Starting capital amount (defaults to $10,000)
+        allowed_tickers: Optional list of allowed stock tickers (if None, trades all NASDAQ 100)
+        default_ai_model: Default AI model to use (e.g., 'openai/gpt-5-pro')
+        model_parameters: AI model parameters (temperature, verbosity, etc.)
         
     Returns:
         Created model dict
@@ -165,21 +176,42 @@ async def create_model(user_id: str, name: str, description: Optional[str] = Non
     # Auto-generate unique signature from name
     signature = generate_signature(name, user_id)
     
-    result = supabase.table("models").insert({
+    # Prepare insert data
+    insert_data = {
         "user_id": user_id,
         "name": name,
         "signature": signature,
         "description": description,
         "initial_cash": initial_cash,
         "is_active": True
-    }).execute()
+    }
+    
+    # Add optional fields if provided
+    if allowed_tickers is not None:
+        insert_data["allowed_tickers"] = allowed_tickers
+    
+    if default_ai_model is not None:
+        insert_data["default_ai_model"] = default_ai_model
+    
+    if model_parameters is not None:
+        insert_data["model_parameters"] = model_parameters
+    
+    result = supabase.table("models").insert(insert_data).execute()
     
     if result.data and len(result.data) > 0:
         return result.data[0]
     return {}
 
 
-async def update_model(model_id: int, user_id: str, name: str, description: Optional[str] = None) -> Optional[Dict]:
+async def update_model(
+    model_id: int, 
+    user_id: str, 
+    name: str, 
+    description: Optional[str] = None, 
+    allowed_tickers: Optional[List[str]] = None,
+    default_ai_model: Optional[str] = None,
+    model_parameters: Optional[Dict] = None
+) -> Optional[Dict]:
     """
     Update AI model (checks ownership)
     
@@ -188,6 +220,9 @@ async def update_model(model_id: int, user_id: str, name: str, description: Opti
         user_id: User ID
         name: New name
         description: New description
+        allowed_tickers: Optional list of allowed stock tickers
+        default_ai_model: Default AI model to use
+        model_parameters: AI model parameters configuration
         
     Returns:
         Updated model dict or None
@@ -199,10 +234,23 @@ async def update_model(model_id: int, user_id: str, name: str, description: Opti
     
     supabase = get_supabase()
     
-    result = supabase.table("models").update({
+    # Prepare update data
+    update_data = {
         "name": name,
         "description": description
-    }).eq("id", model_id).eq("user_id", user_id).execute()
+    }
+    
+    # Add optional fields if provided
+    if allowed_tickers is not None:
+        update_data["allowed_tickers"] = allowed_tickers
+    
+    if default_ai_model is not None:
+        update_data["default_ai_model"] = default_ai_model
+    
+    if model_parameters is not None:
+        update_data["model_parameters"] = model_parameters
+    
+    result = supabase.table("models").update(update_data).eq("id", model_id).eq("user_id", user_id).execute()
     
     if result.data and len(result.data) > 0:
         return result.data[0]

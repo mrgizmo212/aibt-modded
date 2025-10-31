@@ -47,6 +47,21 @@ async def run_intraday_session(
     print(f"  Session: {session}")
     print()
     
+    # Validate model exists before starting
+    from supabase import create_client
+    from config import settings
+    
+    supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    model_check = supabase.table("models").select("id").eq("id", model_id).execute()
+    
+    if not model_check.data:
+        error_msg = f"Model ID {model_id} not found in database"
+        print(f"❌ {error_msg}")
+        return {"status": "failed", "error": error_msg}
+    
+    print(f"✅ Model {model_id} verified")
+    print()
+    
     # Step 1: Pre-load all data into Redis
     print("📥 Step 1: Loading Session Data")
     print("-" * 80)
@@ -134,8 +149,26 @@ async def run_intraday_session(
         reasoning = decision.get("reasoning", "No reasoning provided")
         
         if action == "buy":
-            print(f"    💰 BUY {decision.get('amount', 0)} shares")
+            amount = decision.get("amount", 0)
+            cost = amount * current_price
+            available_cash = current_position.get("CASH", 0)
+            
+            # DEBUG: Show cash check
+            print(f"    🔍 Cash Check: Need ${cost:,.2f} | Have ${available_cash:,.2f}")
+            
+            # CRITICAL: Validate sufficient funds
+            if cost > available_cash:
+                print(f"    ❌ INSUFFICIENT FUNDS for BUY {amount} shares")
+                print(f"       Need: ${cost:,.2f} | Have: ${available_cash:,.2f}")
+                print(f"       Skipping trade")
+                continue
+            
+            print(f"    💰 BUY {amount} shares")
             print(f"       Why: {reasoning[:100]}")
+            
+            # Update position BEFORE recording to database
+            current_position["CASH"] -= cost
+            current_position[symbol] = current_position.get(symbol, 0) + amount
             
             # Record trade to database
             await _record_intraday_trade(
@@ -145,18 +178,30 @@ async def run_intraday_session(
                 minute=minute,
                 action="buy",
                 symbol=symbol,
-                amount=decision.get("amount", 0),
+                amount=amount,
                 price=current_price,
                 position=current_position
             )
             
             trades_executed += 1
-            current_position["CASH"] -= decision.get("amount", 0) * current_price
-            current_position[symbol] = current_position.get(symbol, 0) + decision.get("amount", 0)
             
         elif action == "sell":
-            print(f"    💵 SELL {decision.get('amount', 0)} shares")
+            amount = decision.get("amount", 0)
+            current_shares = current_position.get(symbol, 0)
+            
+            # CRITICAL: Validate sufficient shares
+            if amount > current_shares:
+                print(f"    ❌ INSUFFICIENT SHARES for SELL {amount}")
+                print(f"       Want to sell: {amount} | Own: {current_shares}")
+                print(f"       Skipping trade")
+                continue
+            
+            print(f"    💵 SELL {amount} shares")
             print(f"       Why: {reasoning[:100]}")
+            
+            # Update position BEFORE recording to database
+            current_position["CASH"] += amount * current_price
+            current_position[symbol] = current_shares - amount
             
             # Record trade to database
             await _record_intraday_trade(
@@ -166,14 +211,12 @@ async def run_intraday_session(
                 minute=minute,
                 action="sell",
                 symbol=symbol,
-                amount=decision.get("amount", 0),
+                amount=amount,
                 price=current_price,
                 position=current_position
             )
             
             trades_executed += 1
-            current_position["CASH"] += decision.get("amount", 0) * current_price
-            current_position[symbol] = current_position.get(symbol, 0) - decision.get("amount", 0)
         else:
             # HOLD - only show reasoning occasionally
             if idx % 30 == 0:  # Every 30 minutes
@@ -359,17 +402,27 @@ async def _record_intraday_trade(
     action_id = (existing.data[0]["action_id"] + 1) if existing.data else 1
     
     # Insert intraday trade (RLS works through model_id → models.user_id)
-    supabase.table("positions").insert({
-        "model_id": model_id,
-        "date": date,
-        "minute_time": minute + ":00",  # HH:MM:SS format
-        "action_id": action_id,
-        "action_type": action,
-        "symbol": symbol,
-        "amount": amount,
-        "positions": position,
-        "cash": position.get("CASH", 0)
-    }).execute()
-    
-    print(f"    💾 Recorded: {action.upper()} {amount} {symbol} @ ${price:.2f}")
+    try:
+        supabase.table("positions").insert({
+            "model_id": model_id,
+            "date": date,
+            "minute_time": minute + ":00",  # HH:MM:SS format
+            "action_id": action_id,
+            "action_type": action,
+            "symbol": symbol,
+            "amount": amount,
+            "positions": position,
+            "cash": position.get("CASH", 0)
+        }).execute()
+        
+        print(f"    💾 Recorded: {action.upper()} {amount} {symbol} @ ${price:.2f}")
+    except Exception as e:
+        error_msg = str(e)
+        if "positions_model_id_fkey" in error_msg:
+            print(f"    ❌ ERROR: model_id={model_id} doesn't exist in models table")
+            print(f"       Please create the model first or use a valid model_id")
+            raise ValueError(f"Invalid model_id={model_id}. Model must exist in database before trading.") from e
+        else:
+            print(f"    ❌ ERROR recording trade: {error_msg}")
+            raise
 
