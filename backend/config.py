@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     DATA_DIR: str = "./data"
     
     # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3100"
     
     # Authentication
     AUTH_REQUIRE_EMAIL_CONFIRMATION: bool = False
