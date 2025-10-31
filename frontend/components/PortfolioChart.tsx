@@ -91,6 +91,9 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
   const minValue = Math.min(...values)
   const maxValue = Math.max(...values)
   const valueRange = maxValue - minValue || 1
+  
+  // Handle single data point case
+  const isSinglePoint = chartData.length === 1
 
   // Calculate initial and final values
   const initialValue = chartData[0]?.value || 0
@@ -150,35 +153,37 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
             {/* Area under line */}
             <path
               d={`M 0 200 ${chartData.map((point, i) => {
-                const x = (i / (chartData.length - 1)) * 800
+                const x = isSinglePoint ? 400 : (i / (chartData.length - 1)) * 800
                 const y = 200 - ((point.value - minValue) / valueRange) * 200
                 return `L ${x} ${y}`
-              }).join(' ')} L 800 200 Z`}
+              }).join(' ')} L ${isSinglePoint ? 400 : 800} 200 Z`}
               fill="url(#gradient)"
             />
 
             {/* Line */}
-            <polyline
-              points={chartData.map((point, i) => {
-                const x = (i / (chartData.length - 1)) * 800
-                const y = 200 - ((point.value - minValue) / valueRange) * 200
-                return `${x},${y}`
-              }).join(' ')}
-              fill="none"
-              stroke={isProfit ? "#22c55e" : "#ef4444"}
-              strokeWidth="2"
-            />
+            {!isSinglePoint && (
+              <polyline
+                points={chartData.map((point, i) => {
+                  const x = (i / (chartData.length - 1)) * 800
+                  const y = 200 - ((point.value - minValue) / valueRange) * 200
+                  return `${x},${y}`
+                }).join(' ')}
+                fill="none"
+                stroke={isProfit ? "#22c55e" : "#ef4444"}
+                strokeWidth="2"
+              />
+            )}
 
             {/* Data points */}
             {chartData.map((point, i) => {
-              const x = (i / (chartData.length - 1)) * 800
+              const x = isSinglePoint ? 400 : (i / (chartData.length - 1)) * 800
               const y = 200 - ((point.value - minValue) / valueRange) * 200
               return (
                 <circle
                   key={i}
                   cx={x}
                   cy={y}
-                  r="3"
+                  r={isSinglePoint ? "5" : "3"}
                   fill={isProfit ? "#22c55e" : "#ef4444"}
                   className="hover:r-4 transition-all"
                 >
@@ -191,9 +196,15 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
 
         {/* X-axis labels */}
         <div className="ml-16 mt-2 flex justify-between text-xs text-gray-500">
-          <span>{chartData[0]?.date || ''}</span>
-          {chartData.length > 2 && <span>{chartData[Math.floor(chartData.length / 2)]?.date || ''}</span>}
-          <span>{chartData[chartData.length - 1]?.date || ''}</span>
+          {isSinglePoint ? (
+            <span className="mx-auto">{chartData[0]?.date || ''}</span>
+          ) : (
+            <>
+              <span>{chartData[0]?.date || ''}</span>
+              {chartData.length > 2 && <span>{chartData[Math.floor(chartData.length / 2)]?.date || ''}</span>}
+              <span>{chartData[chartData.length - 1]?.date || ''}</span>
+            </>
+          )}
         </div>
       </div>
 

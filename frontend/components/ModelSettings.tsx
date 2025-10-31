@@ -25,15 +25,15 @@ export function ModelSettings({ selectedAIModel, currentParams, onParamsChange }
   }, [currentParams])
 
   async function loadConfig() {
+    setLoading(true)
     try {
       const data = await getModelConfig(selectedAIModel)
       setConfig(data)
       
-      // Initialize with defaults if no current params
-      if (!currentParams || Object.keys(currentParams).length === 0) {
-        setParams(data.default_parameters)
-        onParamsChange(data.default_parameters)
-      }
+      // When AI model changes, load its defaults
+      const newParams = data.default_parameters
+      setParams(newParams)
+      onParamsChange(newParams)
     } catch (error) {
       console.error('Failed to load model config:', error)
     } finally {

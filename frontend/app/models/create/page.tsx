@@ -17,8 +17,10 @@ export default function CreateModelPage() {
   const [selectedTickers, setSelectedTickers] = useState<string[]>([])
   const [tickerInput, setTickerInput] = useState('')
   const [useAllStocks, setUseAllStocks] = useState(true)
-  const [selectedAIModel, setSelectedAIModel] = useState('openai/gpt-5-pro')
+  const [selectedAIModel, setSelectedAIModel] = useState('openai/gpt-5')
   const [modelParameters, setModelParameters] = useState<Record<string, any>>({})
+  const [customRules, setCustomRules] = useState('')
+  const [customInstructions, setCustomInstructions] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
@@ -66,7 +68,9 @@ export default function CreateModelPage() {
         initial_cash: parseFloat(initialCash),
         allowed_tickers: useAllStocks ? undefined : selectedTickers,
         default_ai_model: selectedAIModel,
-        model_parameters: modelParameters
+        model_parameters: modelParameters,
+        custom_rules: customRules || undefined,
+        custom_instructions: customInstructions || undefined
       })
       
       // Redirect to the newly created model's detail page
@@ -326,6 +330,60 @@ export default function CreateModelPage() {
                 <p className="mt-2 text-xs text-gray-500">
                   Configure AI behavior parameters. You can change these anytime later.
                 </p>
+              </div>
+              
+              {/* Custom Rules */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Custom Trading Rules <span className="text-gray-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={customRules}
+                  onChange={(e) => setCustomRules(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Example: Only trade tech stocks. Never hold more than 5 positions. Take profit at 10%. Use stop-loss at -5%."
+                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {customRules.length}/2000 characters • Define specific trading rules the AI must follow
+                </p>
+              </div>
+              
+              {/* Custom Instructions */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Custom Instructions <span className="text-gray-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Example: Focus on value investing. Prefer companies with P/E ratio under 20. Analyze market sentiment before each trade."
+                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {customInstructions.length}/2000 characters • Provide additional context or strategy guidance
+                </p>
+              </div>
+              
+              {/* Rules/Instructions Info */}
+              <div className="bg-purple-500/10 border border-purple-500 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-purple-400">
+                    <p className="font-medium mb-1">Custom Rules & Instructions:</p>
+                    <ul className="space-y-1 text-purple-300 text-xs">
+                      <li>• <strong>No rules/instructions:</strong> AI uses default trading behavior</li>
+                      <li>• <strong>With rules:</strong> AI must follow your specific trading rules</li>
+                      <li>• <strong>With instructions:</strong> AI considers your strategy guidance</li>
+                      <li>• <strong>Both:</strong> AI follows rules AND considers instructions</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
               
               {/* Info Box */}

@@ -36,6 +36,7 @@ export default function ModelDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
   const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [currentModel, setCurrentModel] = useState<Model | null>(null)
   
   // Calculate default trading dates (skip weekends)
   const getRecentTradingDate = (daysBack: number): string => {
@@ -70,6 +71,9 @@ export default function ModelDetailPage() {
   const [editDescription, setEditDescription] = useState('')
   const [editAIModel, setEditAIModel] = useState('openai/gpt-5')
   const [editParameters, setEditParameters] = useState<Record<string, any>>({})
+  const [editRules, setEditRules] = useState('')
+  const [editInstructions, setEditInstructions] = useState('')
+  const [editInitialCash, setEditInitialCash] = useState('10000')
   const [editLoading, setEditLoading] = useState(false)
   
   useEffect(() => {
@@ -86,15 +90,22 @@ export default function ModelDetailPage() {
   async function loadData() {
     try {
       // Fetch data with error handling for new models
-      const [posData, latestData, statusData] = await Promise.all([
+      const [posData, latestData, statusData, modelsData] = await Promise.all([
         fetchModelPositions(modelId).catch(() => ({ positions: [] })),
         fetchModelLatestPosition(modelId).catch(() => null),
-        fetchTradingStatus(modelId).catch(() => null)
+        fetchTradingStatus(modelId).catch(() => null),
+        fetchMyModels().catch(() => ({ models: [] }))
       ])
       
       setPositions(posData.positions || [])
       setLatestPosition(latestData)
       setStatus(statusData)
+      
+      // Find and set current model
+      const model = modelsData.models.find(m => m.id === modelId)
+      if (model) {
+        setCurrentModel(model)
+      }
       
         // Determine original AI from model signature and pre-select it
         if (latestData) {
@@ -126,13 +137,16 @@ export default function ModelDetailPage() {
   async function handleStart() {
     setActionLoading(true)
     try {
+      // Use model's default AI or fallback
+      const aiModel = currentModel?.default_ai_model || baseModel
+      
       if (tradingMode === 'intraday') {
         // Intraday trading
         const { startIntradayTrading } = await import('@/lib/api')
-        await startIntradayTrading(modelId, intradaySymbol, intradayDate, intradaySession as 'pre' | 'regular' | 'after', baseModel)
+        await startIntradayTrading(modelId, intradaySymbol, intradayDate, intradaySession as 'pre' | 'regular' | 'after', aiModel)
       } else {
         // Daily trading
-        await startTrading(modelId, baseModel, startDate, endDate)
+        await startTrading(modelId, aiModel, startDate, endDate)
       }
       await loadData()
     } catch (error: any) {
@@ -156,15 +170,22 @@ export default function ModelDetailPage() {
   
   async function handleOpenEdit() {
     try {
-      // Fetch current model data
-      const modelsData = await fetchMyModels()
-      const currentModel = modelsData.models.find(m => m.id === modelId)
+      // Use already loaded current model or fetch fresh
+      let modelToEdit = currentModel
       
-      if (currentModel) {
-        setEditName(currentModel.name || '')
-        setEditDescription(currentModel.description || '')
-        setEditAIModel(currentModel.default_ai_model || 'openai/gpt-5')
-        setEditParameters(currentModel.model_parameters || {})
+      if (!modelToEdit) {
+        const modelsData = await fetchMyModels()
+        modelToEdit = modelsData.models.find(m => m.id === modelId) || null
+      }
+      
+      if (modelToEdit) {
+        setEditName(modelToEdit.name || '')
+        setEditDescription(modelToEdit.description || '')
+        setEditAIModel(modelToEdit.default_ai_model || 'openai/gpt-5')
+        setEditParameters(modelToEdit.model_parameters || {})
+        setEditRules(modelToEdit.custom_rules || '')
+        setEditInstructions(modelToEdit.custom_instructions || '')
+        setEditInitialCash(String(modelToEdit.initial_cash || 10000))
       }
       
       setShowEditModal(true)
@@ -180,10 +201,26 @@ export default function ModelDetailPage() {
         name: editName,
         description: editDescription || undefined,
         default_ai_model: editAIModel,
-        model_parameters: editParameters
+        model_parameters: editParameters,
+        custom_rules: editRules || undefined,
+        custom_instructions: editInstructions || undefined
       })
+      
+      // Update local state immediately with saved values
+      if (currentModel) {
+        setCurrentModel({
+          ...currentModel,
+          name: editName,
+          description: editDescription || undefined,
+          default_ai_model: editAIModel,
+          model_parameters: editParameters,
+          custom_rules: editRules || undefined,
+          custom_instructions: editInstructions || undefined
+        })
+      }
+      
       setShowEditModal(false)
-      await loadData()
+      await loadData() // Reload to confirm
     } catch (error: any) {
       alert(`Failed to update model: ${error.message}`)
     } finally {
@@ -274,8 +311,10 @@ export default function ModelDetailPage() {
           {!isNewModel && (
               <div className="mb-4 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
               <p className="text-sm text-gray-400">
-                Originally traded by: <span className="text-green-500 font-medium">
-                  {AVAILABLE_MODELS.find(m => m.id === originalAI)?.name || 'Unknown'}
+                Default AI Model: <span className="text-green-500 font-medium">
+                  {currentModel?.default_ai_model 
+                    ? AVAILABLE_MODELS.find(m => m.id === currentModel.default_ai_model)?.name || currentModel.default_ai_model
+                    : AVAILABLE_MODELS.find(m => m.id === originalAI)?.name || 'Unknown'}
                 </span>
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -329,21 +368,7 @@ export default function ModelDetailPage() {
           
           {/* Daily Trading Fields */}
           {tradingMode === 'daily' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">AI Model</label>
-                <select
-                  value={baseModel}
-                  onChange={(e) => setBaseModel(e.target.value)}
-                  disabled={isRunning}
-                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {AVAILABLE_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Start Date</label>
                 <input
@@ -371,21 +396,7 @@ export default function ModelDetailPage() {
           {/* Intraday Trading Fields */}
           {tradingMode === 'intraday' && (
             <div className="space-y-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">AI Model</label>
-                  <select
-                    value={baseModel}
-                    onChange={(e) => setBaseModel(e.target.value)}
-                    disabled={isRunning}
-                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    {AVAILABLE_MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Stock Symbol</label>
                   <input
@@ -396,11 +407,9 @@ export default function ModelDetailPage() {
                     placeholder="AAPL"
                     className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Single stock only for intraday</p>
+                  <p className="text-xs text-gray-500 mt-1">Single stock</p>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Trading Date</label>
                   <input
@@ -410,7 +419,6 @@ export default function ModelDetailPage() {
                     disabled={isRunning}
                     className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Single day only</p>
                 </div>
                 
                 <div>
@@ -431,7 +439,11 @@ export default function ModelDetailPage() {
               <div className="p-3 bg-purple-500/10 border border-purple-500 rounded-md">
                 <p className="text-sm text-purple-400">
                   <strong>Intraday Mode:</strong> AI will trade {intradaySymbol} minute-by-minute during {intradaySession} session on {intradayDate}.
-                  This processes ~60-390 minutes depending on session.
+                  Uses your default AI model: <span className="text-purple-300 font-semibold">
+                    {currentModel?.default_ai_model 
+                      ? AVAILABLE_MODELS.find(m => m.id === currentModel.default_ai_model)?.name 
+                      : 'Not set'}
+                  </span>
                 </p>
               </div>
             </div>
@@ -686,13 +698,13 @@ export default function ModelDetailPage() {
       
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-3xl w-full my-8">
+        <div className="fixed inset-0 bg-black/80 flex items-start justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6 max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">Edit Model</h3>
             
             <div className="space-y-6">
               {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Model Name <span className="text-red-500">*</span>
@@ -719,6 +731,24 @@ export default function ModelDetailPage() {
                     ))}
                   </select>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Starting Capital <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-2.5 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      value={editInitialCash}
+                      onChange={(e) => setEditInitialCash(e.target.value)}
+                      min="1000"
+                      max="1000000"
+                      step="1000"
+                      className="w-full pl-8 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
               </div>
               
               <div>
@@ -743,6 +773,42 @@ export default function ModelDetailPage() {
                     onParamsChange={setEditParameters}
                   />
                 </div>
+              </div>
+              
+              {/* Custom Rules */}
+              <div className="border-t border-zinc-800 pt-4">
+                <label className="block text-sm font-medium mb-2">
+                  Custom Trading Rules <span className="text-gray-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={editRules}
+                  onChange={(e) => setEditRules(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Define specific trading rules..."
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {editRules.length}/2000 characters
+                </p>
+              </div>
+              
+              {/* Custom Instructions */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Custom Instructions <span className="text-gray-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={editInstructions}
+                  onChange={(e) => setEditInstructions(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Provide strategy guidance..."
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {editInstructions.length}/2000 characters
+                </p>
               </div>
             </div>
             

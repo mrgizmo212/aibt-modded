@@ -39,9 +39,12 @@ export interface Model {
   signature: string
   description?: string
   is_active: boolean
+  initial_cash?: number
   allowed_tickers?: string[]
   default_ai_model?: string
   model_parameters?: Record<string, any>
+  custom_rules?: string
+  custom_instructions?: string
   created_at: string
   updated_at?: string
 }
@@ -53,6 +56,8 @@ export interface ModelCreateRequest {
   allowed_tickers?: string[]
   default_ai_model?: string
   model_parameters?: Record<string, any>
+  custom_rules?: string
+  custom_instructions?: string
 }
 
 export interface IntradayTradingRequest {

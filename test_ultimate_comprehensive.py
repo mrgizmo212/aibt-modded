@@ -746,19 +746,26 @@ async def test_suite_10_end_to_end_simulation():
                         print(f"        Response: {intraday_trade.text[:200]}")
             except httpx.ReadTimeout:
                 print("    ✅ Intraday endpoint accepted (still processing)")
+                print("    ℹ️  Note: Intraday trading runs async - skipping cleanup to avoid race condition")
+                # DON'T delete model - let intraday trading complete
+                # The test model will remain in DB for manual inspection/cleanup
+                test_model_id = None  # Mark for skip in cleanup
             except Exception as e:
                 print(f"    ⚠️  Intraday endpoint error: {str(e)[:100]}")
             
             # Step 6: Cleanup
             print("\n  🧹 Step 6: Cleanup")
-            delete = await client.delete(
-                f"http://localhost:8080/api/models/{test_model_id}",
-                headers=headers,
-                timeout=10.0
-            )
-            
-            if delete.status_code == 200:
-                print(f"    ✅ Test model deleted")
+            if test_model_id is not None:
+                delete = await client.delete(
+                    f"http://localhost:8080/api/models/{test_model_id}",
+                    headers=headers,
+                    timeout=10.0
+                )
+                
+                if delete.status_code == 200:
+                    print(f"    ✅ Test model deleted")
+            else:
+                print(f"    ℹ️  Cleanup skipped - intraday trading still running")
             
             print("\n✅ SUITE 10 PASSED - Complete user journey simulated")
             return True
