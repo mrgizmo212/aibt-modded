@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { fetchMyModels, fetchAllTradingStatus, startTrading, stopTrading, deleteModel } from '@/lib/api'
 import type { Model, TradingStatus } from '@/types/api'
 
@@ -140,7 +141,13 @@ export default function DashboardPage() {
       {/* Navbar */}
       <nav className="border-b border-zinc-800 bg-zinc-950 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-green-500">AIBT</h1>
+          <Image 
+            src="https://truetradinggroup.com/wp-content/uploads/2025/10/darkLogoN.png"
+            alt="True Trading Group Logo"
+            width={120}
+            height={40}
+            className="h-10 w-auto"
+          />
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-400">{user?.email}</span>
             {user?.role === 'admin' && (
