@@ -170,7 +170,14 @@ Consider these instructions when making trading decisions.
 
 
 
-def get_intraday_system_prompt(minute: str, symbol: str, bar: dict, position: dict) -> str:
+def get_intraday_system_prompt(
+    minute: str, 
+    symbol: str, 
+    bar: dict, 
+    position: dict,
+    custom_rules: Optional[str] = None,  # ← NEW
+    custom_instructions: Optional[str] = None  # ← NEW
+) -> str:
     """
     Generate intraday-specific trading prompt
     
@@ -231,6 +238,25 @@ Consider:
 - Volume (market activity)
 
 Make your decision NOW (action + brief reasoning):"""
+    
+    # NEW: Append custom rules/instructions (same pattern as daily trading)
+    if custom_rules:
+        prompt += f"""
+
+🎯 CUSTOM TRADING RULES (MANDATORY):
+{custom_rules}
+
+These rules OVERRIDE default behavior. Follow them strictly for every decision.
+"""
+    
+    if custom_instructions:
+        prompt += f"""
+
+📋 STRATEGY GUIDANCE:
+{custom_instructions}
+
+Use these instructions to guide your minute-by-minute decisions.
+"""
     
     return prompt
 

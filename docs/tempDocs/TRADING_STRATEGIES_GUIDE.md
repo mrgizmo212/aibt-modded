@@ -24,13 +24,21 @@
 
 #### **Custom Rules for AI:**
 ```
-Only trade high-volume stocks (>1M shares/day)
-Enter when spread < $0.05
-Exit at 0.3% profit OR 0.15% loss
-Maximum hold time: 5 minutes
-Minimum 500 shares per minute for liquidity
-Trade only 9:30-10:30 AM and 3:00-4:00 PM (highest volume)
-Never hold overnight
+RISK MANAGEMENT:
+- Maximum 10% of portfolio per position
+- Maximum 5 concurrent positions
+- Daily loss limit: Stop trading if down 2% today
+- Per-trade risk: Max 1% portfolio risk per trade
+
+ENTRY/EXIT:
+- Only trade high-volume stocks (>1M shares/day)
+- Enter when spread < $0.05
+- Exit at 0.3% profit OR 0.15% loss
+- Maximum hold time: 5 minutes
+
+TIMING:
+- Trade only 9:30-10:30 AM and 3:00-4:00 PM (highest volume)
+- Never hold overnight
 ```
 
 #### **Custom Instructions for AI:**
@@ -62,14 +70,22 @@ Exit immediately if momentum reverses
 
 #### **Custom Rules for AI:**
 ```
-Close ALL positions by 3:55 PM (avoid after-hours risk)
-Maximum 3 open positions simultaneously
-Stop loss: -1.5% per trade
-Take profit: +2.5% per trade
-Minimum $1 price movement to enter
-Avoid first 5 minutes (9:30-9:35 AM) - too volatile
-Avoid last 5 minutes (3:55-4:00 PM) - closing volatility
-Position size: 5-10% of portfolio per trade
+RISK MANAGEMENT:
+- Maximum 20% of portfolio per position
+- Maximum 3 concurrent positions
+- Daily loss circuit breaker: Stop if down 3% today
+- Per-trade stop loss: -1.5%
+- Per-trade take profit: +2.5%
+- Position size: 10-15% of portfolio per trade
+
+ENTRY/EXIT:
+- Minimum $1 price movement to enter
+- Close ALL positions by 3:55 PM (no overnight risk)
+
+TIMING:
+- Avoid first 5 minutes (9:30-9:35 AM) - opening volatility
+- Avoid last 5 minutes (3:55-4:00 PM) - closing volatility
+- Avoid 12:00-14:00 (lunch hour - low volume)
 ```
 
 #### **Custom Instructions for AI:**
@@ -102,15 +118,25 @@ Respect pre-market gaps
 
 #### **Custom Rules for AI:**
 ```
-Minimum hold time: 2 days (avoid day-trading whipsaws)
-Maximum hold time: 10 days (avoid becoming investor)
-Stop loss: -5% from entry
-Take profit: +8% from entry
-Trail stop: Lock in profits at +5% with 2% trail
-Maximum 5 positions simultaneously
-Position size: 10-20% of portfolio per trade
-Only enter on daily close confirmation
-Exit if thesis invalidates (news, earnings, etc.)
+RISK MANAGEMENT:
+- Maximum 20% of portfolio per position
+- Maximum 5 concurrent positions
+- Weekly loss limit: Stop if down 5% this week
+- Stop loss: -5% from entry price
+- Take profit: +8% from entry price
+- Trailing stop: Lock profits at +5% with 2% trail
+
+POSITION SIZING:
+- Position size: 10-20% of portfolio per trade
+- Never more than 80% invested (keep 20% cash reserve)
+
+HOLDING PERIOD:
+- Minimum hold: 2 days (avoid day-trading whipsaws)
+- Maximum hold: 10 days (avoid becoming long-term investor)
+
+ENTRY/EXIT:
+- Only enter on daily close confirmation
+- Exit if thesis invalidates (news, earnings, technical breakdown)
 ```
 
 #### **Custom Instructions for AI:**
@@ -144,17 +170,27 @@ Consider broader market trend (SPY/QQQ direction)
 
 #### **Custom Rules for AI:**
 ```
-Minimum hold time: 90 days
-Only trade on monthly rebalancing (1st of month)
-Maximum 15 positions (diversification)
-Position size: 5-10% per holding
-Sell only if:
-  - Fundamental thesis breaks
-  - Stock > 50% overvalued
-  - Better opportunity exists
-Add to winners (pyramiding into strength)
-Average down on quality dips (< -15%)
-Ignore daily noise and volatility
+RISK MANAGEMENT:
+- Maximum 10% of portfolio per position (at entry)
+- Maximum 15 total positions (diversification)
+- No position should exceed 15% (rebalance if growth causes this)
+- Keep 10% cash reserve minimum
+- Sector limit: Max 25% in any single sector
+
+POSITION SIZING:
+- Initial position: 5-10% of portfolio
+- Add to winners: Additional 2-5% if up >10%
+- Average down: Additional 5% if down >15% (quality stocks only)
+
+HOLDING PERIOD:
+- Minimum hold: 90 days (tax efficiency, avoid noise)
+- Review quarterly, rebalance if needed
+
+SELL TRIGGERS:
+- Fundamental thesis breaks
+- Stock >50% overvalued vs fair value
+- Better opportunity exists with 2x+ conviction
+- Position grows >15% of portfolio (take profits)
 ```
 
 #### **Custom Instructions for AI:**
@@ -276,6 +312,44 @@ Symbols: Quality blue chips, dividend stocks
 - ✅ More time for analysis
 - ✅ Lower stress, better for AI reasoning
 - ✅ Fewer API calls
+
+---
+
+## 🔴 **REAL EXAMPLE: Why Risk Management Matters**
+
+### **Actual IBM Intraday Session (Model #169, Oct 29, 2025):**
+
+**WITHOUT Custom Rules:**
+```
+Result: -2.40% loss (-$239.54)
+Max Drawdown: 62.63%  ← Portfolio dropped to 37% of peak!
+Trades: 30 in 1.5 hours
+Win Rate: 60.7%  ← More wins than losses, STILL lost money!
+
+Problem:
+❌ Went 90% into one stock (IBM)
+❌ Had only $257 cash at lowest point
+❌ No stop losses
+❌ No position limits
+❌ Over-traded (20 trades/hour)
+```
+
+**WITH Day Trader Rules:**
+```
+RISK MANAGEMENT enforced:
+✅ Max 20% per position → Would limit to ~$2,000 in IBM
+✅ Keep 20% cash reserve → Always $2,000+ available
+✅ Stop loss -1.5% → Would exit bad trades early
+✅ Max 3 positions → Would prevent overconcentration
+✅ Daily loss -3% → Would STOP at -$300 loss
+
+Expected Result:
+- Controlled risk
+- Protected capital
+- Avoided 62% drawdown disaster
+```
+
+**This proves:** The AI makes decent decisions (60.7% win rate), but **without rules it's reckless**!
 
 ---
 

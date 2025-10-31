@@ -69,6 +69,7 @@ export interface LatestPosition {
   date: string
   positions: Record<string, number>
   cash: number
+  stocks_value: number
   total_value: number
 }
 

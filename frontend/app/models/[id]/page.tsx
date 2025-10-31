@@ -546,15 +546,21 @@ export default function ModelDetailPage() {
                 <h3 className="text-md font-bold mb-3">Portfolio Summary</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
-                    <span className="text-sm text-gray-400">Cash Balance</span>
-                    <span className="text-lg font-semibold text-green-500">
-                      ${latestPosition.cash.toFixed(2)}
+                    <span className="text-sm text-gray-400">💰 Total Portfolio</span>
+                    <span className="text-xl font-bold text-white">
+                      ${latestPosition.total_value.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
-                    <span className="text-sm text-gray-400">Total Value</span>
-                    <span className="text-lg font-semibold">
-                      ${latestPosition.total_value.toFixed(2)}
+                    <span className="text-sm text-gray-400">📊 Position Value</span>
+                    <span className="text-lg font-semibold text-blue-400">
+                      ${(latestPosition.stocks_value || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">
+                    <span className="text-sm text-gray-400">💵 Buying Power</span>
+                    <span className="text-lg font-semibold text-green-500">
+                      ${latestPosition.cash.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b border-zinc-800">

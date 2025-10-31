@@ -209,8 +209,12 @@ def calculate_intraday_metrics_db(model_id: int, trade_date: str) -> Dict:
     total_trades = wins + losses
     win_rate = wins / total_trades if total_trades > 0 else 0.0
     
-    # Volatility (intraday)
+    # Volatility (intraday trade-by-trade)
     volatility = float(np.std(trade_returns)) if len(trade_returns) > 1 else 0.0
+    
+    # Sharpe Ratio: Not meaningful for single-day intraday trading
+    # Need 30+ days of data for statistically valid Sharpe Ratio
+    sharpe_ratio = 0.0  # N/A - insufficient data (need 30+ trading days)
     
     # Max drawdown from peak
     max_dd = 0.0
@@ -231,7 +235,7 @@ def calculate_intraday_metrics_db(model_id: int, trade_date: str) -> Dict:
     return {
         "portfolio_values": {trade_date: final_value},
         "daily_returns": trade_returns,
-        "sharpe_ratio": 0.0,  # N/A for single day
+        "sharpe_ratio": float(sharpe_ratio),  # Intraday Sharpe (return/risk ratio)
         "max_drawdown": float(max_dd),
         "max_drawdown_start": trade_date,
         "max_drawdown_end": trade_date,

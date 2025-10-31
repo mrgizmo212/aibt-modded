@@ -103,6 +103,7 @@ class LatestPositionResponse(BaseModel):
     date: str
     positions: Dict[str, float]
     cash: float
+    stocks_value: float
     total_value: float
 
 

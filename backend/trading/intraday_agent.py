@@ -21,7 +21,8 @@ async def run_intraday_session(
     user_id: str,
     symbol: str,
     date: str,
-    session: str = "regular"
+    session: str = "regular",
+    run_id: Optional[int] = None  # ← NEW: Link trades to run
 ) -> Dict[str, Any]:
     """
     Run minute-by-minute intraday trading session
@@ -187,13 +188,15 @@ async def run_intraday_session(
             await _record_intraday_trade(
                 model_id=model_id,
                 user_id=user_id,
+                run_id=run_id,  # ← NEW
                 date=date,
                 minute=minute,
                 action="buy",
                 symbol=symbol,
                 amount=amount,
                 price=current_price,
-                position=current_position
+                position=current_position,
+                reasoning=reasoning  # ← NEW
             )
             
             trades_executed += 1
@@ -220,13 +223,15 @@ async def run_intraday_session(
             await _record_intraday_trade(
                 model_id=model_id,
                 user_id=user_id,
+                run_id=run_id,  # ← NEW
                 date=date,
                 minute=minute,
                 action="sell",
                 symbol=symbol,
                 amount=amount,
                 price=current_price,
-                position=current_position
+                position=current_position,
+                reasoning=reasoning  # ← NEW
             )
             
             trades_executed += 1
@@ -319,7 +324,9 @@ async def _ai_decide_intraday(
         minute=minute,
         symbol=symbol,
         bar=bar,
-        position=current_position
+        position=current_position,
+        custom_rules=agent.custom_rules,  # ← NEW: Pass rules
+        custom_instructions=agent.custom_instructions  # ← NEW: Pass instructions
     )
     
     # Call AI agent (actual decision making)
@@ -352,6 +359,23 @@ async def _ai_decide_intraday(
         # Extract reasoning (text after dash)
         reasoning = content.split(" - ", 1)[1] if " - " in content else content
         
+        # NEW: Save AI reasoning to database
+        if run_id:
+            from services.reasoning_service import save_ai_reasoning
+            
+            await save_ai_reasoning(
+                model_id=agent.model_id,
+                run_id=run_id,
+                reasoning_type="decision",
+                content=reasoning,
+                context_json={
+                    "minute": minute,
+                    "symbol": symbol,
+                    "bar": bar,
+                    "action": content_upper[:10]  # BUY/SELL/HOLD
+                }
+            )
+        
         # CRITICAL: Check if response STARTS with action, not just contains the word
         # This prevents "HOLD - insufficient cash to buy" from being parsed as BUY
         if content_upper.startswith("BUY") or content_upper.startswith('"BUY'):
@@ -375,13 +399,15 @@ async def _ai_decide_intraday(
 async def _record_intraday_trade(
     model_id: int,
     user_id: str,
+    run_id: Optional[int],  # ← NEW
     date: str,
     minute: str,
     action: str,
     symbol: str,
     amount: int,
     price: float,
-    position: Dict
+    position: Dict,
+    reasoning: Optional[str] = None  # ← NEW
 ):
     """
     Record intraday trade to database
@@ -418,6 +444,7 @@ async def _record_intraday_trade(
     try:
         supabase.table("positions").insert({
             "model_id": model_id,
+            "run_id": run_id,  # ← NEW: Link to run
             "date": date,
             "minute_time": minute + ":00",  # HH:MM:SS format
             "action_id": action_id,
@@ -425,7 +452,8 @@ async def _record_intraday_trade(
             "symbol": symbol,
             "amount": amount,
             "positions": position,
-            "cash": position.get("CASH", 0)
+            "cash": position.get("CASH", 0),
+            "reasoning": reasoning[:500] if reasoning else None  # ← NEW: Truncated reasoning
         }).execute()
         
         print(f"    💾 Recorded: {action.upper()} {amount} {symbol} @ ${price:.2f}")

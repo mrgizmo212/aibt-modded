@@ -553,9 +553,8 @@ async def get_latest_position_endpoint(model_id: int, current_user: Dict = Depen
     
     positions_data = position.get("positions", {})
     cash = position.get("cash", positions_data.get("CASH", 0.0))
-    
-    # Use calculated total value from services (includes stock valuations)
-    total_value = position.get("total_value_calculated", cash)
+    stocks_value = position.get("stocks_value", 0.0)
+    total_value = position.get("total_value", cash)
     
     return {
         "model_id": model_id,
@@ -563,7 +562,8 @@ async def get_latest_position_endpoint(model_id: int, current_user: Dict = Depen
         "date": str(position["date"]),
         "positions": positions_data,
         "cash": cash,
-        "total_value": total_value  # ✅ FIXED: Uses calculated value including stocks
+        "stocks_value": stocks_value,
+        "total_value": total_value
     }
 
 
@@ -918,34 +918,70 @@ async def start_intraday_trading(
     if not model:
         raise NotFoundError("Model")
     
+    # NEW: Create trading run
+    run = await services.create_trading_run(
+        model_id=model_id,
+        trading_mode="intraday",
+        strategy_snapshot={
+            "custom_rules": model.get("custom_rules"),
+            "custom_instructions": model.get("custom_instructions"),
+            "model_parameters": model.get("model_parameters"),
+            "default_ai_model": model.get("default_ai_model")
+        },
+        intraday_symbol=request.symbol,
+        intraday_date=request.date,
+        intraday_session=request.session
+    )
+    
+    run_id = run["id"]
+    run_number = run["run_number"]
+    
+    print(f"🚀 Starting Run #{run_number} (intraday: {request.symbol} on {request.date})")
+    
     # Import intraday agent
     from trading.intraday_agent import run_intraday_session
     from trading.base_agent import BaseAgent
     
-    # Create agent instance
+    # Create agent instance (with custom rules!)
     agent = BaseAgent(
         signature=model["signature"],
         basemodel=request.base_model,
-        stock_symbols=[request.symbol],  # Single stock for intraday
-        max_steps=10,  # Faster decisions for intraday
+        stock_symbols=[request.symbol],
+        max_steps=10,
         initial_cash=model.get("initial_cash", 10000.0),
-        model_id=model_id
+        model_id=model_id,
+        custom_rules=model.get("custom_rules"),  # ← NEW: Pass rules
+        custom_instructions=model.get("custom_instructions")  # ← NEW: Pass instructions
     )
     
     # Initialize agent
     await agent.initialize()
     
-    # Run intraday session
+    # Run intraday session with run_id
     result = await run_intraday_session(
         agent=agent,
         model_id=model_id,
-        user_id=current_user["id"],  # ← Pass user_id for database writes
+        user_id=current_user["id"],
         symbol=request.symbol,
         date=request.date,
-        session=request.session
+        session=request.session,
+        run_id=run_id  # ← NEW: Link trades to run
     )
     
-    return result
+    # NEW: Complete run
+    try:
+        await services.complete_trading_run(run_id, {
+            "total_trades": result.get("trades_executed", 0),
+            "final_portfolio_value": result.get("final_position", {}).get("CASH", 0) if result.get("final_position") else None
+        })
+    except Exception as e:
+        print(f"⚠️ Could not complete run: {e}")
+    
+    return {
+        **result,
+        "run_id": run_id,
+        "run_number": run_number
+    }
 
 
 @app.get("/api/trading/status/{model_id}")

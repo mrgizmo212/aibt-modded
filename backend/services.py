@@ -26,6 +26,22 @@ from utils.result_tools_db import (
     get_available_date_range_db
 )
 
+# NEW: Run tracking and reasoning services
+from services.run_service import (
+    create_trading_run,
+    complete_trading_run,
+    fail_trading_run,
+    get_model_runs,
+    get_run_by_id,
+    get_active_run
+)
+from services.reasoning_service import (
+    save_ai_reasoning,
+    get_reasoning_for_run,
+    get_recent_reasoning,
+    get_reasoning_by_type
+)
+
 
 # ============================================================================
 # SUPABASE CLIENT
@@ -332,38 +348,72 @@ async def get_latest_position(model_id: int, user_id: str) -> Optional[Dict]:
     if not model:
         return None
     
-    result = supabase.table("positions").select("*").eq("model_id", model_id).order("date", desc=True).order("action_id", desc=True).limit(1).execute()
+    result = supabase.table("positions").select("*").eq("model_id", model_id).order("date", desc=True).order("id", desc=True).limit(2).execute()
     
     if result.data and len(result.data) > 0:
         position_data = result.data[0]
+        prev_position = result.data[1] if len(result.data) > 1 else None
         
         # Calculate total value including stocks
         positions_dict = position_data.get("positions", {})
         cash = position_data.get("cash", 0) or positions_dict.get("CASH", 0)
         date_str = str(position_data.get("date", ""))
+        minute_time = position_data.get("minute_time")
         
-        # Get stock prices for valuation
-        total_value = cash
-        try:
-            from utils.price_tools import get_open_prices
-            symbols = [s for s in positions_dict.keys() if s != 'CASH']
-            if symbols and date_str:
-                prices = get_open_prices(date_str, symbols)
+        # Calculate stock values
+        stocks_value = 0.0
+        
+        # For intraday: derive price from trade
+        if minute_time and prev_position:
+            action_type = position_data.get("action_type")
+            symbol = position_data.get("symbol")
+            amount = position_data.get("amount")
+            
+            print(f"🔍 Intraday position detected:")
+            print(f"   Minute: {minute_time}")
+            print(f"   Action: {action_type} {amount} {symbol}")
+            print(f"   Has prev: {prev_position is not None}")
+            
+            if action_type and symbol and amount and amount > 0:
+                prev_cash = prev_position.get("cash", 0)
+                cash_change = abs(cash - prev_cash)
+                trade_price = cash_change / amount if amount > 0 else 0
                 
-                # Calculate stock value
-                for symbol, shares in positions_dict.items():
-                    if symbol != 'CASH' and shares > 0:
-                        price_key = f'{symbol}_price'
-                        price = prices.get(price_key, 0)
-                        if price:
-                            total_value += shares * price
-        except Exception as e:
-            print(f"Warning: Could not calculate stock values for model {model_id}: {e}")
-            # Fall back to cash only
+                print(f"   Price derived: ${trade_price:.2f}")
+                print(f"   Holdings: {positions_dict}")
+                
+                # Value all holdings at this price
+                for sym, shares in positions_dict.items():
+                    if sym != 'CASH' and shares > 0:
+                        stock_val = shares * trade_price
+                        stocks_value += stock_val
+                        print(f"   {sym}: {shares} × ${trade_price:.2f} = ${stock_val:.2f}")
+            else:
+                print(f"   ⚠️ Missing data for price calculation")
+        else:
+            # For daily: use stock_prices table
+            try:
+                from utils.price_tools import get_open_prices
+                symbols = [s for s in positions_dict.keys() if s != 'CASH']
+                if symbols and date_str:
+                    prices = get_open_prices(date_str, symbols)
+                    
+                    for symbol, shares in positions_dict.items():
+                        if symbol != 'CASH' and shares > 0:
+                            price_key = f'{symbol}_price'
+                            price = prices.get(price_key, 0)
+                            if price:
+                                stocks_value += shares * price
+            except Exception as e:
+                print(f"Warning: Could not get prices for model {model_id}: {e}")
+        
+        total_value = cash + stocks_value
         
         # Add calculated fields
         position_data['model_name'] = model.get('signature', f'model-{model_id}')
-        position_data['total_value_calculated'] = total_value
+        position_data['cash'] = cash
+        position_data['stocks_value'] = stocks_value
+        position_data['total_value'] = total_value
         
         return position_data
     return None
