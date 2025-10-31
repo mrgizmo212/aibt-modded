@@ -1,6 +1,6 @@
 # Bugs and Fixes Log - AIBT Platform
 
-**Last Updated:** 2025-10-31 (Connection Pool Fix)  
+**Last Updated:** 2025-10-31 (AI Decision Parsing Fix)  
 **Project:** AI-Trader Platform (AIBT)
 
 ---
@@ -12,6 +12,118 @@ This file tracks all bugs encountered and fixed in the **AIBT platform** develop
 ---
 
 ## Critical Bugs Fixed
+
+### BUG-010: AI Decision Parser Executing Wrong Actions (CRITICAL) ✅ FIXED
+
+**Date Discovered:** 2025-10-31  
+**Date Fixed:** 2025-10-31  
+**Severity:** Critical - Incorrect Trade Execution  
+**Status:** 🟢 Resolved
+
+#### Symptoms:
+- AI says "HOLD" but system executes BUY orders
+- Portfolio going into negative cash (margin trading unintended)
+- AI reasoning says "insufficient cash to buy" → system buys anyway
+- Example: AI: "HOLD - insufficient cash to buy" → System: "BUY 10 shares"
+
+#### Root Cause:
+**FILENAME:** `backend/trading/intraday_agent.py` (Line 300)
+
+The parser checked if "BUY" appears **anywhere** in the AI response:
+
+```python
+# ❌ OLD CODE
+if "BUY" in content_upper:  # Matches "HOLD - insufficient cash to BUY"
+    return {"action": "buy", ...}
+```
+
+**Impact:**
+- When AI says "HOLD - insufficient cash to **buy**", the word "buy" in the reasoning triggers a BUY order
+- Same issue with "buying", "buyer", etc.
+- AI's actual decision is completely ignored
+- Executes opposite of what AI intended
+
+#### The Fix:
+**FILENAME:** `backend/trading/intraday_agent.py` (Lines 303-316)
+
+```python
+# ✅ NEW CODE - Check if response STARTS with action
+if content_upper.startswith("BUY") or content_upper.startswith('"BUY'):
+    # Extract amount from the response
+    match = re.search(r'(\d+)', content_upper)
+    amount = int(match.group(1)) if match else 10
+    return {"action": "buy", "symbol": symbol, "amount": amount, "reasoning": reasoning}
+elif content_upper.startswith("SELL") or content_upper.startswith('"SELL'):
+    # Extract amount from the response
+    match = re.search(r'(\d+)', content_upper)
+    amount = int(match.group(1)) if match else 5
+    return {"action": "sell", "symbol": symbol, "amount": amount, "reasoning": reasoning}
+else:
+    return {"action": "hold", "reasoning": reasoning}
+```
+
+#### Why This Fix Works:
+- Uses `.startswith()` instead of `in` operator
+- Only matches if "BUY" or "SELL" is at the BEGINNING of response
+- Handles quoted responses (AI sometimes wraps in quotes)
+- "HOLD - insufficient cash to buy" → Correctly parsed as HOLD
+
+#### Lesson Learned:
+**When parsing AI responses, check the START of the response for the action command, not just if the word appears anywhere. The reasoning text can contain action words that should not trigger that action.**
+
+---
+
+### BUG-009: Regex Import Scope Error ✅ FIXED
+
+**Date Discovered:** 2025-10-31  
+**Date Fixed:** 2025-10-31  
+**Severity:** Medium - Intermittent Failures  
+**Status:** 🟢 Resolved
+
+#### Symptoms:
+- Error: `cannot access local variable 're' where it is not associated with a value`
+- Only occurs when AI decides to SELL first
+- Causes fallback to HOLD (incorrect behavior)
+
+#### Root Cause:
+**FILENAME:** `backend/trading/intraday_agent.py` (Line 302 - old code)
+
+The `import re` was **inside the BUY block**:
+
+```python
+# ❌ OLD CODE
+if "BUY" in content_upper:
+    import re  # Only imported if BUY is detected
+    match = re.search(...)
+elif "SELL" in content_upper:
+    match = re.search(...)  # 're' not defined if this executes first!
+```
+
+**Impact:**
+- If SELL is detected before BUY, `re` module isn't imported yet
+- Variable scope error when trying to use `re.search()`
+- Trade execution fails, falls back to HOLD
+
+#### The Fix:
+**FILENAME:** `backend/trading/intraday_agent.py` (Line 296)
+
+```python
+# ✅ NEW CODE - Import at function level
+import re  # Import BEFORE the if/elif blocks
+
+content_upper = content.upper()
+# ... now all branches can use 're'
+```
+
+#### Why This Fix Works:
+- Module imported once at function level
+- Available to all code paths (BUY, SELL, HOLD)
+- No variable scope issues
+
+#### Lesson Learned:
+**Import modules at the top of the function or file, not inside conditional blocks. Conditional imports can cause variable scope errors when different code paths execute first.**
+
+---
 
 ### BUG-008: Redis Connection Timeout (CRITICAL) ✅ FIXED
 

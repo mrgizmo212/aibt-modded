@@ -273,10 +273,6 @@ async def _ai_decide_intraday(
             {"recursion_limit": 5}  # Fast decisions for intraday
         )
         
-        # DEBUG: Log actual response structure
-        print(f"    🔍 DEBUG - Response keys: {list(response.keys())}")
-        print(f"    🔍 DEBUG - Full response: {response}")
-        
         # Parse AI response
         # LangChain agent returns {"messages": [...]} not {"output": "..."}
         # Get the last AI message content
@@ -292,18 +288,23 @@ async def _ai_decide_intraday(
             # Fallback: check for "output" key
             content = response.get("output", "HOLD - no data")
         
+        # Import regex at function level (not inside if blocks)
+        import re
+        
         content_upper = content.upper()
         
         # Extract reasoning (text after dash)
         reasoning = content.split(" - ", 1)[1] if " - " in content else content
         
-        if "BUY" in content_upper:
-            # Extract amount
-            import re
+        # CRITICAL: Check if response STARTS with action, not just contains the word
+        # This prevents "HOLD - insufficient cash to buy" from being parsed as BUY
+        if content_upper.startswith("BUY") or content_upper.startswith('"BUY'):
+            # Extract amount from the response
             match = re.search(r'(\d+)', content_upper)
             amount = int(match.group(1)) if match else 10
             return {"action": "buy", "symbol": symbol, "amount": amount, "reasoning": reasoning}
-        elif "SELL" in content_upper:
+        elif content_upper.startswith("SELL") or content_upper.startswith('"SELL'):
+            # Extract amount from the response
             match = re.search(r'(\d+)', content_upper)
             amount = int(match.group(1)) if match else 5
             return {"action": "sell", "symbol": symbol, "amount": amount, "reasoning": reasoning}
