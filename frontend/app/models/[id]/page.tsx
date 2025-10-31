@@ -612,26 +612,6 @@ export default function ModelDetailPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Top Holdings */}
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
-                    <h3 className="text-lg font-bold mb-4">Top Holdings</h3>
-                    <div className="space-y-2">
-                      {Object.entries(latestPosition.positions)
-                        .filter(([symbol, shares]) => symbol !== 'CASH' && shares > 0)
-                        .sort(([,a], [,b]) => b - a)
-                        .slice(0, 8)
-                        .map(([symbol, shares]) => (
-                          <div key={symbol} className="flex justify-between items-center py-2 border-b border-zinc-800 last:border-0">
-                            <span className="font-mono font-semibold text-sm">{symbol}</span>
-                            <span className="text-sm text-gray-400">{shares} shares</span>
-                          </div>
-                        ))}
-                      {Object.entries(latestPosition.positions).filter(([k,v]) => k !== 'CASH' && v > 0).length === 0 && (
-                        <p className="text-center text-gray-500 py-4">No holdings</p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
