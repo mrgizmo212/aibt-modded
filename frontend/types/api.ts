@@ -42,7 +42,7 @@ export interface Model {
   initial_cash?: number
   allowed_tickers?: string[]
   default_ai_model?: string
-  model_parameters?: Record<string, any>
+  model_parameters?: Record<string, unknown>
   custom_rules?: string
   custom_instructions?: string
   created_at: string
@@ -55,7 +55,7 @@ export interface ModelCreateRequest {
   initial_cash?: number
   allowed_tickers?: string[]
   default_ai_model?: string
-  model_parameters?: Record<string, any>
+  model_parameters?: Record<string, unknown>
   custom_rules?: string
   custom_instructions?: string
 }
@@ -97,7 +97,7 @@ export interface LogEntry {
   date: string
   timestamp: string
   signature: string
-  messages: any
+  messages: unknown
   created_at: string
 }
 
@@ -156,5 +156,61 @@ export interface LeaderboardEntry {
   max_drawdown: number
   final_value: number
   trading_days: number
+}
+
+// Model Configuration Types
+export interface ModelConfig {
+  model_id: string
+  model_type: string
+  default_parameters: Record<string, unknown>
+  template: ModelTemplate
+  supports_temperature: boolean
+  supports_verbosity: boolean
+  supports_reasoning_effort: boolean
+}
+
+export interface ModelTemplate {
+  name: string
+  supports_temperature: boolean
+  supports_verbosity: boolean
+  supports_reasoning_effort: boolean
+  recommended: Record<string, unknown>
+}
+
+// Global Settings Types
+export interface GlobalSetting {
+  setting_key: string
+  setting_value: unknown
+  description?: string
+}
+
+// MCP Status Type
+export interface MCPStatus {
+  services: Record<string, string>
+  status: string
+}
+
+// Intraday Trading Response
+export interface IntradayTradingResponse {
+  status: string
+  minutes_processed?: number
+  trades_executed?: number
+  final_position?: Record<string, number>
+  error?: string
+}
+
+// Trading Events (SSE)
+export interface TradingEvent {
+  type: string
+  model_id: number
+  timestamp: string
+  data: unknown
+}
+
+// Model Pricing
+export interface ModelPricing {
+  prompt?: number
+  completion?: number
+  currency?: string
 }
 

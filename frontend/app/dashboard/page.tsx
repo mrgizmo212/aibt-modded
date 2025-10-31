@@ -34,7 +34,7 @@ export default function DashboardPage() {
       ])
       
       setModels(modelsData.models)
-      setTradingStatus(statusData.running_agents)
+      setTradingStatus(statusData.statuses)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
