@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def _load_runtime_env() -> dict:
-    path = os.environ.get("RUNTIME_ENV_PATH")
+    # Use per-model runtime file for multi-user isolation
+    model_id = os.environ.get("CURRENT_MODEL_ID", "global")
+    path = f"./data/.runtime_env_{model_id}.json"
     try:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -28,7 +30,9 @@ def get_config_value(key: str, default=None):
 def write_config_value(key: str, value: any):
     _RUNTIME_ENV = _load_runtime_env()
     _RUNTIME_ENV[key] = value
-    path = os.environ.get("RUNTIME_ENV_PATH")
+    # Use same per-model path as _load_runtime_env
+    model_id = os.environ.get("CURRENT_MODEL_ID", "global")
+    path = f"./data/.runtime_env_{model_id}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(_RUNTIME_ENV, f, ensure_ascii=False, indent=4)
 

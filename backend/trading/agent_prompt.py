@@ -118,6 +118,61 @@ def get_agent_system_prompt(today_date: str, signature: str) -> str:
 
 
 
+def get_intraday_system_prompt(minute: str, symbol: str, bar: dict, position: dict) -> str:
+    """
+    Generate intraday-specific trading prompt
+    
+    Args:
+        minute: Current minute HH:MM
+        symbol: Stock symbol
+        bar: Current minute's OHLCV data
+        position: Current portfolio
+    
+    Returns:
+        Prompt string for AI
+    """
+    
+    cash = position.get("CASH", 0)
+    holdings = position.get(symbol, 0)
+    
+    prompt = f"""You are trading {symbol} on a minute-by-minute basis.
+
+CURRENT TIME: {minute}
+CURRENT MINUTE BAR:
+- Open: ${bar.get('open', 0):.2f}
+- High: ${bar.get('high', 0):.2f}
+- Low: ${bar.get('low', 0):.2f}
+- Close: ${bar.get('close', 0):.2f}
+- Volume: {bar.get('volume', 0):,}
+
+CURRENT PORTFOLIO:
+- Cash: ${cash:.2f}
+- {symbol} Holdings: {holdings} shares
+
+INSTRUCTIONS:
+Make a FAST trading decision for this minute. You have limited time.
+
+Respond in ONE of these formats with BRIEF reasoning:
+- "BUY X shares - [reason in 5-10 words]"
+- "SELL X shares - [reason in 5-10 words]"
+- "HOLD - [reason in 5-10 words]"
+
+Examples:
+- "BUY 10 shares - price breaking resistance, volume spike"
+- "SELL 5 shares - taking profit, momentum weakening"
+- "HOLD - consolidating, no clear signal"
+
+Consider:
+- Price movement this minute (open vs close)
+- Available cash
+- Current holdings
+- Volume (market activity)
+
+Make your decision NOW (action + brief reasoning):"""
+    
+    return prompt
+
+
 if __name__ == "__main__":
     today_date = get_config_value("TODAY_DATE")
     signature = get_config_value("SIGNATURE")

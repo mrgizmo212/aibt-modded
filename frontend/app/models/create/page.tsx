@@ -11,6 +11,7 @@ export default function CreateModelPage() {
   
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [initialCash, setInitialCash] = useState('10000')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
@@ -26,12 +27,17 @@ export default function CreateModelPage() {
     setLoading(true)
     
     try {
-      const model = await createModel({ name, description: description || undefined })
+      const model = await createModel({ 
+        name, 
+        description: description || undefined,
+        initial_cash: parseFloat(initialCash)
+      })
       
       // Redirect to the newly created model's detail page
       router.push(`/models/${model.id}`)
-    } catch (err: any) {
-      setError(err.message || 'Failed to create model')
+    } catch (err) {
+      const error = err as Error
+      setError(error.message || 'Failed to create model')
     } finally {
       setLoading(false)
     }
@@ -112,6 +118,30 @@ export default function CreateModelPage() {
                 </p>
               </div>
               
+              {/* Initial Cash */}
+              <div>
+                <label htmlFor="initialCash" className="block text-sm font-medium mb-2">
+                  Starting Capital <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3 text-gray-400">$</span>
+                  <input
+                    id="initialCash"
+                    type="number"
+                    value={initialCash}
+                    onChange={(e) => setInitialCash(e.target.value)}
+                    required
+                    min="1000"
+                    max="1000000"
+                    step="1000"
+                    className="w-full pl-8 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Virtual capital to start trading (min: $1,000, max: $1,000,000)
+                </p>
+              </div>
+              
               {/* Info Box */}
               <div className="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -121,7 +151,7 @@ export default function CreateModelPage() {
                   <div className="text-sm text-blue-400">
                     <p className="font-medium mb-1">How it works:</p>
                     <ul className="space-y-1 text-blue-300">
-                      <li>• Your model starts with $10,000 virtual capital</li>
+                      <li>• Choose your starting capital amount above</li>
                       <li>• Select an AI model (GPT, Claude, etc.) to begin trading</li>
                       <li>• AI analyzes 100 NASDAQ stocks and makes trading decisions</li>
                       <li>• View real-time portfolio value and trading history</li>

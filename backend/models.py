@@ -55,6 +55,7 @@ class ModelInfo(BaseModel):
 class ModelCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    initial_cash: float = 10000.0
 
 
 class ModelListResponse(BaseModel):
@@ -218,6 +219,13 @@ class StartTradingRequest(BaseModel):
     base_model: str
     start_date: str
     end_date: str
+
+
+class IntradayTradingRequest(BaseModel):
+    base_model: str
+    symbol: str  # Single stock for intraday
+    date: str  # Specific date
+    session: str = "regular"  # 'pre', 'regular', 'after'
 
 
 # ============================================================================

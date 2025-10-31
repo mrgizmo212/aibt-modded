@@ -10,6 +10,7 @@ from supabase import create_client
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
+import asyncio
 
 from config import settings
 from auth import (
@@ -36,6 +37,7 @@ from models import (
     UserListResponse,
     SystemStatsResponse,
     StartTradingRequest,
+    IntradayTradingRequest,
     ErrorResponse
 )
 from pagination import create_pagination_params, PaginationParams
@@ -287,7 +289,8 @@ async def create_my_model(model_data: ModelCreate, current_user: Dict = Depends(
     model = await services.create_model(
         user_id=current_user["id"],
         name=model_data.name,
-        description=model_data.description
+        description=model_data.description,
+        initial_cash=model_data.initial_cash
     )
     
     if not model:
@@ -639,6 +642,53 @@ async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)
     
     # Stop agent
     result = await agent_manager.stop_agent(model_id)
+    
+    return result
+
+
+@app.post("/api/trading/start-intraday/{model_id}")
+async def start_intraday_trading(
+    model_id: int,
+    request: IntradayTradingRequest,
+    current_user: Dict = Depends(require_auth)
+):
+    """
+    Start intraday trading session
+    
+    Loads tick data, caches in Redis, runs minute-by-minute trading
+    """
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Import intraday agent
+    from trading.intraday_agent import run_intraday_session
+    from trading.base_agent import BaseAgent
+    
+    # Create agent instance
+    agent = BaseAgent(
+        signature=model["signature"],
+        basemodel=request.base_model,
+        stock_symbols=[request.symbol],  # Single stock for intraday
+        max_steps=10,  # Faster decisions for intraday
+        initial_cash=model.get("initial_cash", 10000.0),
+        model_id=model_id
+    )
+    
+    # Initialize agent
+    await agent.initialize()
+    
+    # Run intraday session
+    result = await run_intraday_session(
+        agent=agent,
+        model_id=model_id,
+        user_id=current_user["id"],  # ← Pass user_id for database writes
+        symbol=request.symbol,
+        date=request.date,
+        session=request.session
+    )
     
     return result
 

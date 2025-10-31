@@ -147,7 +147,7 @@ def generate_signature(name: str, user_id: str) -> str:
         signature = f"{base_signature}-{counter}"
 
 
-async def create_model(user_id: str, name: str, description: Optional[str] = None) -> Dict:
+async def create_model(user_id: str, name: str, description: Optional[str] = None, initial_cash: float = 10000.0) -> Dict:
     """
     Create new AI model with auto-generated signature
     
@@ -155,6 +155,7 @@ async def create_model(user_id: str, name: str, description: Optional[str] = Non
         user_id: User ID
         name: Model name
         description: Optional description
+        initial_cash: Starting capital amount (defaults to $10,000)
         
     Returns:
         Created model dict
@@ -169,6 +170,7 @@ async def create_model(user_id: str, name: str, description: Optional[str] = Non
         "name": name,
         "signature": signature,
         "description": description,
+        "initial_cash": initial_cash,
         "is_active": True
     }).execute()
     

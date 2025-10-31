@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     JINA_API_KEY: str = ""
     
+    # Proxy Configuration (for market data)
+    POLYGON_PROXY_URL: str = ""
+    POLYGON_PROXY_KEY: str = ""
+    YFINANCE_PROXY_URL: str = ""
+    YFINANCE_PROXY_KEY: str = ""
+    
     # MCP Service Ports
     MATH_HTTP_PORT: int = 8000
     SEARCH_HTTP_PORT: int = 8001
@@ -58,8 +64,15 @@ class Settings(BaseSettings):
     YFINANCE_PROXY_URL: str = ""
     YFINANCE_PROXY_KEY: str = ""
     
+    # Upstash Redis (for intraday trading cache)
+    UPSTASH_REDIS_REST_URL: str = ""
+    UPSTASH_REDIS_REST_TOKEN: str = ""
+    
     # Environment
     NODE_ENV: str = "development"
+    
+    # Runtime Configuration
+    RUNTIME_ENV_PATH: str = "./data/.runtime_env.json"
     
     @property
     def allowed_origins_list(self) -> List[str]:
@@ -79,6 +92,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra env vars (like BACKEND_PORT)
 
 
 # Global settings instance

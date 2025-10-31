@@ -45,15 +45,8 @@ export interface Model {
 
 export interface ModelCreateRequest {
   name: string
+  signature: string
   description?: string
-  initial_cash?: number
-}
-
-export interface IntradayTradingRequest {
-  base_model: string
-  symbol: string
-  date: string
-  session: 'pre' | 'regular' | 'after'
 }
 
 // Position Types

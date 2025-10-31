@@ -29,9 +29,32 @@ export default function ModelDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
   
+  // Calculate default trading dates (skip weekends)
+  const getRecentTradingDate = (daysBack: number): string => {
+    const date = new Date()
+    let tradingDaysFound = 0
+    
+    while (tradingDaysFound < daysBack) {
+      date.setDate(date.getDate() - 1)
+      const dayOfWeek = date.getDay()
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        tradingDaysFound++
+      }
+    }
+    
+    return date.toISOString().split('T')[0]
+  }
+  
+  const [tradingMode, setTradingMode] = useState<'daily' | 'intraday'>('daily')
   const [baseModel, setBaseModel] = useState('openai/gpt-4o')
-  const [startDate, setStartDate] = useState('2025-10-29')
-  const [endDate, setEndDate] = useState('2025-10-30')
+  const [startDate, setStartDate] = useState(getRecentTradingDate(3)) // 3 trading days back
+  const [endDate, setEndDate] = useState(getRecentTradingDate(1))   // 1 trading day back
+  
+  // Intraday-specific state
+  const [intradaySymbol, setIntradaySymbol] = useState('AAPL')
+  const [intradayDate, setIntradayDate] = useState(getRecentTradingDate(1))
+  const [intradaySession, setIntradaySession] = useState<'pre' | 'regular' | 'after'>('regular')
   
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false)
@@ -90,7 +113,14 @@ export default function ModelDetailPage() {
   async function handleStart() {
     setActionLoading(true)
     try {
-      await startTrading(modelId, baseModel, startDate, endDate)
+      if (tradingMode === 'intraday') {
+        // Intraday trading
+        const { startIntradayTrading } = await import('@/lib/api')
+        await startIntradayTrading(modelId, baseModel, intradaySymbol, intradayDate, intradaySession)
+      } else {
+        // Daily trading
+        await startTrading(modelId, baseModel, startDate, endDate)
+      }
       await loadData()
     } catch (error: any) {
       alert(`Failed to start: ${error.message}`)
@@ -249,43 +279,149 @@ export default function ModelDetailPage() {
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">AI Model</label>
-              <select
-                value={baseModel}
-                onChange={(e) => setBaseModel(e.target.value)}
+          {/* Trading Mode Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-3">Trading Mode</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setTradingMode('daily')}
                 disabled={isRunning}
-                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={`px-4 py-3 rounded-md border text-left transition-colors ${
+                  tradingMode === 'daily'
+                    ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-zinc-900 border-zinc-800 text-gray-400 hover:border-zinc-700'
+                }`}
               >
-                {AVAILABLE_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                <div className="font-medium">📅 Daily Trading</div>
+                <div className="text-xs mt-1 opacity-75">1 decision per day, multiple days</div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setTradingMode('intraday')}
                 disabled={isRunning}
-                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">End Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                disabled={isRunning}
-                className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+                className={`px-4 py-3 rounded-md border text-left transition-colors ${
+                  tradingMode === 'intraday'
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'bg-zinc-900 border-zinc-800 text-gray-400 hover:border-zinc-700'
+                }`}
+              >
+                <div className="font-medium">⚡ Intraday Trading</div>
+                <div className="text-xs mt-1 opacity-75">Minute-by-minute, single day</div>
+              </button>
             </div>
           </div>
+          
+          {/* Daily Trading Fields */}
+          {tradingMode === 'daily' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">AI Model</label>
+                <select
+                  value={baseModel}
+                  onChange={(e) => setBaseModel(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {AVAILABLE_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Intraday Trading Fields */}
+          {tradingMode === 'intraday' && (
+            <div className="space-y-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">AI Model</label>
+                  <select
+                    value={baseModel}
+                    onChange={(e) => setBaseModel(e.target.value)}
+                    disabled={isRunning}
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {AVAILABLE_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Stock Symbol</label>
+                  <input
+                    type="text"
+                    value={intradaySymbol}
+                    onChange={(e) => setIntradaySymbol(e.target.value.toUpperCase())}
+                    disabled={isRunning}
+                    placeholder="AAPL"
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Single stock only for intraday</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Trading Date</label>
+                  <input
+                    type="date"
+                    value={intradayDate}
+                    onChange={(e) => setIntradayDate(e.target.value)}
+                    disabled={isRunning}
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Single day only</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Session</label>
+                  <select
+                    value={intradaySession}
+                    onChange={(e) => setIntradaySession(e.target.value as 'pre' | 'regular' | 'after')}
+                    disabled={isRunning}
+                    className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="pre">Pre-Market (4:00-9:30 AM)</option>
+                    <option value="regular">Regular Hours (9:30 AM-4:00 PM)</option>
+                    <option value="after">After-Hours (4:00-8:00 PM)</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-purple-500/10 border border-purple-500 rounded-md">
+                <p className="text-sm text-purple-400">
+                  <strong>Intraday Mode:</strong> AI will trade {intradaySymbol} minute-by-minute during {intradaySession} session on {intradayDate}.
+                  This processes ~60-390 minutes depending on session.
+                </p>
+              </div>
+            </div>
+          )}
           
           <div className="flex gap-3">
             {isRunning ? (

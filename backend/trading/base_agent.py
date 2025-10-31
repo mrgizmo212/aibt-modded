@@ -134,23 +134,31 @@ class BaseAgent:
             self.event_stream = None
         
     def _get_default_mcp_config(self) -> Dict[str, Dict[str, Any]]:
-        """Get default MCP configuration"""
+        """Get default MCP configuration with June 2025 compliant timeouts"""
         return {
             "math": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('MATH_HTTP_PORT', '8000')}/mcp",
+                "timeout": 10.0,              # Connection timeout (June 2025 requirement)
+                "sse_read_timeout": 60.0,     # SSE stream timeout (June 2025 requirement)
             },
             "stock_local": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('GETPRICE_HTTP_PORT', '8003')}/mcp",
+                "timeout": 10.0,              # Connection timeout
+                "sse_read_timeout": 60.0,     # SSE stream timeout
             },
             "search": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('SEARCH_HTTP_PORT', '8001')}/mcp",
+                "timeout": 15.0,              # Longer timeout for web requests
+                "sse_read_timeout": 120.0,    # Web search can take longer
             },
             "trade": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('TRADE_HTTP_PORT', '8002')}/mcp",
+                "timeout": 10.0,              # Connection timeout
+                "sse_read_timeout": 60.0,     # SSE stream timeout
             },
         }
     
@@ -201,7 +209,11 @@ class BaseAgent:
                 base_url=self.openai_base_url,
                 api_key=self.openai_api_key,
                 max_retries=3,
-                timeout=30
+                timeout=30,
+                default_headers={
+                    "HTTP-Referer": "https://aibt.truetradinggroup.com",
+                    "X-Title": "AIBT AI Trading Platform"
+                }
             )
             print(f"✅ AI model created")
             
@@ -444,16 +456,20 @@ class BaseAgent:
                         if current_date_obj > max_date_obj:
                             max_date = current_date
         
-        # Check if new dates need to be processed
+        # Use init_date if it's later than historical max_date
+        init_date_obj = datetime.strptime(init_date, "%Y-%m-%d")
         max_date_obj = datetime.strptime(max_date, "%Y-%m-%d")
         end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
         
-        if end_date_obj <= max_date_obj:
+        # Start from whichever is later: init_date or historical max_date
+        start_from = max(init_date_obj, max_date_obj + timedelta(days=1))
+        
+        if end_date_obj < start_from:
             return []
         
         # Generate trading date list
         trading_dates = []
-        current_date = max_date_obj + timedelta(days=1)
+        current_date = start_from
         
         while current_date <= end_date_obj:
             if current_date.weekday() < 5:  # Weekdays

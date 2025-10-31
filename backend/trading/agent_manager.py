@@ -5,6 +5,7 @@ Manages lifecycle of AI trading agents (start/stop/status)
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Dict, Optional, Any
 from datetime import datetime
@@ -65,6 +66,9 @@ class AgentManager:
                 "model_id": model_id,
                 "started_at": self.running_agents[model_id]["started_at"]
             }
+        
+        # Set model ID in environment for multi-user isolation
+        os.environ["CURRENT_MODEL_ID"] = str(model_id)
         
         # Create agent instance
         agent = BaseAgent(
