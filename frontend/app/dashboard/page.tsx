@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { fetchMyModels, fetchAllTradingStatus, startTrading, stopTrading, deleteModel } from '@/lib/api'
 import type { Model, TradingStatus } from '@/types/api'
 
@@ -58,8 +59,9 @@ export default function DashboardPage() {
     try {
       await startTrading(modelId, 'openai/gpt-4o', '2025-10-29', '2025-10-30')
       await loadData() // Refresh to show new status
-    } catch (error: any) {
-      alert(`Failed to start trading: ${error.message}`)
+    } catch (error) {
+      const err = error as Error
+      alert(`Failed to start trading: ${err.message}`)
     }
   }
   
@@ -70,8 +72,9 @@ export default function DashboardPage() {
     try {
       await stopTrading(modelId)
       await loadData() // Refresh to show new status
-    } catch (error: any) {
-      alert(`Failed to stop trading: ${error.message}`)
+    } catch (error) {
+      const err = error as Error
+      alert(`Failed to stop trading: ${err.message}`)
     }
   }
   
@@ -116,8 +119,9 @@ export default function DashboardPage() {
       await loadData()
       
       alert(`Successfully deleted ${selectedModels.size} model(s)`)
-    } catch (error: any) {
-      alert(`Failed to delete models: ${error.message}`)
+    } catch (error) {
+      const err = error as Error
+      alert(`Failed to delete models: ${err.message}`)
     } finally {
       setDeleting(false)
     }
@@ -241,6 +245,7 @@ export default function DashboardPage() {
                     checked={isSelected}
                     onChange={() => toggleModelSelection(model.id)}
                     className="w-5 h-5 rounded border-zinc-700 bg-zinc-900 text-green-600 focus:ring-green-500 focus:ring-offset-0 cursor-pointer"
+                    aria-label={`Select ${model.name} for deletion`}
                   />
                 </div>
                 
@@ -294,12 +299,12 @@ export default function DashboardPage() {
           {models.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center py-16 border-2 border-dashed border-zinc-800 rounded-lg">
               <p className="text-gray-400 mb-4">No models yet</p>
-              <a 
+              <Link 
                 href="/models/create"
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md font-medium"
               >
                 Create Your First Model
-              </a>
+              </Link>
             </div>
           )}
         </div>
