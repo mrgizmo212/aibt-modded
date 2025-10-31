@@ -18,6 +18,11 @@ def get_supabase() -> Client:
     """Get Supabase client"""
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not url or not key:
+        raise ValueError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment")
+    
+    # Create client (simple, no options - they cause issues)
     return create_client(url, key)
 
 
@@ -31,34 +36,41 @@ def get_available_date_range_db(model_id: int) -> Tuple[str, str]:
     Returns:
         Tuple of (earliest_date, latest_date) in YYYY-MM-DD format
     """
-    supabase = get_supabase()
-    
-    # Get min and max dates from positions
-    result = supabase.table("positions")\
-        .select("date")\
-        .eq("model_id", model_id)\
-        .order("date", desc=False)\
-        .limit(1)\
-        .execute()
-    
-    if not result.data:
+    try:
+        supabase = get_supabase()
+        
+        # Get min and max dates from positions
+        result = supabase.table("positions")\
+            .select("date")\
+            .eq("model_id", model_id)\
+            .order("date", desc=False)\
+            .limit(1)\
+            .execute()
+        
+        if not result.data:
+            print(f"⚠️  No positions found for model_id={model_id}")
+            return "", ""
+        
+        earliest = result.data[0]["date"]
+        
+        result = supabase.table("positions")\
+            .select("date")\
+            .eq("model_id", model_id)\
+            .order("date", desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if not result.data:
+            return earliest, earliest
+        
+        latest = result.data[0]["date"]
+        
+        print(f"📅 Date range found: {earliest} to {latest}")
+        return earliest, latest
+        
+    except Exception as e:
+        print(f"❌ Error getting date range: {e}")
         return "", ""
-    
-    earliest = result.data[0]["date"]
-    
-    result = supabase.table("positions")\
-        .select("date")\
-        .eq("model_id", model_id)\
-        .order("date", desc=True)\
-        .limit(1)\
-        .execute()
-    
-    if not result.data:
-        return earliest, earliest
-    
-    latest = result.data[0]["date"]
-    
-    return earliest, latest
 
 
 def get_daily_portfolio_values_db(
@@ -81,19 +93,27 @@ def get_daily_portfolio_values_db(
     Returns:
         Dict[date, total_portfolio_value]
     """
-    supabase = get_supabase()
-    
-    # Build query
-    query = supabase.table("positions").select("*").eq("model_id", model_id)
-    
-    if start_date:
-        query = query.gte("date", start_date)
-    if end_date:
-        query = query.lte("date", end_date)
-    
-    result = query.order("date").order("minute_time", desc=False).execute()
-    
-    if not result.data:
+    try:
+        supabase = get_supabase()
+        
+        # Build query
+        query = supabase.table("positions").select("*").eq("model_id", model_id)
+        
+        if start_date:
+            query = query.gte("date", start_date)
+        if end_date:
+            query = query.lte("date", end_date)
+        
+        result = query.order("date").order("minute_time", desc=False).execute()
+        
+        print(f"📊 Query returned {len(result.data) if result.data else 0} positions")
+        
+        if not result.data:
+            print("⚠️  No positions returned from query")
+            return {}
+            
+    except Exception as e:
+        print(f"❌ Error querying positions: {e}")
         return {}
     
     # Group by date and get last position of each day
@@ -120,7 +140,103 @@ def get_daily_portfolio_values_db(
     if current_date and last_position_of_day:
         daily_values[current_date] = calculate_portfolio_value_db(last_position_of_day)
     
+    print(f"📅 Daily values calculated: {len(daily_values)} days")
+    if daily_values:
+        for d, v in daily_values.items():
+            print(f"   {d}: ${v:,.2f}")
+    
     return daily_values
+
+
+def calculate_intraday_metrics_db(model_id: int, trade_date: str) -> Dict:
+    """
+    Calculate metrics for single-day intraday trading
+    
+    Args:
+        model_id: Model ID
+        trade_date: Trading date
+    
+    Returns:
+        Metrics dictionary
+    """
+    supabase = get_supabase()
+    
+    # Get all positions for this day (ordered by minute)
+    result = supabase.table("positions")\
+        .select("*")\
+        .eq("model_id", model_id)\
+        .eq("date", trade_date)\
+        .order("minute_time")\
+        .execute()
+    
+    if not result.data or len(result.data) < 2:
+        return _empty_metrics()
+    
+    positions = result.data
+    
+    # Calculate portfolio value at each trade
+    values = []
+    for pos in positions:
+        value = calculate_portfolio_value_db(pos)
+        values.append(value)
+    
+    initial_value = values[0]
+    final_value = values[-1]
+    
+    # Calculate trade-by-trade returns
+    trade_returns = []
+    for i in range(1, len(values)):
+        if values[i-1] > 0:
+            ret = (values[i] - values[i-1]) / values[i-1]
+            trade_returns.append(ret)
+    
+    if not trade_returns:
+        return _empty_metrics()
+    
+    # Metrics
+    cumulative_return = (final_value - initial_value) / initial_value if initial_value > 0 else 0
+    wins = sum(1 for r in trade_returns if r > 0)
+    losses = sum(1 for r in trade_returns if r < 0)
+    total_trades = wins + losses
+    win_rate = wins / total_trades if total_trades > 0 else 0.0
+    
+    # Volatility (intraday)
+    volatility = float(np.std(trade_returns)) if len(trade_returns) > 1 else 0.0
+    
+    # Max drawdown from peak
+    max_dd = 0.0
+    peak = values[0]
+    for val in values:
+        if val > peak:
+            peak = val
+        dd = (peak - val) / peak if peak > 0 else 0
+        max_dd = max(max_dd, dd)
+    
+    # P/L ratio
+    winning_returns = [r for r in trade_returns if r > 0]
+    losing_returns = [r for r in trade_returns if r < 0]
+    avg_win = float(np.mean(winning_returns)) if winning_returns else 0.0
+    avg_loss = float(np.mean(losing_returns)) if losing_returns else 0.0
+    pl_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else 0.0
+    
+    return {
+        "portfolio_values": {trade_date: final_value},
+        "daily_returns": trade_returns,
+        "sharpe_ratio": 0.0,  # N/A for single day
+        "max_drawdown": float(max_dd),
+        "max_drawdown_start": trade_date,
+        "max_drawdown_end": trade_date,
+        "cumulative_return": float(cumulative_return),
+        "annualized_return": 0.0,  # N/A for single day
+        "volatility": float(volatility),
+        "win_rate": float(win_rate),
+        "profit_loss_ratio": float(pl_ratio),
+        "total_trading_days": 1,
+        "start_date": trade_date,
+        "end_date": trade_date,
+        "initial_value": initial_value,
+        "final_value": final_value
+    }
 
 
 def calculate_portfolio_value_db(position_record: Dict) -> float:
@@ -201,8 +317,16 @@ def calculate_all_metrics_db(
     # Get daily portfolio values
     portfolio_values = get_daily_portfolio_values_db(model_id, start_date, end_date)
     
-    if not portfolio_values or len(portfolio_values) < 2:
+    print(f"💰 Portfolio values: {len(portfolio_values)} days")
+    
+    if not portfolio_values:
+        print("❌ No portfolio values calculated")
         return _empty_metrics()
+    
+    # For single-day intraday trading, we need special handling
+    if len(portfolio_values) == 1:
+        print("⚡ Single day intraday trading detected - calculating intraday metrics")
+        return calculate_intraday_metrics_db(model_id, start_date)
     
     # Convert to sorted lists
     dates = sorted(portfolio_values.keys())

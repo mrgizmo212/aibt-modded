@@ -469,8 +469,8 @@ async def get_model_performance(model_id: int, user_id: str) -> Optional[Dict]:
 
 async def calculate_and_cache_performance(model_id: int, model_signature: str) -> Dict:
     """Calculate performance metrics and cache in database"""
-    # Use existing calculation logic from utils
-    metrics = calculate_all_metrics(model_signature)
+    # Use database-based calculation (not JSONL files)
+    metrics = calculate_all_metrics_db(model_id)
     
     if "error" in metrics:
         return metrics
@@ -497,8 +497,8 @@ async def calculate_and_cache_performance(model_id: int, model_signature: str) -
         "volatility": metrics.get("volatility", 0.0),
         "win_rate": metrics.get("win_rate", 0.0),
         "profit_loss_ratio": metrics.get("profit_loss_ratio", 0.0),
-        "initial_value": 10000.0,  # From config
-        "final_value": metrics.get("portfolio_values", {}).get(metrics.get("end_date", ""), 10000.0)
+        "initial_value": metrics.get("initial_value", 10000.0),
+        "final_value": metrics.get("final_value", 10000.0)
     }
     
     # Upsert (insert or update if exists)
