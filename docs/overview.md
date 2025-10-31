@@ -1,4 +1,4 @@
-# AIBT Platform - AI Trading System
+# TTG AI Platform - Trading System
 
 **Last Updated:** 2025-10-31 (MCP Compliance + Type Safety + Script Organization)  
 **Status:** 🟢 Backend Production-Ready | 🟡 Frontend Functional (UI refinements ongoing)  
@@ -8,7 +8,7 @@
 
 ## 1. PROJECT DESCRIPTION
 
-**AIBT** is an **AI trading platform** built with a production-ready FastAPI backend and functional Next.js 16 frontend. The backend is fully tested and MCP-compliant; the frontend provides all core features but requires UI/UX refinement for production deployment.
+**TTG AI** is an **AI trading platform** built with a production-ready FastAPI backend and functional Next.js 16 frontend. The backend is fully tested and MCP-compliant; the frontend provides all core features but requires UI/UX refinement for production deployment.
 
 ### What It Does:
 - **Control** AI trading agents (start/stop trading)

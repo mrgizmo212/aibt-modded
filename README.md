@@ -1,4 +1,4 @@
-# AIBT - AI Trading Platform
+# TTG AI - Trading Platform
 
 **Production-ready FastAPI backend + Functional Next.js 16 frontend**
 
@@ -65,7 +65,7 @@ npm run dev
 
 ## 📖 Project Overview
 
-AIBT is an AI-powered trading platform that allows users to:
+TTG AI is an AI-powered trading platform that allows users to:
 - Create and manage AI trading models
 - Execute daily and intraday trading strategies
 - Monitor portfolio performance in real-time
