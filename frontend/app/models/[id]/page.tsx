@@ -92,22 +92,25 @@ export default function ModelDetailPage() {
       setLatestPosition(latestData)
       setStatus(statusData)
       
-      // Determine original AI from model signature and pre-select it
-      if (latestData) {
-        const signature = latestData.model_name.toLowerCase()
-        let detectedAI = 'openai/gpt-4o'  // fallback
-        
-        if (signature.includes('claude')) detectedAI = 'anthropic/claude-4.5-sonnet'
-        else if (signature.includes('gemini')) detectedAI = 'google/gemini-2.5-pro'
-        else if (signature.includes('deepseek')) detectedAI = 'deepseek/deepseek-v3.2-exp'
-        else if (signature.includes('gpt-5')) detectedAI = 'openai/gpt-5'
-        else if (signature.includes('gpt-4.1')) detectedAI = 'openai/gpt-4o'  // gpt-4.1 maps to gpt-4o
-        else if (signature.includes('qwen')) detectedAI = 'qwen/qwen3-max'
-        else if (signature.includes('minimax')) detectedAI = 'minimax/minimax-m1'
-        
-        setOriginalAI(detectedAI)
-        setBaseModel(detectedAI)  // Pre-select the original AI!
-      }
+        // Determine original AI from model signature and pre-select it
+        if (latestData) {
+          const signature = latestData.model_name.toLowerCase()
+          let detectedAI = 'openai/gpt-4o'  // fallback
+          
+          if (signature.includes('claude-4.5')) detectedAI = 'anthropic/claude-sonnet-4.5'
+          else if (signature.includes('claude')) detectedAI = 'anthropic/claude-3.5-sonnet'
+          else if (signature.includes('gemini-2.5')) detectedAI = 'google/gemini-2.5-flash-preview-09-2025'
+          else if (signature.includes('gemini')) detectedAI = 'google/gemini-2.0-flash-exp'
+          else if (signature.includes('deepseek')) detectedAI = 'deepseek/deepseek-v3.2-exp'
+          else if (signature.includes('gpt-5-pro')) detectedAI = 'openai/gpt-5-pro'
+          else if (signature.includes('gpt-5')) detectedAI = 'openai/gpt-5-codex'
+          else if (signature.includes('gpt-4.1')) detectedAI = 'openai/gpt-4o'
+          else if (signature.includes('qwen')) detectedAI = 'qwen/qwen3-next-80b-a3b-instruct'
+          else if (signature.includes('llama')) detectedAI = 'meta-llama/llama-3.3-70b-instruct'
+          
+          setOriginalAI(detectedAI)
+          setBaseModel(detectedAI)  // Pre-select the original AI!
+        }
       
     } catch (error) {
       console.error('Failed to load model:', error)
@@ -264,7 +267,7 @@ export default function ModelDetailPage() {
           <h2 className="text-lg font-bold mb-4">Trading Controls</h2>
           
           {!isNewModel && (
-            <div className="mb-4 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
+              <div className="mb-4 p-3 bg-zinc-900 border border-zinc-800 rounded-md">
               <p className="text-sm text-gray-400">
                 Originally traded by: <span className="text-green-500 font-medium">
                   {AVAILABLE_MODELS.find(m => m.id === originalAI)?.name || 'Unknown'}
