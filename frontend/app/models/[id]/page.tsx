@@ -21,7 +21,7 @@ import { LogsViewer } from '@/components/LogsViewer'
 import { ModelSettings } from '@/components/ModelSettings'
 import { fetchMyModels } from '@/lib/api'
 
-type TabType = 'overview' | 'performance' | 'chart' | 'logs' | 'history'
+type TabType = 'performance' | 'chart' | 'logs' | 'history'
 
 export default function ModelDetailPage() {
   const params = useParams()
@@ -35,7 +35,7 @@ export default function ModelDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [originalAI, setOriginalAI] = useState('openai/gpt-4o')
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [activeTab, setActiveTab] = useState<TabType>('performance')
   const [currentModel, setCurrentModel] = useState<Model | null>(null)
   
   // Calculate default trading dates (skip weekends)
@@ -564,7 +564,6 @@ export default function ModelDetailPage() {
             <div className="mb-6 border-b border-zinc-800">
               <div className="flex gap-1">
                 {[
-                  { id: 'overview', label: 'Overview', icon: '📊' },
                   { id: 'performance', label: 'Performance', icon: '📈' },
                   { id: 'chart', label: 'Chart', icon: '📉' },
                   { id: 'logs', label: 'AI Logs', icon: '🤖' },
@@ -591,12 +590,6 @@ export default function ModelDetailPage() {
 
             {/* Tab Content */}
             <div className="mb-8">
-              {activeTab === 'overview' && latestPosition && (
-                <div className="text-center py-8 text-gray-500">
-                  Portfolio information is displayed above.
-                </div>
-              )}
-
               {activeTab === 'performance' && (
                 <PerformanceMetrics modelId={modelId} />
               )}
