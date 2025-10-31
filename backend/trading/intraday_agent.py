@@ -357,10 +357,9 @@ async def _record_intraday_trade(
     
     action_id = (existing.data[0]["action_id"] + 1) if existing.data else 1
     
-    # Insert intraday trade (RLS requires user_id)
+    # Insert intraday trade (RLS works through model_id → models.user_id)
     supabase.table("positions").insert({
         "model_id": model_id,
-        "user_id": user_id,  # ← CRITICAL: RLS enforcement
         "date": date,
         "minute_time": minute + ":00",  # HH:MM:SS format
         "action_id": action_id,
