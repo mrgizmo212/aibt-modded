@@ -3,6 +3,12 @@ Check Models in Database
 Lists all available models and their IDs for intraday trading
 """
 
+import sys
+from pathlib import Path
+# Add backend directory to path (we're in scripts/ subdirectory)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
 from supabase import create_client
 from config import settings
 

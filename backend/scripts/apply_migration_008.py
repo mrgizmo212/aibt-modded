@@ -5,7 +5,7 @@ Adds minute_time column to positions table for intraday trades
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from supabase import create_client
 import os

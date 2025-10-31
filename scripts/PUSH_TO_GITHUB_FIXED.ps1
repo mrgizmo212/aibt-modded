@@ -1,6 +1,9 @@
 # Push AIBT Platform to GitHub (FIXED)
 # Handles frontend submodule/nested git issue
 
+# Change to project root directory
+Set-Location (Join-Path $PSScriptRoot "..")
+
 Write-Host "Pushing AIBT to GitHub..." -ForegroundColor Cyan
 
 # Remove frontend/.git if it exists (causes submodule issue)

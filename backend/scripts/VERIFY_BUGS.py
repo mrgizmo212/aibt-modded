@@ -6,7 +6,7 @@ Run this BEFORE fixing to document the issues
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services import get_latest_position, get_model_logs
 from utils.price_tools import get_open_prices

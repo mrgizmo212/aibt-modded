@@ -14,8 +14,8 @@ import asyncio
 import time
 from typing import List, Dict, Any
 
-# Add project root to path
-project_root = os.path.dirname(os.path.abspath(__file__))
+# Add project root to path (go up one level since we're in scripts/)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from dotenv import load_dotenv

@@ -5,7 +5,7 @@ Manually calculates portfolio value to verify the fix is correct
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.price_tools import get_open_prices
 from dotenv import load_dotenv

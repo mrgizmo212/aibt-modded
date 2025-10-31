@@ -6,7 +6,7 @@ Run VERIFY_BUGS.py first to confirm issues, then run this
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("=" * 70)
 print("AIBT CRITICAL BUG FIXES")

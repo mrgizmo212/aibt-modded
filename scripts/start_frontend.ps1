@@ -5,7 +5,8 @@ Write-Host "🎨 Starting AI-Trader Frontend" -ForegroundColor Cyan
 Write-Host "=" * 60 -ForegroundColor Cyan
 
 # Navigate to frontend directory
-$frontendDir = "C:\Users\User\Desktop\CS1027\aibt\frontend"
+# $frontendDir = "C:\Users\User\Desktop\CS1027\aibt\frontend" # OLD ABSOLUTE PATH
+$frontendDir = Join-Path $PSScriptRoot ".." "frontend"
 Set-Location $frontendDir
 
 # Check if node_modules exists

@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.redis_client import redis_client
 from config import settings

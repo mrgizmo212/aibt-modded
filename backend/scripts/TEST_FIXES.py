@@ -6,7 +6,7 @@ Run this AFTER applying FIX_BUGS.py
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services import get_model_latest_position, get_model_logs
 from utils.price_tools import get_open_prices, all_nasdaq_100_symbols

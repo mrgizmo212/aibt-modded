@@ -5,7 +5,8 @@ Write-Host "🚀 Starting AI-Trader Backend API" -ForegroundColor Cyan
 Write-Host "=" * 60 -ForegroundColor Cyan
 
 # Navigate to backend directory
-$backendDir = "C:\Users\User\Desktop\CS1027\aibt\backend"
+# $backendDir = "C:\Users\User\Desktop\CS1027\aibt\backend" # OLD ABSOLUTE PATH
+$backendDir = Join-Path $PSScriptRoot ".." "backend"
 Set-Location $backendDir
 
 # Check if venv exists, create if not

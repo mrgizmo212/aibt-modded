@@ -42,7 +42,7 @@ async def test_suite_1_multi_user_fix():
     
     try:
         # Import and check files directly (no subprocess)
-        backend_path = Path(__file__).parent / "backend"
+        backend_path = Path(__file__).parent.parent / "backend"
         
         # Check MCP timeout configuration
         base_agent_file = backend_path / "trading" / "base_agent.py"
@@ -161,7 +161,7 @@ async def test_suite_3_redis():
     
     try:
         # Add backend to path
-        backend_path = Path(__file__).parent / "backend"
+        backend_path = Path(__file__).parent.parent / "backend"
         if str(backend_path) not in sys.path:
             sys.path.insert(0, str(backend_path))
         
@@ -230,7 +230,7 @@ async def test_suite_4_intraday_data():
     
     try:
         # Add backend to path
-        backend_path = Path(__file__).parent / "backend"
+        backend_path = Path(__file__).parent.parent / "backend"
         if str(backend_path) not in sys.path:
             sys.path.insert(0, str(backend_path))
         
@@ -590,7 +590,7 @@ async def test_suite_9_integration():
     
     # Check Redis
     try:
-        sys.path.insert(0, str(Path(__file__).parent / "backend"))
+        sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
         from utils.redis_client import redis_client
         
         if await redis_client.ping():
@@ -616,7 +616,7 @@ async def test_suite_9_integration():
             print("  ⚠️  Database - Connection issue")
     
     # Check Frontend
-    frontend_path = Path(__file__).parent / "frontend" / "package.json"
+    frontend_path = Path(__file__).parent.parent / "frontend" / "package.json"
     if frontend_path.exists():
         checks["Frontend Build"] = True
         print("  ✅ Frontend Build - package.json present")
@@ -784,7 +784,7 @@ async def test_suite_11_comprehensive_verification():
         [sys.executable, "test_everything.py"],
         capture_output=True,
         text=True,
-        cwd=Path(__file__).parent  # Run from root, not backend/
+        cwd=Path(__file__).parent.parent  # Run from root, not backend/
     )
     
     if "10/10 tests passed (100%)" in result.stdout:

@@ -6,7 +6,7 @@ Verifies credentials and basic operations
 import asyncio
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.redis_client import redis_client
 from dotenv import load_dotenv

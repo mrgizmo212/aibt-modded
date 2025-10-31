@@ -17,7 +17,7 @@ import os
 load_dotenv()
 
 # Add utils to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.price_tools import all_nasdaq_100_symbols
 

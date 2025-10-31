@@ -1,6 +1,9 @@
 # Push AIBT Platform to GitHub
 # One script to initialize and push everything
 
+# Change to project root directory
+Set-Location (Join-Path $PSScriptRoot "..")
+
 Write-Host "Pushing AIBT to GitHub..." -ForegroundColor Cyan
 
 # Initialize git if needed

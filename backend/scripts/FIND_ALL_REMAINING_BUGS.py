@@ -5,7 +5,7 @@ Identifies ALL remaining issues in the platform
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
 from services import get_supabase
