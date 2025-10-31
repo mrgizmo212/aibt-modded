@@ -120,6 +120,7 @@ def get_daily_portfolio_values_db(
     daily_values = {}
     current_date = None
     last_position_of_day = None
+    second_to_last = None
     
     for pos in result.data:
         pos_date = pos["date"]
@@ -128,17 +129,19 @@ def get_daily_portfolio_values_db(
         if pos_date != current_date:
             # Save previous day's final position
             if current_date and last_position_of_day:
-                daily_values[current_date] = calculate_portfolio_value_db(last_position_of_day)
+                daily_values[current_date] = calculate_portfolio_value_db(last_position_of_day, second_to_last)
             
             current_date = pos_date
+            second_to_last = last_position_of_day
             last_position_of_day = pos
         else:
             # Same day, update to latest position
+            second_to_last = last_position_of_day
             last_position_of_day = pos
     
     # Don't forget the last day
     if current_date and last_position_of_day:
-        daily_values[current_date] = calculate_portfolio_value_db(last_position_of_day)
+        daily_values[current_date] = calculate_portfolio_value_db(last_position_of_day, second_to_last)
     
     print(f"📅 Daily values calculated: {len(daily_values)} days")
     if daily_values:
@@ -174,13 +177,19 @@ def calculate_intraday_metrics_db(model_id: int, trade_date: str) -> Dict:
     
     positions = result.data
     
+    # Get starting capital from model
+    model_result = supabase.table("models").select("initial_cash").eq("id", model_id).execute()
+    starting_capital = model_result.data[0]["initial_cash"] if model_result.data else 10000.0
+    
     # Calculate portfolio value at each trade
-    values = []
-    for pos in positions:
-        value = calculate_portfolio_value_db(pos)
+    values = [starting_capital]  # Start with initial capital
+    for i, pos in enumerate(positions):
+        # Pass previous position to derive price from trade
+        prev_pos = positions[i-1] if i > 0 else None
+        value = calculate_portfolio_value_db(pos, prev_pos)
         values.append(value)
     
-    initial_value = values[0]
+    initial_value = starting_capital  # ✅ True starting capital
     final_value = values[-1]
     
     # Calculate trade-by-trade returns
@@ -239,41 +248,63 @@ def calculate_intraday_metrics_db(model_id: int, trade_date: str) -> Dict:
     }
 
 
-def calculate_portfolio_value_db(position_record: Dict) -> float:
+def calculate_portfolio_value_db(position_record: Dict, previous_record: Dict = None) -> float:
     """
     Calculate total portfolio value from a position record
     
+    For intraday: derives price from trade (cash change ÷ shares)
+    For daily: uses stock_prices table
+    
     Args:
         position_record: Database position record with 'cash' and 'positions' fields
+        previous_record: Previous position (to calculate price from cash change)
     
     Returns:
         Total portfolio value (cash + stock values)
     """
-    from utils.price_tools import get_open_prices
-    
     cash = position_record.get("cash", 0.0)
     positions = position_record.get("positions", {})
     date = position_record.get("date")
-    
-    if not date:
-        return cash
+    minute_time = position_record.get("minute_time")
+    action_type = position_record.get("action_type")
+    symbol = position_record.get("symbol")
+    amount = position_record.get("amount")
     
     # Get stock symbols (exclude CASH)
-    symbols = [s for s in positions.keys() if s != 'CASH' and positions[s] > 0]
+    stock_symbols = [s for s in positions.keys() if s != 'CASH' and positions[s] > 0]
     
-    if not symbols:
+    if not stock_symbols:
         return cash
     
+    # For intraday: derive price from this trade
+    if minute_time and previous_record and action_type and symbol and amount:
+        prev_cash = previous_record.get("cash", 0.0)
+        cash_change = abs(cash - prev_cash)
+        
+        if amount > 0:
+            trade_price = cash_change / amount
+            
+            # Calculate total using this trade price
+            total_value = cash
+            for sym in stock_symbols:
+                shares = positions.get(sym, 0)
+                if shares > 0:
+                    total_value += shares * trade_price
+            
+            return total_value
+    
+    # For daily: use stock_prices table
     try:
-        # Get prices for this date
-        prices = get_open_prices(date, symbols)
+        from utils.price_tools import get_open_prices
+        
+        prices = get_open_prices(date, stock_symbols)
         
         # Calculate total value
         total_value = cash
         
-        for symbol in symbols:
-            shares = positions.get(symbol, 0)
-            price_key = f'{symbol}_price'
+        for sym in stock_symbols:
+            shares = positions.get(sym, 0)
+            price_key = f'{sym}_price'
             price = prices.get(price_key, 0)
             
             if price and shares > 0:
@@ -282,8 +313,8 @@ def calculate_portfolio_value_db(position_record: Dict) -> float:
         return total_value
         
     except Exception as e:
-        print(f"Warning: Could not calculate stock values: {e}")
-        return cash  # Fallback to cash only
+        # Fallback: just return cash
+        return cash
 
 
 def calculate_all_metrics_db(

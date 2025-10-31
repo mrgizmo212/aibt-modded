@@ -14,19 +14,20 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    async function loadPositions() {
+      try {
+        const data = await fetchModelPositions(modelId)
+        setPositions(data.positions || [])
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load positions'
+        setError(errorMessage)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
     loadPositions()
   }, [modelId])
-
-  async function loadPositions() {
-    try {
-      const data = await fetchModelPositions(modelId)
-      setPositions(data.positions || [])
-    } catch (err: any) {
-      setError(err.message || 'Failed to load positions')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -71,21 +72,67 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
 
   // Get unique sorted dates
   const dates = Array.from(dateMap.keys()).sort()
-
+  
+  // Build price tracker from all trades
+  const sortedPositions = [...positions].sort((a, b) => a.id - b.id)
+  const priceTracker: Record<string, number> = {}
+  
+  sortedPositions.forEach((pos, idx) => {
+    if (pos.action_type && pos.symbol && pos.amount && pos.amount > 0 && idx > 0) {
+      const prevPos = sortedPositions[idx - 1]
+      const cashChange = Math.abs(pos.cash - prevPos.cash)
+      const price = cashChange / pos.amount
+      if (price > 0) {
+        priceTracker[pos.symbol] = price
+      }
+    }
+  })
+  
+  // For each unique date, show progression
   dates.forEach(date => {
     const dayPositions = dateMap.get(date) || []
-    // Use the last position of the day (highest ID)
-    const lastPosition = dayPositions.sort((a, b) => b.id - a.id)[0]
+    const sortedDayPositions = dayPositions.sort((a, b) => a.id - b.id)
     
-    if (lastPosition) {
+    // Add FIRST position of the day (starting point)
+    const firstPos = sortedDayPositions[0]
+    const lastPos = sortedDayPositions[sortedDayPositions.length - 1]
+    
+    // Starting point (before first trade or with first trade)
+    if (firstPos && chartData.length === 0) {
       chartData.push({
         date,
-        value: lastPosition.cash, // In a real implementation, calculate total value including stocks
-        cash: lastPosition.cash
+        value: 10000, // Starting capital
+        cash: 10000
+      })
+    }
+    
+    // Ending point (after all trades)
+    if (lastPos) {
+      let totalValue = lastPos.cash
+      
+      // Add stock values
+      if (lastPos.positions && typeof lastPos.positions === 'object') {
+        Object.entries(lastPos.positions).forEach(([symbol, shares]) => {
+          if (symbol !== 'CASH' && typeof shares === 'number' && shares > 0) {
+            const price = priceTracker[symbol]
+            if (price && price > 0) {
+              totalValue += shares * price
+            }
+          }
+        })
+      }
+      
+      chartData.push({
+        date,
+        value: totalValue,
+        cash: lastPos.cash
       })
     }
   })
 
+  // Debug: Log chart data
+  console.log('Chart data points:', chartData.length, chartData)
+  
   // Calculate min and max for scaling
   const values = chartData.map(d => d.value)
   const minValue = Math.min(...values)
@@ -217,7 +264,7 @@ export function PortfolioChart({ modelId }: PortfolioChartProps) {
           </div>
         </div>
         <div className="text-gray-500">
-          {chartData.length} trading days
+          {dates.length} trading {dates.length === 1 ? 'day' : 'days'}
         </div>
       </div>
     </div>

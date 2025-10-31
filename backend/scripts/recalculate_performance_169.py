@@ -100,12 +100,19 @@ perf_data = {
     "final_value": metrics.get("final_value", 10000.0)
 }
 
-result = supabase.table("performance_metrics").upsert(perf_data).execute()
+result = supabase.table("performance_metrics")\
+    .upsert(perf_data, on_conflict="model_id,start_date,end_date")\
+    .execute()
 
 if result.data:
     print("✅ Performance metrics saved to database!")
     print()
     print("🎯 Refresh your browser to see updated metrics")
+    print()
+    print("📊 IMPORTANT FINDING:")
+    print(f"   Final Value should be: ${perf_data['final_value']:,.2f} (cash only)")
+    print(f"   BUT you still hold 20 IBM shares!")
+    print(f"   Need to add stock valuation to get true portfolio value")
 else:
     print("⚠️  Save may have failed")
 
