@@ -372,19 +372,42 @@ async def run_intraday_session(
             if len(conversation_history) > 20:
                 conversation_history.pop(0)
     
+    # Calculate final portfolio value (CASH + STOCKS)
+    final_cash = current_position.get("CASH", 0)
+    final_stock_value = 0.0
+    
+    # Value all stock holdings at current price
+    for stock_symbol, shares in current_position.items():
+        if stock_symbol != "CASH" and shares > 0:
+            # Get final price from last bar
+            if all_bars and len(all_bars) > 0:
+                last_minute = list(all_bars.keys())[-1]
+                last_bar = all_bars[last_minute]
+                stock_price = last_bar.get('close', 0) if last_bar else 0
+                stock_value = shares * stock_price
+                final_stock_value += stock_value
+                print(f"   {stock_symbol}: {shares} shares × ${stock_price:.2f} = ${stock_value:.2f}")
+    
+    total_portfolio_value = final_cash + final_stock_value
+    
     print(f"\n✅ Session Complete:")
     print(f"   Minutes Processed: {len(minutes)}")
     print(f"   Trades Executed: {trades_executed}")
     print(f"   Trades Rejected (Rules): {trades_rejected_rules}")
     print(f"   Trades Rejected (Safety Gates): {trades_rejected_gates}")
-    print(f"   Final Position: {current_position}")
+    print(f"   Final Cash: ${final_cash:,.2f}")
+    print(f"   Final Stock Value: ${final_stock_value:,.2f}")
+    print(f"   Total Portfolio Value: ${total_portfolio_value:,.2f}")
     print("=" * 80)
     
     return {
         "status": "completed",
         "minutes_processed": len(minutes),
         "trades_executed": trades_executed,
-        "final_position": current_position
+        "final_position": current_position,
+        "final_cash": final_cash,
+        "final_stock_value": final_stock_value,
+        "total_portfolio_value": total_portfolio_value
     }
 
 
