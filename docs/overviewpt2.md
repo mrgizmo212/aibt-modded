@@ -1,6 +1,6 @@
 # TTG AI Platform - Trading System PT 2
 
-**Last Updated:** 2025-11-01 (Advanced Features + Run Tracking + System Agent + Blueprint Implementation)  
+**Last Updated:** 2025-11-01 16:45 (Documentation Corrections: Fixed endpoint count 34→38, removed non-existent compare_runs.py, corrected tool count 4→3)  
 **Status:** 🟢 Backend Production-Ready + Advanced Features | 🟡 Frontend Functional (UI refinements ongoing)  
 **MCP Compliance:** ✅ 100% Compliant with MCP 2025-06-18 Specification  
 **Blueprint Status:** ✅ 100% Implemented (Run tracking, AI reasoning, System agent, Rules engine)
@@ -368,7 +368,6 @@ if not is_valid:
   - `analyze_trades.py` - Pattern detection in wins/losses
   - `suggest_rules.py` - Generate structured rule suggestions
   - `calculate_metrics.py` - Performance calculations
-  - `compare_runs.py` - Side-by-side run analysis
 - **Evidence:** Lines 17-187 of system_agent.py
 
 **Frontend:**
@@ -647,7 +646,7 @@ Success Rate: 100% (3/3 tests)
 - Added 1 new frontend page (7 → 8) - Run detail page with chat
 - Added 6 new database tables (6 → 12)
 - Added 3 backend services (run, reasoning, chat)
-- Added complete system agent with 4 tools
+- Added complete system agent with 3 tools
 - Added rule enforcement engine + risk gates
 - Added ~10,000 lines of code
 - Updated documentation to reflect all changes
