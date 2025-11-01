@@ -7,6 +7,7 @@
 - NEVER assume.  
 - NEVER guess.  
 - NEVER hallucinate.  
+- WE NEVER MENTION TIME FRAMES, OR CONSIDER COST, API RATE LIMITS ETC, WE JUST WORRY ABOUT GETTING THE JOB DONE, THE ONLY EXCEPTION TO THIS WOULD BE IF I ASK TO CONSIDER RATE LIMITS OR COST. 
 - Always rely on the codebase as the source of truth
 
 ALWAYS THINK AS HARD AS YOU CAN!
@@ -38,9 +39,16 @@ analysis and verification.
 
 STEP 1: DOCUMENTATION INTAKE
 ─────────────────────────────
-Read `/docs/overview.md` in EXTREME DETAIL.
+Read `/docs/overview.md` in EXTREME DETAIL. THERE MAY BE SEVERAL PARTS OF THE OVERVIEW DOC IN DIFF FILES DEPENDING ON HOW LONG IT IS. THE FORMAT WILL BE 
 
-For every statement in overview.md, ask yourself:
+/DOCS/
+
+- OVERVIEW.MD
+- OVERVIEWPT2.MD
+- THIS PATTERN WILL CONTINUE AND ALL MUST BE NOTED AS SUCH AND MAINTAINED DUREING THE SAME SESSIONS.
+
+
+For every statement in overview FILES, ask yourself:
 - What files does this reference?
 - Where is this implemented?
 - Is this claim actually true in the current code?
@@ -86,7 +94,7 @@ export class AuthService {
 **[STATUS]:** ✅ CONFIRMED / ⚠️ PARTIALLY TRUE / ❌ OUTDATED
 
 **IF EXTERNAL PROJECTS EXIST:**
-Verify integration claims in connection-overview.md:
+Verify integration claims in TEMPDOCS/connection-overview.md:
 - Check main project integration points
 - Check external project integration points (if accessible)
 - Verify data flows between projects
@@ -193,5 +201,5 @@ MCP transforms static LLMs into dynamic AI agents that can access real-time info
 ANY MARKDOWN YOU CREATE DATE IT... THAT DIR IS FOR YOU
 
 C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\bugs-and-fixes.md
-C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\overview.md
+C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\overview.md, PART 2 ETC..
 C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\wip.md
