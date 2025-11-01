@@ -1,6 +1,6 @@
 # TTG AI Platform - Trading System PT 1
 
-**Last Updated:** 2025-11-01 (Advanced Features + Run Tracking + System Agent + Blueprint Implementation)  
+**Last Updated:** 2025-11-01 16:45 (Documentation Corrections: Fixed endpoint count 34→38, removed non-existent compare_runs.py, corrected tool count 4→3)  
 **Status:** 🟢 Backend Production-Ready + Advanced Features | 🟡 Frontend Functional (UI refinements ongoing)  
 **MCP Compliance:** ✅ 100% Compliant with MCP 2025-06-18 Specification  
 **Blueprint Status:** ✅ 100% Implemented (Run tracking, AI reasoning, System agent, Rules engine)
@@ -131,7 +131,7 @@
 ```
 aibt-modded/
 ├── backend/                          # FastAPI Backend (100% Complete)
-│   ├── main.py                       # FastAPI app (34 endpoints)
+│   ├── main.py                       # FastAPI app (38 endpoints)
 │   ├── config.py                     # Settings with AI config
 │   ├── models.py                     # Pydantic models
 │   ├── services.py                   # Business logic
@@ -165,8 +165,7 @@ aibt-modded/
 │   │   └── tools/                    # Agent tools
 │   │       ├── analyze_trades.py     # Trade analysis
 │   │       ├── suggest_rules.py      # Rule suggestions
-│   │       ├── calculate_metrics.py  # Performance metrics
-│   │       └── compare_runs.py       # Run comparisons
+│   │       └── calculate_metrics.py  # Performance metrics
 │   │
 │   ├── utils/                        # Utilities
 │   │   ├── general_tools.py          # Helper functions
