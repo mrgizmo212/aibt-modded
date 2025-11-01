@@ -145,26 +145,26 @@ class BaseAgent:
             "math": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('MATH_HTTP_PORT', '8000')}/mcp",
-                "timeout": 15.0,              # Connection timeout (June 2025 requirement)
-                "sse_read_timeout": 120.0,    # 2 min for math operations
+                "timeout": 30.0,              # Connection timeout (increased)
+                "sse_read_timeout": 180.0,    # 3 min for math operations (increased)
             },
             "stock_local": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('GETPRICE_HTTP_PORT', '8003')}/mcp",
-                "timeout": 15.0,              # Connection timeout
-                "sse_read_timeout": 300.0,    # 5 min for large data fetches (500K trades)
+                "timeout": 30.0,              # Connection timeout (increased)
+                "sse_read_timeout": 360.0,    # 6 min for large data fetches (increased)
             },
             "search": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('SEARCH_HTTP_PORT', '8001')}/mcp",
-                "timeout": 15.0,              # Connection timeout for web requests
-                "sse_read_timeout": 180.0,    # 3 min for web searches
+                "timeout": 30.0,              # Connection timeout for web requests (increased)
+                "sse_read_timeout": 240.0,    # 4 min for web searches (increased)
             },
             "trade": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('TRADE_HTTP_PORT', '8002')}/mcp",
-                "timeout": 15.0,              # Connection timeout
-                "sse_read_timeout": 120.0,    # 2 min for trade operations
+                "timeout": 30.0,              # Connection timeout (increased)
+                "sse_read_timeout": 180.0,    # 3 min for trade operations (increased)
             },
         }
     

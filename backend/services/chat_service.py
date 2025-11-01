@@ -33,7 +33,13 @@ async def get_or_create_chat_session(
     
     # Verify ownership
     model = supabase.table("models").select("user_id").eq("id", model_id).execute()
-    if not model.data or model.data[0]["user_id"] != user_id:
+    if not model.data:
+        raise PermissionError(f"Model {model_id} not found in chat_service check")
+    
+    model_owner = model.data[0]["user_id"]
+    print(f"🔍 Chat service auth: model_owner={model_owner}, user={user_id}, match={model_owner == user_id}")
+    
+    if model_owner != user_id:
         raise PermissionError(f"User {user_id} does not own model {model_id}")
     
     # Try to get existing session
@@ -66,6 +72,7 @@ async def save_chat_message(
     run_id: int,
     role: str,
     content: str,
+    user_id: str,  # ← ADD: Need user_id for permission check
     tool_calls: Optional[List] = None
 ) -> Dict:
     """
@@ -84,7 +91,7 @@ async def save_chat_message(
     supabase = get_supabase()
     
     # Get or create session
-    session = await get_or_create_chat_session(model_id, run_id, "system")  # Service role bypass
+    session = await get_or_create_chat_session(model_id, run_id, user_id)  # ← FIX: Use actual user_id
     session_id = session["id"]
     
     # Save message

@@ -146,6 +146,12 @@ async def run_intraday_session(
     trades_rejected_gates = 0
     current_position = {"CASH": agent.initial_cash}
     
+    # NEW: Track recent rejections for AI learning
+    recent_rejections = []  # Last 10 rejections with reasons
+    
+    # NEW: Track conversation context for strategic decision-making
+    conversation_history = []  # AI's decisions + results over time
+    
     # Step 4: Trade each minute using in-memory bars
     for idx, minute in enumerate(minutes):
         # Get price from memory (no Redis call!)
@@ -160,19 +166,32 @@ async def run_intraday_session(
         if idx % 10 == 0:
             print(f"  🕐 Minute {idx+1}/{len(minutes)}: {minute} - {symbol} @ ${current_price:.2f}")
         
-        # AI decision (simplified for now - will use actual agent later)
+        # AI decision with full context (rejections + conversation history)
         decision = await _ai_decide_intraday(
             agent,
             minute=minute,
             symbol=symbol,
             current_price=current_price,
             bar=bar,
-            current_position=current_position
+            current_position=current_position,
+            run_id=run_id,
+            recent_rejections=recent_rejections,
+            conversation_history=conversation_history  # ← NEW: Full context memory
         )
         
         # Execute decision and show reasoning
         action = decision.get("action")
         reasoning = decision.get("reasoning", "No reasoning provided")
+        
+        # Track this decision for context (before execution to capture intent)
+        decision_log = {
+            'minute': minute,
+            'price': current_price,
+            'decision': action.upper() if action else 'HOLD',
+            'amount': decision.get('amount', 0),
+            'reasoning': reasoning,
+            'result': 'pending'  # Will update after execution
+        }
         
         if action == "buy":
             amount = decision.get("amount", 0)
@@ -204,6 +223,25 @@ async def run_intraday_session(
             if not gates_passed:
                 print(f"    🛑 RISK GATE BLOCKED: {gate_reason}")
                 trades_rejected_gates += 1
+                
+                # Track rejection for AI learning
+                recent_rejections.append({
+                    'minute': minute,
+                    'action': 'BUY',
+                    'amount': amount,
+                    'reason': gate_reason
+                })
+                # Keep only last 10 rejections
+                if len(recent_rejections) > 10:
+                    recent_rejections.pop(0)
+                
+                # Update decision log with result
+                decision_log['result'] = f'BLOCKED: {gate_reason[:50]}'
+                conversation_history.append(decision_log)
+                # Keep last 20 minutes of context
+                if len(conversation_history) > 20:
+                    conversation_history.pop(0)
+                
                 continue
             
             # NEW: Rule Enforcer (user-defined rules)
@@ -221,6 +259,25 @@ async def run_intraday_session(
             if not rules_passed:
                 print(f"    ❌ RULE VIOLATION: {rule_reason}")
                 trades_rejected_rules += 1
+                
+                # Track rejection for AI learning
+                recent_rejections.append({
+                    'minute': minute,
+                    'action': 'BUY',
+                    'amount': amount,
+                    'reason': rule_reason
+                })
+                # Keep only last 10 rejections
+                if len(recent_rejections) > 10:
+                    recent_rejections.pop(0)
+                
+                # Update decision log with result
+                decision_log['result'] = f'BLOCKED: {rule_reason[:50]}'
+                conversation_history.append(decision_log)
+                # Keep last 20 minutes of context
+                if len(conversation_history) > 20:
+                    conversation_history.pop(0)
+                
                 continue
             
             # EXISTING: Cash validation
@@ -253,6 +310,13 @@ async def run_intraday_session(
             )
             
             trades_executed += 1
+            
+            # Update decision log with successful trade
+            decision_log['result'] = f'✅ EXECUTED: Bought {amount} @ ${current_price:.2f}'
+            conversation_history.append(decision_log)
+            # Keep last 20 minutes of context
+            if len(conversation_history) > 20:
+                conversation_history.pop(0)
             
         elif action == "sell":
             amount = decision.get("amount", 0)
@@ -288,10 +352,25 @@ async def run_intraday_session(
             )
             
             trades_executed += 1
+            
+            # Update decision log with successful sell
+            decision_log['result'] = f'✅ EXECUTED: Sold {amount} @ ${current_price:.2f}'
+            conversation_history.append(decision_log)
+            # Keep last 20 minutes of context
+            if len(conversation_history) > 20:
+                conversation_history.pop(0)
+            
         else:
             # HOLD - only show reasoning occasionally
             if idx % 30 == 0:  # Every 30 minutes
                 print(f"    📊 HOLD - {reasoning[:80]}")
+            
+            # Track HOLD decisions too (important for context)
+            decision_log['result'] = '⏸️  HOLD: No trade'
+            conversation_history.append(decision_log)
+            # Keep last 20 minutes of context
+            if len(conversation_history) > 20:
+                conversation_history.pop(0)
     
     print(f"\n✅ Session Complete:")
     print(f"   Minutes Processed: {len(minutes)}")
@@ -353,7 +432,10 @@ async def _ai_decide_intraday(
     symbol: str,
     current_price: float,
     bar: Dict,
-    current_position: Dict
+    current_position: Dict,
+    run_id: Optional[int] = None,
+    recent_rejections: Optional[List] = None,
+    conversation_history: Optional[List] = None  # ← NEW: Full context memory
 ) -> Dict[str, Any]:
     """
     AI makes intraday trading decision for current minute
@@ -367,6 +449,7 @@ async def _ai_decide_intraday(
         current_price: Current price
         bar: Minute bar with OHLCV
         current_position: Current portfolio
+        run_id: Optional run ID for linking reasoning
     
     Returns:
         Decision dict with action and amount
@@ -380,21 +463,67 @@ async def _ai_decide_intraday(
         symbol=symbol,
         bar=bar,
         position=current_position,
-        custom_rules=agent.custom_rules,  # ← NEW: Pass rules
-        custom_instructions=agent.custom_instructions  # ← NEW: Pass instructions
+        custom_rules=agent.custom_rules,
+        custom_instructions=agent.custom_instructions
     )
+    
+    # NEW: Add conversation context so AI builds strategy over time
+    context_additions = []
+    
+    # 1. Recent trading history (last 10 minutes)
+    if conversation_history and len(conversation_history) > 0:
+        context_additions.append("\n\n📊 YOUR RECENT TRADING ACTIVITY:")
+        for entry in conversation_history[-10:]:  # Last 10 minutes
+            context_additions.append(
+                f"• {entry['minute']}: {entry['decision']} - {entry['result']} | {entry['reasoning'][:60]}..."
+            )
+    
+    # 2. Rejection feedback for sizing adjustments
+    if recent_rejections and len(recent_rejections) > 0:
+        context_additions.append("\n\n⚠️ RECENT REJECTIONS - ADJUST YOUR SIZING:")
+        for rej in recent_rejections[-5:]:  # Last 5 rejections
+            context_additions.append(f"• {rej['minute']}: {rej['action']} {rej['amount']} → BLOCKED - {rej['reason']}")
+        
+        # Calculate max safe amount
+        cash = current_position.get('CASH', 10000)
+        total_value = cash
+        max_safe_trade = total_value * 0.50  # 50% limit
+        max_safe_shares = int(max_safe_trade / current_price) if current_price > 0 else 0
+        
+        context_additions.append(f"\n💡 Max safe: ${max_safe_trade:.0f} (~{max_safe_shares} shares at ${current_price:.2f})")
+        context_additions.append(f"   Portfolio: ${total_value:.0f} | 50% limit per trade")
+    
+    # 3. Strategic guidance
+    if len(conversation_history) > 5:
+        context_additions.append("\n\n🎯 STRATEGIC REMINDER:")
+        context_additions.append("• You don't need to trade every minute")
+        context_additions.append("• HOLD when conditions aren't favorable")
+        context_additions.append("• Be selective and patient")
+        context_additions.append("• Size positions appropriately (risk gate is 50% max)")
+    
+    if context_additions:
+        prompt += "\n".join(context_additions)
     
     # Call AI agent (actual decision making)
     try:
-        response = await agent.agent.ainvoke(
-            {"messages": [{"role": "user", "content": prompt}]},
-            {"recursion_limit": 5}  # Fast decisions for intraday
+        print(f"    🤖 Calling AI for decision at {minute}...")
+        
+        # Add timeout wrapper to prevent hanging
+        response = await asyncio.wait_for(
+            agent.agent.ainvoke(
+                {"messages": [{"role": "user", "content": prompt}]},
+                {"recursion_limit": 5}  # Fast decisions for intraday
+            ),
+            timeout=3.0  # 3 second hard limit for fast intraday trading
         )
+        
+        print(f"    ✅ AI responded in time")
         
         # Parse AI response
         # LangChain agent returns {"messages": [...]} not {"output": "..."}
         # Get the last AI message content
         messages = response.get("messages", [])
+        print(f"    📝 Parsing {len(messages)} messages...")
         if messages:
             # Last message is the AI's response
             last_msg = messages[-1]
@@ -414,8 +543,11 @@ async def _ai_decide_intraday(
         # Extract reasoning (text after dash)
         reasoning = content.split(" - ", 1)[1] if " - " in content else content
         
+        print(f"    💭 AI Response: {content[:100]}...")
+        
         # NEW: Save AI reasoning to database
         if run_id:
+            print(f"    💾 Saving reasoning to database (run_id={run_id})...")
             from services.reasoning_service import save_ai_reasoning
             
             await save_ai_reasoning(
@@ -437,18 +569,25 @@ async def _ai_decide_intraday(
             # Extract amount from the response
             match = re.search(r'(\d+)', content_upper)
             amount = int(match.group(1)) if match else 10
+            print(f"    ✅ Decision: BUY {amount} shares")
             return {"action": "buy", "symbol": symbol, "amount": amount, "reasoning": reasoning}
         elif content_upper.startswith("SELL") or content_upper.startswith('"SELL'):
             # Extract amount from the response
             match = re.search(r'(\d+)', content_upper)
             amount = int(match.group(1)) if match else 5
+            print(f"    ✅ Decision: SELL {amount} shares")
             return {"action": "sell", "symbol": symbol, "amount": amount, "reasoning": reasoning}
         else:
+            print(f"    ✅ Decision: HOLD")
             return {"action": "hold", "reasoning": reasoning}
+    
+    except asyncio.TimeoutError:
+        print(f"    ⏱️  AI decision timeout (>30s), defaulting to HOLD")
+        return {"action": "hold", "reasoning": "AI timeout - defaulted to hold"}
     
     except Exception as e:
         print(f"    ⚠️  AI decision failed: {e}, defaulting to HOLD")
-        return {"action": "hold"}
+        return {"action": "hold", "reasoning": f"Error: {str(e)[:100]}"}
 
 
 async def _record_intraday_trade(

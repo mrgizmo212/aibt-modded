@@ -20,7 +20,7 @@ export default function RunPage() {
   
   async function loadRun() {
     try {
-      const response = await fetch(`http://localhost:8000/api/models/${modelId}/runs/${runId}`, {
+      const response = await fetch(`http://localhost:8080/api/models/${modelId}/runs/${runId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

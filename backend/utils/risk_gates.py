@@ -96,17 +96,19 @@ class RiskGates:
         # ====================================================================
         if action in ['buy', 'short']:
             trade_value = amount * price
-            extreme_threshold = total_portfolio_value * 0.50  # 50% hard limit
+            total_value = portfolio_snapshot.get('total_value', portfolio_snapshot['cash'])
+            extreme_threshold = total_value * 0.50  # 50% hard limit
             
             if trade_value > extreme_threshold:
-                return False, f"SAFETY GATE: Single trade of ${trade_value:.2f} would be {trade_value/total_portfolio_value*100:.1f}% of portfolio (50% max)"
+                return False, f"SAFETY GATE: Single trade of ${trade_value:.2f} would be {trade_value/total_value*100:.1f}% of portfolio (50% max)"
         
         # ====================================================================
         # GATE 7: Minimum Cash Reserve (10% hard limit)
         # ====================================================================
         if action in ['buy', 'short']:
             cash_after = portfolio_snapshot['cash'] - (amount * price)
-            min_cash = total_portfolio_value * 0.10  # 10% minimum
+            total_value = portfolio_snapshot.get('total_value', portfolio_snapshot['cash'])
+            min_cash = total_value * 0.10  # 10% minimum
             
             if cash_after < min_cash:
                 return False, f"SAFETY GATE: Must maintain minimum 10% cash reserve (${min_cash:.2f}), would have ${cash_after:.2f}"

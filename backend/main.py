@@ -377,9 +377,11 @@ async def login(request: LoginRequest):
         }
         
     except Exception as e:
+        # Log actual error for debugging
+        print(f"❌ Login failed: {type(e).__name__}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            detail=f"Login failed: {str(e)}"
         )
 
 
@@ -1127,7 +1129,8 @@ async def chat_with_system_agent(
             model_id=model_id,
             run_id=run_id,
             role="user",
-            content=request.message
+            content=request.message,
+            user_id=current_user["id"]  # ← FIX: Pass actual user_id
         )
         
         await save_chat_message(
@@ -1135,6 +1138,7 @@ async def chat_with_system_agent(
             run_id=run_id,
             role="assistant",
             content=result["response"],
+            user_id=current_user["id"],  # ← FIX: Pass actual user_id
             tool_calls=result.get("tool_calls")
         )
         

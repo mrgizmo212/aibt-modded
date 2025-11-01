@@ -28,8 +28,14 @@ class SystemAgent:
     ):
         # Verify ownership
         model = supabase.table("models").select("user_id").eq("id", model_id).execute()
-        if not model.data or model.data[0]["user_id"] != user_id:
-            raise PermissionError(f"User {user_id} cannot access model {model_id}")
+        if not model.data:
+            raise PermissionError(f"Model {model_id} not found")
+        
+        model_owner = model.data[0]["user_id"]
+        print(f"🔍 Chat auth check: model_owner={model_owner}, requesting_user={user_id}, match={model_owner == user_id}")
+        
+        if model_owner != user_id:
+            raise PermissionError(f"User {user_id} cannot access model {model_id} owned by {model_owner}")
         
         self.model_id = model_id
         self.run_id = run_id
