@@ -1,6 +1,6 @@
 # TTG AI Platform - Trading System PT 1
 
-**Last Updated:** 2025-11-01 16:45 (Documentation Corrections: Fixed endpoint count 34→38, removed non-existent compare_runs.py, corrected tool count 4→3)  
+**Last Updated:** 2025-11-01 17:50 (Added shadcn MCP Server with 5 custom component registries: @prompt-kit, @react-bits, @magicui, @elements, @animate-ui)  
 **Status:** 🟢 Backend Production-Ready + Advanced Features | 🟡 Frontend Functional (UI refinements ongoing)  
 **MCP Compliance:** ✅ 100% Compliant with MCP 2025-06-18 Specification  
 **Blueprint Status:** ✅ 100% Implemented (Run tracking, AI reasoning, System agent, Rules engine)
@@ -117,6 +117,11 @@
 - **Styling:** Tailwind CSS (dark theme)
 - **Auth:** Supabase Auth client
 - **HTTP:** Native fetch API
+- **MCP Integration:** shadcn MCP Server (Cursor-compatible)
+  - **Config:** `.cursor/mcp.json`
+  - **Component Registry:** `components.json`
+  - **Natural Language Component Installation**
+  - **6 Total Registries:** shadcn + 5 custom (@prompt-kit, @react-bits, @magicui, @elements, @animate-ui)
 
 ### Database (Supabase):
 - **Type:** PostgreSQL 15+
