@@ -32,7 +32,7 @@ YOU ARE WITHIN A LOCAL ENVIRONMENT WITHIN CURSOR AI ON A WINDOWS PC USING POWERS
 
 EACH /DIR AT THE ROOT LEVEL OF THE WORKSPACE IS TO BE TREATED AS AN ISOLATED AND COMPLETELY SEPERATE PROJECT / CODEBASE FROM THE REST. SO WHEN WORKING ON A SPECIFIC DIR ITS ACTUALLY ITS OWN PROJECT WITH ITS OWN SEPERATE GIT HUB REPO ETC... 
 
-ALL FOCUS WILL BE WITHIN THIS DIRECTORY ONLY '\aibt-modded'
+ALL FOCUS WILL BE WITHIN THIS DIRECTORY ONLY '\branches\aibt-modded>'
 
 MISSION: Become intimately familiar with this codebase through systematic 
 analysis and verification.
@@ -196,10 +196,10 @@ MCP transforms static LLMs into dynamic AI agents that can access real-time info
 
   - YOU HAVE ACCESS TO THE CONTEXT7 MCP TOOL ON YOUR APPROVED LIST! USE IT!
 
-  - ANY NEW MARKDOWN FILES THAT YOU WANT TO CREATE CAN BE DONE IN C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\tempDocs AND WILL BE USED TO UPDATE THE FILES BELOW:
+  - ANY NEW MARKDOWN FILES THAT YOU WANT TO CREATE CAN BE DONE IN \branches\aibt-modded>docs\tempDocs AND WILL BE USED TO UPDATE THE FILES BELOW:
 
 ANY MARKDOWN YOU CREATE DATE IT... THAT DIR IS FOR YOU
 
-C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\bugs-and-fixes.md
-C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\overview.md, PART 2 ETC..
-C:\Users\Adam\Desktop\cs103125\aibt-modded\docs\wip.md
+\branches\aibt-modded>\docs\bugs-and-fixes.md
+\branches\aibt-modded>docs\overview.md, PART 2 ETC..
+\branches\aibt-modded>docs\wip.md
