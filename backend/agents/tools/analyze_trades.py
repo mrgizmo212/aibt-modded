@@ -75,6 +75,12 @@ def create_analyze_trades_tool(supabase: Client, model_id: int, run_id: Optional
         total_pnl = sum(t["pnl"] for t in trade_pnl)
         win_rate = len(winners) / len(trade_pnl) if trade_pnl else 0
         
+        # Calculate win/loss ratio (fix f-string error)
+        if avg_loss != 0:
+            win_loss_ratio = f"{abs(avg_win/avg_loss):.2f}"
+        else:
+            win_loss_ratio = "N/A (no losses)"
+        
         # Build analysis
         analysis = f"""Trade Analysis Results:
 
@@ -86,7 +92,7 @@ Losers: {len(losers)} ({(1-win_rate)*100:.1f}%)
 💰 Performance:
 Average Winner: ${avg_win:.2f}
 Average Loser: ${avg_loss:.2f}
-Win/Loss Ratio: {abs(avg_win/avg_loss):.2f if avg_loss != 0 else 'N/A'}
+Win/Loss Ratio: {win_loss_ratio}
 Total P/L: ${total_pnl:.2f}
 
 🔍 Patterns Identified:
