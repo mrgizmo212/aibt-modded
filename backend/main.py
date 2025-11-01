@@ -973,12 +973,25 @@ async def start_intraday_trading(
         run_id=run_id  # ← NEW: Link trades to run
     )
     
-    # NEW: Complete run
+    # NEW: Complete run with calculated metrics
     try:
+        # Calculate final return
+        initial_value = model.get("initial_cash", 10000.0)
+        final_cash = result.get("final_position", {}).get("CASH", initial_value) if result.get("final_position") else initial_value
+        final_return = ((final_cash - initial_value) / initial_value) if initial_value > 0 else 0.0
+        
+        # Calculate max drawdown (simple version - can be enhanced)
+        # For now, use current drawdown from peak
+        max_drawdown = max(0, (initial_value - final_cash) / initial_value) if initial_value > 0 else 0.0
+        
         await services.complete_trading_run(run_id, {
             "total_trades": result.get("trades_executed", 0),
-            "final_portfolio_value": result.get("final_position", {}).get("CASH", 0) if result.get("final_position") else None
+            "final_portfolio_value": final_cash,
+            "final_return": final_return,
+            "max_drawdown": max_drawdown
         })
+        
+        print(f"✅ Run #{run_number} completed: {result.get('trades_executed', 0)} trades, {final_return*100:.2f}% return")
     except Exception as e:
         print(f"⚠️ Could not complete run: {e}")
     
