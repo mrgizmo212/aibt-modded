@@ -21,6 +21,28 @@ export function StatsGrid({ refreshTrigger }: StatsGridProps = {}) {
     totalCapital: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [runningModelId, setRunningModelId] = useState<number | null>(null)
+
+  // Connect to SSE for any running model to get real-time updates
+  useEffect(() => {
+    getTradingStatus().then(statuses => {
+      if (statuses.length > 0) {
+        setRunningModelId(statuses[0].model_id)
+      }
+    })
+  }, [])
+
+  // Listen to SSE events and refresh stats on trades/completions
+  const { events } = useTradingStream(runningModelId, { 
+    enabled: !!runningModelId,
+    onEvent: (event) => {
+      // Auto-refresh stats when important events occur
+      if (event.type === 'trade' || event.type === 'complete' || event.type === 'session_complete') {
+        console.log('[StatsGrid] Detected event:', event.type, '- refreshing stats')
+        setTimeout(() => loadStats(), 1500) // Small delay for backend to update
+      }
+    }
+  })
 
   useEffect(() => {
     loadStats()

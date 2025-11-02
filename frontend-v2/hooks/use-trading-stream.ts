@@ -9,7 +9,7 @@ const RECONNECT_DELAY = 3000 // 3 seconds
 const MAX_RECONNECT_ATTEMPTS = 5
 
 export interface TradingEvent {
-  type: 'connected' | 'status' | 'trade' | 'session_complete' | 'complete' | 'error'
+  type: 'connected' | 'status' | 'trade' | 'session_complete' | 'complete' | 'error' | 'terminal' | 'progress'
   timestamp: string
   data: {
     model_id?: number

@@ -176,7 +176,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
             </div>
           )}
 
-          {/* Live Updates */}
+          {/* Live Updates - Terminal Style */}
           {recentEvents.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -187,21 +187,30 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
                 </Badge>
               </div>
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
-                <div className="max-h-[300px] overflow-y-auto scrollbar-thin p-3 space-y-2">
-                  {recentEvents.map((event, index) => (
-                    <div key={`${event.timestamp}-${index}`} className="text-xs font-mono">
-                      <span className="text-[#737373]" suppressHydrationWarning>
-                        {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'}
-                      </span>
-                      <span className={`ml-2 ${
-                        event.type === 'trade' ? 'text-[#10b981]' :
-                        event.type === 'error' ? 'text-[#ef4444]' :
-                        'text-[#a3a3a3]'
-                      }`}>
-                        {event.data?.message || event.type}
-                      </span>
+                <div className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1">
+                  {recentEvents.map((event, index) => {
+                    // Filter to show only terminal events for the terminal view
+                    if (event.type !== 'terminal') return null
+                    
+                    const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
+                    const message = event.data?.message || ''
+                    
+                    return (
+                      <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                        <div className="text-[#525252]" suppressHydrationWarning>
+                          {timestamp}
+                        </div>
+                        <div className="text-[#10b981] whitespace-pre-wrap">
+                          {message}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {recentEvents.filter(e => e.type === 'terminal').length === 0 && (
+                    <div className="text-center py-8 text-[#737373]">
+                      Waiting for trading activity...
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -247,21 +256,24 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
             </TabsContent>
             
             <TabsContent value="terminal" className="mt-4">
-              {/* Trading log view */}
+              {/* Trading log view - Terminal Output */}
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
                 <div className="bg-[#1a1a1a] border-b border-[#262626] px-4 py-2">
                   <span className="text-xs font-semibold text-white">Live Trading Log</span>
                 </div>
-                <div className="h-[300px] overflow-y-auto scrollbar-thin p-4 font-mono text-xs space-y-1">
-                  {recentEvents.length > 0 ? (
+                <div className="h-[400px] overflow-y-auto scrollbar-thin p-4 font-mono text-xs space-y-1">
+                  {recentEvents.filter(e => e.type === 'terminal').length > 0 ? (
                     recentEvents.map((event, index) => {
+                      // Show only terminal events
+                      if (event.type !== 'terminal') return null
+                      
                       const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
-                      const message = event.data?.message || event.type
+                      const message = event.data?.message || ''
                       
                       return (
-                        <div key={index} className="text-[#10b981] flex gap-2">
-                          <span className="text-[#525252]" suppressHydrationWarning>{timestamp}</span>
-                          <span className="whitespace-pre-wrap">{message}</span>
+                        <div key={index} className="leading-relaxed">
+                          <div className="text-[#525252]" suppressHydrationWarning>{timestamp}</div>
+                          <div className="text-[#10b981] whitespace-pre-wrap">{message}</div>
                         </div>
                       )
                     })

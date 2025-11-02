@@ -54,6 +54,12 @@ async def run_intraday_session(
     print(f"  Session: {session}")
     print()
     
+    # Emit initialization header
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"{'=' * 80}\nINTRADAY TRADING SESSION\n{'=' * 80}\n  Model: {model_id}\n  Symbol: {symbol}\n  Date: {date}\n  Session: {session}\n"
+        })
+    
     # Validate model exists before starting
     from supabase import create_client
     from config import settings
@@ -64,13 +70,18 @@ async def run_intraday_session(
     if not model_check.data:
         error_msg = f"Model ID {model_id} not found in database"
         print(f"❌ {error_msg}")
+        if event_stream:
+            await event_stream.emit(model_id, "terminal", {"message": f"❌ {error_msg}"})
         return {"status": "failed", "error": error_msg}
     
     print(f"✅ Model {model_id} verified")
     print()
     
-    # Emit initialization event
+    # Emit verification
     if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"✅ Model {model_id} verified"
+        })
         await event_stream.emit(model_id, "status", {
             "message": f"Starting intraday session for {symbol} on {date}"
         })
@@ -81,6 +92,9 @@ async def run_intraday_session(
     
     # Emit data loading event
     if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"📥 Step 1: Loading Session Data\n{'-' * 80}"
+        })
         await event_stream.emit(model_id, "status", {
             "message": f"Loading market data for {symbol}..."
         })
@@ -94,6 +108,10 @@ async def run_intraday_session(
     
     if symbol not in stats or stats[symbol] == 0:
         print(f"❌ No data loaded for {symbol}")
+        if event_stream:
+            await event_stream.emit(model_id, "terminal", {
+                "message": f"❌ No data loaded for {symbol}"
+            })
         return {"status": "failed", "error": "No data available"}
     
     bars_loaded = stats[symbol]
@@ -101,6 +119,9 @@ async def run_intraday_session(
     
     # Emit data loaded event
     if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"✅ Loaded {bars_loaded} minute bars for {symbol}"
+        })
         await event_stream.emit(model_id, "status", {
             "message": f"Loaded {bars_loaded} minute bars, preparing AI agent..."
         })
@@ -108,6 +129,11 @@ async def run_intraday_session(
     # Step 1.5: Create LangChain agent for intraday decisions
     print(f"\n🤖 Creating Intraday Agent")
     print("-" * 80)
+    
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"\n🤖 Creating Intraday Agent\n{'-' * 80}"
+        })
     
     from langchain.agents import create_agent
     from trading.agent_prompt import get_intraday_system_prompt
@@ -121,9 +147,19 @@ async def run_intraday_session(
     
     print(f"✅ Agent created and ready for decisions")
     
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"✅ Agent created and ready for decisions"
+        })
+    
     # Step 2: Load ALL bars from Redis into memory (avoid 391 GET calls)
     print(f"\n📥 Step 2: Loading All Bars from Redis into Memory")
     print("-" * 80)
+    
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"\n📥 Step 2: Loading All Bars from Redis into Memory\n{'-' * 80}"
+        })
     
     from intraday_loader import get_minute_bar_from_cache
     
@@ -131,6 +167,11 @@ async def run_intraday_session(
     print(f"  📊 Expected {len(minutes)} minute bars for {session} session")
     print(f"  🔍 First few minutes: {minutes[:5]}")
     print(f"  🔍 Last few minutes: {minutes[-5:]}")
+    
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"  📊 Expected {len(minutes)} minute bars for {session} session"
+        })
     
     all_bars = {}  # minute_str -> bar_data
     
@@ -146,8 +187,17 @@ async def run_intraday_session(
             missing_count += 1
             if missing_count <= 3:  # Show first 3 missing
                 print(f"  ⚠️  Missing bar for {minute}")
+                if event_stream and missing_count <= 3:
+                    await event_stream.emit(model_id, "terminal", {
+                        "message": f"  ⚠️  Missing bar for {minute}"
+                    })
     
     print(f"  ✅ Loaded {len(all_bars)} bars into memory")
+    
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": f"  ✅ Loaded {len(all_bars)} bars into memory"
+        })
     print(f"  ⚠️  Missing {missing_count} bars")
     print(f"  📊 Success rate: {(found_count / len(minutes) * 100):.1f}%")
     
@@ -194,9 +244,13 @@ async def run_intraday_session(
         
         # Every 10 minutes, show progress and emit status
         if idx % 10 == 0:
-            print(f"  🕐 Minute {idx+1}/{len(minutes)}: {minute} - {symbol} @ ${current_price:.2f}")
+            progress_msg = f"  🕐 Minute {idx+1}/{len(minutes)}: {minute} - {symbol} @ ${current_price:.2f}"
+            print(progress_msg)
             # Emit progress update every 10 minutes (not every minute - reduces spam)
             if event_stream and idx > 0:
+                await event_stream.emit(model_id, "terminal", {
+                    "message": progress_msg
+                })
                 await event_stream.emit(model_id, "progress", {
                     "message": f"Trading minute {idx+1}/{len(minutes)}: {minute}",
                     "progress": int((idx / len(minutes)) * 100)
@@ -323,8 +377,16 @@ async def run_intraday_session(
                 print(f"       Skipping trade")
                 continue
             
-            print(f"    💰 BUY {amount} shares")
-            print(f"       Why: {reasoning[:100]}")
+            buy_msg = f"    💰 BUY {amount} shares"
+            reasoning_msg = f"       Why: {reasoning[:100]}"
+            print(buy_msg)
+            print(reasoning_msg)
+            
+            # Emit terminal output
+            if event_stream:
+                await event_stream.emit(model_id, "terminal", {
+                    "message": f"{buy_msg}\n{reasoning_msg}"
+                })
             
             # Emit trade event
             if event_stream:
@@ -376,8 +438,16 @@ async def run_intraday_session(
                 print(f"       Skipping trade")
                 continue
             
-            print(f"    💵 SELL {amount} shares")
-            print(f"       Why: {reasoning[:100]}")
+            sell_msg = f"    💵 SELL {amount} shares"
+            sell_reasoning_msg = f"       Why: {reasoning[:100]}"
+            print(sell_msg)
+            print(sell_reasoning_msg)
+            
+            # Emit terminal output
+            if event_stream:
+                await event_stream.emit(model_id, "terminal", {
+                    "message": f"{sell_msg}\n{sell_reasoning_msg}"
+                })
             
             # Emit trade event
             if event_stream:
@@ -448,15 +518,23 @@ async def run_intraday_session(
     
     total_portfolio_value = final_cash + final_stock_value
     
-    print(f"\n✅ Session Complete:")
-    print(f"   Minutes Processed: {len(minutes)}")
-    print(f"   Trades Executed: {trades_executed}")
-    print(f"   Trades Rejected (Rules): {trades_rejected_rules}")
-    print(f"   Trades Rejected (Safety Gates): {trades_rejected_gates}")
-    print(f"   Final Cash: ${final_cash:,.2f}")
-    print(f"   Final Stock Value: ${final_stock_value:,.2f}")
-    print(f"   Total Portfolio Value: ${total_portfolio_value:,.2f}")
-    print("=" * 80)
+    completion_summary = f"\n✅ Session Complete:\n   Minutes Processed: {len(minutes)}\n   Trades Executed: {trades_executed}\n   Trades Rejected (Rules): {trades_rejected_rules}\n   Trades Rejected (Safety Gates): {trades_rejected_gates}\n   Final Cash: ${final_cash:,.2f}\n   Final Stock Value: ${final_stock_value:,.2f}"
+    
+    print(completion_summary)
+    
+    # Emit terminal completion summary
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": completion_summary
+        })
+    final_summary = f"   Total Portfolio Value: ${total_portfolio_value:,.2f}\n{'=' * 80}"
+    print(final_summary)
+    
+    # Emit final summary to terminal
+    if event_stream:
+        await event_stream.emit(model_id, "terminal", {
+            "message": final_summary
+        })
     
     # Emit completion event
     if event_stream:
