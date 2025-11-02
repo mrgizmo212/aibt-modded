@@ -204,12 +204,20 @@ export function ChatInterface({
           embeddedComponent: { type: "model_creation_step", props: { step: "name", data: {} } },
         }
       } else if (input.toLowerCase().includes("show") && input.toLowerCase().includes("model")) {
+        // Fetch actual model count
+        const { getModels } = await import('@/lib/api')
+        const modelList = await getModels()
+        const modelCount = modelList.length
+        
         aiMessage = {
           id: (Date.now() + 1).toString(),
           type: "ai",
-          text: "Here are your 7 trading models:",
+          text: modelCount > 0 
+            ? `Here are your ${modelCount} trading model${modelCount === 1 ? '' : 's'}:` 
+            : "You don't have any trading models yet. Would you like to create one?",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          embeddedComponent: { type: "model_cards" },
+          embeddedComponent: modelCount > 0 ? { type: "model_cards" } : undefined,
+          suggestedActions: modelCount === 0 ? ["Create new model"] : undefined,
         }
         onContextChange("dashboard")
       } else if (input.toLowerCase().includes("start") && input.toLowerCase().includes("claude")) {
