@@ -42,6 +42,17 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
   useEffect(() => {
     if (events.length > 0) {
       setRecentEvents(events.slice(-10).reverse()) // Last 10 events, newest first
+      
+      // Check if latest event is a trade - refresh positions
+      const latestEvent = events[events.length - 1]
+      if (latestEvent.type === 'trade' && selectedModelId) {
+        // Refresh positions after trade
+        setTimeout(() => {
+          if (context === "model") {
+            loadModelData()
+          }
+        }, 1000) // Small delay for backend to save trade
+      }
     }
   }, [events])
 

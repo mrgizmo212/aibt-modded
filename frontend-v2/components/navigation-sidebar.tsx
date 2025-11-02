@@ -65,6 +65,9 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
             duration: 2000
           })
         }
+        
+        // Trigger refresh of stats and positions on trade events
+        // Use counter or callback to trigger parent refresh
       }
       
       if (event.type === 'status') {

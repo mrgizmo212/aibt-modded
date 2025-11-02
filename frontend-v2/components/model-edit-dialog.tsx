@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
-import { createModel, updateModel, deleteModel, getAvailableAIModels } from "@/lib/api"
+import { createModel, updateModel, deleteModel } from "@/lib/api"
 import { toast } from "sonner"
+import { AVAILABLE_MODELS } from "@/lib/constants"
 
 interface ModelEditDialogProps {
   model?: {
@@ -46,42 +47,9 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   const [symbolsInput, setSymbolsInput] = useState(
     formData.allowed_symbols.join(", ")
   )
-  const [availableModels, setAvailableModels] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const isEditMode = !!model?.id
-
-  useEffect(() => {
-    loadAvailableModels()
-  }, [])
-
-  async function loadAvailableModels() {
-    try {
-      const models = await getAvailableAIModels()
-      if (Array.isArray(models) && models.length > 0) {
-        setAvailableModels(models.map((m: any) => m.id || m.name || m))
-      } else {
-        // Fallback to common models
-        setAvailableModels([
-          "gpt-4o",
-          "gpt-4-turbo",
-          "claude-3-5-sonnet-20241022",
-          "claude-3-opus-20240229",
-          "gemini-2.0-flash-exp",
-          "gemini-1.5-pro",
-        ])
-      }
-    } catch (error) {
-      console.error('Failed to load available models:', error)
-      // Use fallback models
-      setAvailableModels([
-        "gpt-4o",
-        "gpt-4-turbo",
-        "claude-3-5-sonnet-20241022",
-        "gemini-2.0-flash-exp",
-      ])
-    }
-  }
 
   const handleSave = async () => {
     // Validation
@@ -193,10 +161,10 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
               <SelectTrigger className="bg-[#1a1a1a] border-[#262626] text-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-[#262626]">
-                {availableModels.map((modelName) => (
-                  <SelectItem key={modelName} value={modelName}>
-                    {modelName}
+              <SelectContent className="bg-[#1a1a1a] border-[#262626] max-h-[300px]">
+                {AVAILABLE_MODELS.map((aiModel) => (
+                  <SelectItem key={aiModel.id} value={aiModel.id}>
+                    {aiModel.name} ({aiModel.provider})
                   </SelectItem>
                 ))}
               </SelectContent>
