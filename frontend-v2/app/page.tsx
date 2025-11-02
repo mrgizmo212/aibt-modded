@@ -14,6 +14,7 @@ import { SystemStatusTrigger } from "@/components/system-status-trigger"
 
 export default function Home() {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null)
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [context, setContext] = useState<"dashboard" | "model" | "run">("dashboard")
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -28,6 +29,13 @@ export default function Home() {
   const handleModelSelect = (id: number) => {
     setSelectedModelId(id)
     setContext("model")
+  }
+  
+  const handleRunClick = (modelId: number, runId: number) => {
+    console.log('Run clicked:', modelId, runId)
+    setSelectedModelId(modelId)
+    setSelectedRunId(runId)
+    setContext("run")
   }
 
   const handleToggleModel = (id: number) => {
@@ -97,7 +105,12 @@ export default function Home() {
 
         {/* Right Sidebar - Context Panel (Hidden on mobile) */}
         <div className="hidden lg:block lg:w-[30%] flex-shrink-0">
-          <ContextPanel context={context} selectedModelId={selectedModelId} onEditModel={handleEditModel} />
+          <ContextPanel 
+            context={context} 
+            selectedModelId={selectedModelId} 
+            onEditModel={handleEditModel}
+            onRunClick={handleRunClick}
+          />
         </div>
       </div>
 
@@ -113,7 +126,12 @@ export default function Home() {
       </MobileDrawer>
 
       <MobileBottomSheet isOpen={isContextOpen} onClose={() => setIsContextOpen(false)}>
-        <ContextPanel context={context} selectedModelId={selectedModelId} onEditModel={handleEditModel} />
+        <ContextPanel 
+          context={context} 
+          selectedModelId={selectedModelId} 
+          onEditModel={handleEditModel}
+          onRunClick={handleRunClick}
+        />
       </MobileBottomSheet>
 
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />

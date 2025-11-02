@@ -11,15 +11,17 @@ interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
   selectedModelId: number | null
   onEditModel?: (id: number) => void
+  onRunClick?: (modelId: number, runId: number) => void  // ← NEW: Click handler for runs
 }
 
-export function ContextPanel({ context, selectedModelId, onEditModel }: ContextPanelProps) {
+export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick }: ContextPanelProps) {
   const [modelData, setModelData] = useState<any>(null)
   const [runs, setRuns] = useState<any[]>([])
   const [positions, setPositions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [recentEvents, setRecentEvents] = useState<TradingEvent[]>([])
   const liveUpdatesRef = useRef<HTMLDivElement>(null)
+  const [selectedRun, setSelectedRun] = useState<any>(null)
 
   // Connect to SSE for ANY running model to show in dashboard
   // If on model context, connect to that specific model
@@ -82,6 +84,8 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
         getRuns(selectedModelId),
         getPositions(selectedModelId).catch(() => [])
       ])
+      
+      console.log('[ContextPanel] Model data loaded:', { model, runs: modelRuns, positions: modelPositions })
       
       setModelData(model)
       setRuns(modelRuns)
@@ -258,6 +262,54 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-6 text-center">
                 <p className="text-sm text-[#737373]">No positions yet</p>
                 <p className="text-xs text-[#525252] mt-1">Start trading to see positions</p>
+              </div>
+            )}
+          </div>
+
+          {/* Runs History Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-white">Recent Runs</h2>
+              {runs.length > 0 && (
+                <span className="text-xs text-[#737373]">{runs.length} run{runs.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {runs.length > 0 ? (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-3">
+                {runs.slice(0, 5).map((run: any) => (
+                  <button
+                    key={run.id}
+                    onClick={() => onRunClick?.(selectedModelId!, run.id)}
+                    className="w-full flex items-center justify-between py-2 border-b border-[#262626]/50 last:border-0 hover:bg-[#1a1a1a] px-2 rounded transition-colors cursor-pointer"
+                  >
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white">Run #{run.run_number}</span>
+                        <span className="text-xs text-[#737373]">
+                          {run.trading_mode === 'intraday' ? '⚡ Intraday' : '📅 Daily'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#525252] mt-0.5">
+                        {run.total_trades || 0} trades • {run.status}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-mono font-semibold ${
+                        (run.final_return || 0) >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'
+                      }`}>
+                        {run.final_return ? `${(run.final_return * 100).toFixed(2)}%` : '--'}
+                      </p>
+                      <p className="text-xs text-[#737373]">
+                        ${run.final_portfolio_value?.toFixed(2) || '--'}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-6 text-center">
+                <p className="text-sm text-[#737373]">No runs yet</p>
+                <p className="text-xs text-[#525252] mt-1">Start trading to create runs</p>
               </div>
             )}
           </div>
