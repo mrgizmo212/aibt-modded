@@ -14,6 +14,12 @@ from intraday_loader import (
     get_all_symbols_at_minute
 )
 
+# Import event stream for real-time updates
+try:
+    from streaming import event_stream
+except ImportError:
+    event_stream = None
+
 
 async def run_intraday_session(
     agent,
@@ -63,9 +69,21 @@ async def run_intraday_session(
     print(f"✅ Model {model_id} verified")
     print()
     
+    # Emit initialization event
+    if event_stream:
+        await event_stream.emit(model_id, "status", {
+            "message": f"Starting intraday session for {symbol} on {date}"
+        })
+    
     # Step 1: Pre-load all data into Redis
     print("📥 Step 1: Loading Session Data")
     print("-" * 80)
+    
+    # Emit data loading event
+    if event_stream:
+        await event_stream.emit(model_id, "status", {
+            "message": f"Loading market data for {symbol}..."
+        })
     
     stats = await load_intraday_session(
         model_id=model_id,
@@ -80,6 +98,12 @@ async def run_intraday_session(
     
     bars_loaded = stats[symbol]
     print(f"✅ Loaded {bars_loaded} minute bars for {symbol}")
+    
+    # Emit data loaded event
+    if event_stream:
+        await event_stream.emit(model_id, "status", {
+            "message": f"Loaded {bars_loaded} minute bars, preparing AI agent..."
+        })
     
     # Step 1.5: Create LangChain agent for intraday decisions
     print(f"\n🤖 Creating Intraday Agent")
@@ -130,6 +154,12 @@ async def run_intraday_session(
     print(f"\n🕐 Step 3: Minute-by-Minute Trading")
     print("-" * 80)
     print(f"  Trading {len(minutes)} minutes with in-memory data")
+    
+    # Emit trading start event
+    if event_stream:
+        await event_stream.emit(model_id, "status", {
+            "message": f"Starting minute-by-minute trading ({len(minutes)} minutes)..."
+        })
     
     # NEW: Initialize rule enforcer and risk gates
     from utils.rule_enforcer import create_rule_enforcer
@@ -290,6 +320,17 @@ async def run_intraday_session(
             print(f"    💰 BUY {amount} shares")
             print(f"       Why: {reasoning[:100]}")
             
+            # Emit trade event
+            if event_stream:
+                await event_stream.emit(model_id, "trade", {
+                    "action": "buy",
+                    "symbol": symbol,
+                    "amount": amount,
+                    "price": current_price,
+                    "message": f"BUY {amount} {symbol} @ ${current_price:.2f}",
+                    "reasoning": reasoning[:100]
+                })
+            
             # Update position BEFORE recording to database
             current_position["CASH"] -= cost
             current_position[symbol] = current_position.get(symbol, 0) + amount
@@ -331,6 +372,17 @@ async def run_intraday_session(
             
             print(f"    💵 SELL {amount} shares")
             print(f"       Why: {reasoning[:100]}")
+            
+            # Emit trade event
+            if event_stream:
+                await event_stream.emit(model_id, "trade", {
+                    "action": "sell",
+                    "symbol": symbol,
+                    "amount": amount,
+                    "price": current_price,
+                    "message": f"SELL {amount} {symbol} @ ${current_price:.2f}",
+                    "reasoning": reasoning[:100]
+                })
             
             # Update position BEFORE recording to database
             current_position["CASH"] += amount * current_price
@@ -399,6 +451,14 @@ async def run_intraday_session(
     print(f"   Final Stock Value: ${final_stock_value:,.2f}")
     print(f"   Total Portfolio Value: ${total_portfolio_value:,.2f}")
     print("=" * 80)
+    
+    # Emit completion event
+    if event_stream:
+        await event_stream.emit(model_id, "complete", {
+            "message": f"Intraday session completed: {trades_executed} trades executed",
+            "trades": trades_executed,
+            "final_value": total_portfolio_value
+        })
     
     return {
         "status": "completed",
