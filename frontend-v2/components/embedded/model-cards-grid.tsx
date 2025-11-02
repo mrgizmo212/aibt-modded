@@ -3,9 +3,10 @@
 import { Brain, Settings, Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
-import { toggleModel } from "@/lib/mock-functions"
+import { useState, useEffect } from "react"
+import { getModels, getPerformance, getTradingStatus, startTrading, stopTrading } from "@/lib/api"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { toast } from "sonner"
 
 interface ModelCardsGridProps {
   onModelSelect: (id: number) => void
@@ -13,65 +14,104 @@ interface ModelCardsGridProps {
   onMobileDetailsClick?: (id: number) => void
 }
 
-const initialModels = [
-  {
-    id: 1,
-    name: "GPT-5 Momentum",
-    status: "running" as const,
-    portfolio: 10234,
-    return: 2.3,
-    run: 5,
-    hours: "3 hours",
-    tradingStyle: "day-trading",
-    strategy: "momentum",
-  },
-  {
-    id: 2,
-    name: "Claude Day Trader",
-    status: "stopped" as const,
-    portfolio: 9876,
-    return: -1.2,
-    run: 12,
-    hours: "Yesterday",
-    tradingStyle: "day-trading",
-    strategy: "breakout",
-  },
-  {
-    id: 3,
-    name: "Gemini Long Term",
-    status: "running" as const,
-    portfolio: 11500,
-    return: 15.0,
-    run: 8,
-    hours: "2 days",
-    tradingStyle: "long-term",
-    strategy: "momentum",
-  },
-]
+interface ModelCard {
+  id: number
+  name: string
+  status: "running" | "stopped"
+  portfolio: number
+  return: number
+  run: number
+  hours: string
+  tradingStyle: string
+  strategy: string
+}
 
 export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClick }: ModelCardsGridProps) {
   const [hoveredModel, setHoveredModel] = useState<number | null>(null)
-  const [models, setModels] = useState(initialModels)
+  const [models, setModels] = useState<ModelCard[]>([])
   const [loadingModels, setLoadingModels] = useState<Set<number>>(new Set())
+  const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
 
+  useEffect(() => {
+    loadModels()
+  }, [])
+
+  async function loadModels() {
+    try {
+      const modelList = await getModels()
+      const tradingStatuses = await getTradingStatus()
+      
+      // Create status map
+      const statusMap: Record<number, boolean> = {}
+      if (Array.isArray(tradingStatuses)) {
+        tradingStatuses.forEach((status: any) => {
+          statusMap[status.model_id] = status.is_running
+        })
+      }
+      
+      // Fetch performance for each model
+      const modelsWithData = await Promise.all(
+        modelList.map(async (model: any) => {
+          try {
+            const performance = await getPerformance(model.id)
+            return {
+              id: model.id,
+              name: model.name,
+              status: statusMap[model.id] ? "running" : "stopped" as const,
+              portfolio: performance?.metrics?.final_value || 10000,
+              return: performance?.metrics?.cumulative_return || 0,
+              run: 0, // TODO: Get latest run number
+              hours: statusMap[model.id] ? "Running now" : "Stopped",
+              tradingStyle: "day-trading", // TODO: Derive from model settings
+              strategy: "momentum", // TODO: Derive from model settings
+            }
+          } catch (error) {
+            // Return model with defaults if performance fetch fails
+            return {
+              id: model.id,
+              name: model.name,
+              status: statusMap[model.id] ? "running" : "stopped" as const,
+              portfolio: 10000,
+              return: 0,
+              run: 0,
+              hours: "No data",
+              tradingStyle: "day-trading",
+              strategy: "momentum",
+            }
+          }
+        })
+      )
+      
+      setModels(modelsWithData)
+    } catch (error) {
+      console.error('Failed to load models:', error)
+      toast.error('Failed to load models')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleToggleModel = async (modelId: number, currentStatus: "running" | "stopped") => {
-    console.log("[v0] Toggling model", modelId, "from", currentStatus)
+    console.log("Toggling model", modelId, "from", currentStatus)
 
     // Add to loading set
     setLoadingModels((prev) => new Set(prev).add(modelId))
 
     try {
-      const newStatus = currentStatus === "running" ? "stopped" : "running"
-      const result = await toggleModel(modelId, newStatus)
-
-      if (result.success) {
-        // Update local state
-        setModels((prev) => prev.map((model) => (model.id === modelId ? { ...model, status: newStatus } : model)))
-        console.log("[v0] Model toggled successfully:", result.message)
+      if (currentStatus === "running") {
+        await stopTrading(modelId)
+        toast.success('Trading stopped')
+      } else {
+        await startTrading(modelId, 'paper')
+        toast.success('Trading started')
       }
-    } catch (error) {
-      console.error("[v0] Error toggling model:", error)
+
+      // Refresh models to get updated status
+      await loadModels()
+    } catch (error: any) {
+      console.error("Error toggling model:", error)
+      toast.error(error.message || 'Failed to toggle trading')
     } finally {
       // Remove from loading set
       setLoadingModels((prev) => {
@@ -83,12 +123,36 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
   }
 
   const handleViewDetails = (modelId: number) => {
-    console.log("[v0] Viewing details for model", modelId)
+    console.log("Viewing details for model", modelId)
     if (isMobile && onMobileDetailsClick) {
       onMobileDetailsClick(modelId)
     } else {
       onModelSelect(modelId)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-5">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-[#262626] rounded w-3/4"></div>
+              <div className="h-8 bg-[#262626] rounded w-1/2"></div>
+              <div className="h-10 bg-[#262626] rounded"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (models.length === 0) {
+    return (
+      <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-8 text-center">
+        <p className="text-[#a3a3a3]">No models yet. Create your first trading model!</p>
+      </div>
+    )
   }
 
   return (

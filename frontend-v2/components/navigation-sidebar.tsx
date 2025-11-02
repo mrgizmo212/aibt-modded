@@ -16,8 +16,11 @@ import {
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
+import { getModels, getTradingStatus, startTrading, stopTrading, updateModel } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 interface Model {
   id: number
@@ -25,16 +28,6 @@ interface Model {
   status: "running" | "stopped"
   tradingStyle: "day-trading" | "swing-trading" | "scalping" | "long-term"
 }
-
-const models: Model[] = [
-  { id: 1, name: "GPT-5 Momentum", status: "running", tradingStyle: "day-trading" },
-  { id: 2, name: "Claude Day Trader", status: "stopped", tradingStyle: "day-trading" },
-  { id: 3, name: "Qwen Swing", status: "stopped", tradingStyle: "swing-trading" },
-  { id: 4, name: "DeepSeek Scalper", status: "stopped", tradingStyle: "scalping" },
-  { id: 5, name: "Gemini Long Term", status: "running", tradingStyle: "long-term" },
-  { id: 6, name: "GPT-4o Conservative", status: "running", tradingStyle: "long-term" },
-  { id: 7, name: "Mixtral Options", status: "stopped", tradingStyle: "swing-trading" },
-]
 
 interface NavigationSidebarProps {
   selectedModelId: number | null
@@ -46,7 +39,78 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [editingModelId, setEditingModelId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState("")
-  const [modelList, setModelList] = useState(models)
+  const [modelList, setModelList] = useState<Model[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tradingStatusMap, setTradingStatusMap] = useState<Record<number, boolean>>({})
+  const { user } = useAuth()
+
+  // Load models and trading status on mount
+  useEffect(() => {
+    loadModels()
+    loadTradingStatus()
+  }, [])
+
+  async function loadModels() {
+    try {
+      const data = await getModels()
+      // Map backend model structure to component structure
+      const mappedModels: Model[] = data.map((model: any) => ({
+        id: model.id,
+        name: model.name,
+        status: "stopped" as const, // Will be updated by loadTradingStatus
+        tradingStyle: "day-trading" as const, // Default, could be derived from model settings
+      }))
+      setModelList(mappedModels)
+    } catch (error) {
+      console.error('Failed to load models:', error)
+      toast.error('Failed to load models')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadTradingStatus() {
+    try {
+      const statuses = await getTradingStatus()
+      // Convert array of statuses to map
+      const statusMap: Record<number, boolean> = {}
+      if (Array.isArray(statuses)) {
+        statuses.forEach((status: any) => {
+          statusMap[status.model_id] = status.is_running
+        })
+      }
+      setTradingStatusMap(statusMap)
+      
+      // Update model list with trading status
+      setModelList(prev => prev.map(model => ({
+        ...model,
+        status: statusMap[model.id] ? "running" : "stopped"
+      })))
+    } catch (error) {
+      console.error('Failed to load trading status:', error)
+    }
+  }
+
+  async function handleToggle(modelId: number) {
+    const isRunning = tradingStatusMap[modelId]
+    
+    try {
+      if (isRunning) {
+        await stopTrading(modelId)
+        toast.success('Trading stopped')
+      } else {
+        await startTrading(modelId, 'paper')
+        toast.success('Trading started')
+      }
+      
+      // Refresh status
+      await loadTradingStatus()
+      onToggleModel(modelId)
+    } catch (error: any) {
+      console.error('Failed to toggle trading:', error)
+      toast.error(error.message || 'Failed to toggle trading')
+    }
+  }
 
   const groupedModels = modelList.reduce(
     (acc, model) => {
@@ -72,10 +136,18 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     setEditingName(model.name)
   }
 
-  const handleSaveEdit = (modelId: number) => {
-    setModelList(modelList.map((m) => (m.id === modelId ? { ...m, name: editingName } : m)))
-    setEditingModelId(null)
-    setEditingName("")
+  const handleSaveEdit = async (modelId: number) => {
+    try {
+      await updateModel(modelId, { name: editingName })
+      setModelList(modelList.map((m) => (m.id === modelId ? { ...m, name: editingName } : m)))
+      toast.success('Model name updated')
+    } catch (error) {
+      console.error('Failed to update model name:', error)
+      toast.error('Failed to update model name')
+    } finally {
+      setEditingModelId(null)
+      setEditingName("")
+    }
   }
 
   const handleCancelEdit = () => {
@@ -181,7 +253,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                               </button>
                               <Switch
                                 checked={model.status === "running"}
-                                onCheckedChange={() => onToggleModel(model.id)}
+                                onCheckedChange={() => handleToggle(model.id)}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={(e) => e.stopPropagation()}
                               />

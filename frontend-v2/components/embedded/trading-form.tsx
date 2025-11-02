@@ -6,19 +6,59 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { startTrading } from "@/lib/api"
+import { toast } from "sonner"
 
-export function TradingForm() {
-  const [mode, setMode] = useState("intraday")
+interface TradingFormProps {
+  modelId?: number
+  modelName?: string
+  onClose?: () => void
+  onSuccess?: () => void
+}
+
+export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingFormProps) {
+  const [mode, setMode] = useState<'paper' | 'intraday'>("intraday")
   const [session, setSession] = useState("regular")
+  const [symbol, setSymbol] = useState("AAPL")
+  const [loading, setLoading] = useState(false)
+
+  async function handleStartTrading() {
+    if (!modelId) {
+      toast.error('No model selected')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await startTrading(modelId, mode)
+      toast.success(`Trading started in ${mode} mode`)
+      
+      if (onSuccess) onSuccess()
+      if (onClose) onClose()
+    } catch (error: any) {
+      console.error('Failed to start trading:', error)
+      toast.error(error.message || 'Failed to start trading')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-6">Start Trading - Claude Day Trader</h3>
+      <h3 className="text-lg font-semibold text-white mb-6">
+        Start Trading {modelName ? `- ${modelName}` : ''}
+      </h3>
 
       <div className="space-y-6">
         <div>
           <Label className="text-sm text-white mb-3 block">Trading Mode</Label>
-          <RadioGroup value={mode} onValueChange={setMode} className="space-y-3">
+          <RadioGroup 
+            value={mode} 
+            onValueChange={(value: 'paper' | 'intraday') => setMode(value)} 
+            className="space-y-3"
+            disabled={loading}
+          >
             <div className="flex items-start gap-3 p-3 rounded-lg border border-[#262626] hover:border-[#404040] transition-colors">
               <RadioGroupItem value="intraday" id="intraday" className="mt-0.5" />
               <div className="flex-1">
@@ -29,12 +69,12 @@ export function TradingForm() {
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg border border-[#262626] hover:border-[#404040] transition-colors">
-              <RadioGroupItem value="daily" id="daily" className="mt-0.5" />
+              <RadioGroupItem value="paper" id="paper" className="mt-0.5" />
               <div className="flex-1">
-                <label htmlFor="daily" className="text-sm font-medium text-white cursor-pointer">
-                  Daily
+                <label htmlFor="paper" className="text-sm font-medium text-white cursor-pointer">
+                  Paper Trading
                 </label>
-                <p className="text-xs text-[#a3a3a3] mt-0.5">Historical backtest</p>
+                <p className="text-xs text-[#a3a3a3] mt-0.5">Simulated trading with fake money</p>
               </div>
             </div>
           </RadioGroup>
@@ -42,15 +82,21 @@ export function TradingForm() {
 
         <div>
           <Label className="text-sm text-white mb-2 block">Symbol</Label>
-          <Select defaultValue="AAPL">
+          <Select 
+            value={symbol} 
+            onValueChange={setSymbol}
+            disabled={loading}
+          >
             <SelectTrigger className="bg-[#0a0a0a] border-[#262626] text-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-[#1a1a1a] border-[#262626]">
-              <SelectItem value="AAPL">AAPL</SelectItem>
-              <SelectItem value="MSFT">MSFT</SelectItem>
-              <SelectItem value="NVDA">NVDA</SelectItem>
-              <SelectItem value="TSLA">TSLA</SelectItem>
+              <SelectItem value="AAPL">AAPL - Apple Inc.</SelectItem>
+              <SelectItem value="MSFT">MSFT - Microsoft</SelectItem>
+              <SelectItem value="GOOGL">GOOGL - Google</SelectItem>
+              <SelectItem value="AMZN">AMZN - Amazon</SelectItem>
+              <SelectItem value="TSLA">TSLA - Tesla</SelectItem>
+              <SelectItem value="NVDA">NVDA - NVIDIA</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -78,14 +124,27 @@ export function TradingForm() {
 
         <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-3 flex gap-3">
           <Info className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-[#3b82f6]">This will create Run #13 using Claude 4.5 Sonnet</p>
+          <p className="text-sm text-[#3b82f6]">
+            This will start {mode} trading for {modelName || 'this model'}
+          </p>
         </div>
 
         <div className="flex gap-3 pt-2">
-          <Button variant="ghost" className="flex-1 text-[#a3a3a3] hover:text-white">
+          <Button 
+            variant="ghost" 
+            className="flex-1 text-[#a3a3a3] hover:text-white"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
-          <Button className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white">Start Trading →</Button>
+          <Button 
+            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+            onClick={handleStartTrading}
+            disabled={loading || !modelId}
+          >
+            {loading ? 'Starting...' : 'Start Trading →'}
+          </Button>
         </div>
       </div>
     </div>

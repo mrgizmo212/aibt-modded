@@ -3,6 +3,8 @@
 import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
+import { getModelById, getRuns, getPositions } from "@/lib/api"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -11,6 +13,37 @@ interface ContextPanelProps {
 }
 
 export function ContextPanel({ context, selectedModelId, onEditModel }: ContextPanelProps) {
+  const [modelData, setModelData] = useState<any>(null)
+  const [runs, setRuns] = useState<any[]>([])
+  const [positions, setPositions] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (context === "model" && selectedModelId) {
+      loadModelData()
+    }
+  }, [context, selectedModelId])
+
+  async function loadModelData() {
+    if (!selectedModelId) return
+    
+    setLoading(true)
+    try {
+      const [model, modelRuns, modelPositions] = await Promise.all([
+        getModelById(selectedModelId),
+        getRuns(selectedModelId),
+        getPositions(selectedModelId).catch(() => [])
+      ])
+      
+      setModelData(model)
+      setRuns(modelRuns)
+      setPositions(modelPositions)
+    } catch (error) {
+      console.error('Failed to load model data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
   if (context === "dashboard") {
     return (
       <div className="h-screen bg-[#1a1a1a] border-l border-[#262626] overflow-y-auto scrollbar-thin">

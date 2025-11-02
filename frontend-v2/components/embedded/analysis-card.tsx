@@ -1,15 +1,69 @@
-import { TrendingDown, AlertTriangle, Scale, RefreshCw, Plus } from "lucide-react"
+"use client"
+
+import { TrendingDown, TrendingUp, AlertTriangle, Scale, RefreshCw, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react"
+import { getRunDetails } from "@/lib/api"
 
-export function AnalysisCard() {
+interface AnalysisCardProps {
+  modelId?: number
+  runId?: number
+}
+
+export function AnalysisCard({ modelId, runId }: AnalysisCardProps) {
+  const [runData, setRunData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (modelId && runId) {
+      loadRunAnalysis()
+    } else {
+      setLoading(false)
+    }
+  }, [modelId, runId])
+
+  async function loadRunAnalysis() {
+    try {
+      const data = await getRunDetails(modelId!, runId!)
+      setRunData(data)
+    } catch (error) {
+      console.error('Failed to load run analysis:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-[#262626] rounded w-3/4"></div>
+          <div className="h-20 bg-[#262626] rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!runData) {
+    return (
+      <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-6">
+        <p className="text-[#a3a3a3] text-sm">Select a run to view analysis</p>
+      </div>
+    )
+  }
+
+  const isProfit = (runData.total_return || 0) >= 0
+  const Icon = isProfit ? TrendingUp : TrendingDown
   return (
     <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl overflow-hidden">
-      <div className="bg-[#ef4444]/10 border-b border-[#ef4444]/20 p-4 flex items-center gap-3">
-        <TrendingDown className="w-5 h-5 text-[#ef4444]" />
+      <div className={`${isProfit ? 'bg-[#10b981]/10 border-[#10b981]/20' : 'bg-[#ef4444]/10 border-[#ef4444]/20'} border-b p-4 flex items-center gap-3`}>
+        <Icon className={`w-5 h-5 ${isProfit ? 'text-[#10b981]' : 'text-[#ef4444]'}`} />
         <div className="flex-1">
-          <h3 className="text-base font-semibold text-white">Run #12 Analysis</h3>
-          <p className="text-xs text-[#a3a3a3] mt-0.5">❌ -5.2% • 23 trades • 6.5 hours</p>
+          <h3 className="text-base font-semibold text-white">Run #{runData.id} Analysis</h3>
+          <p className="text-xs text-[#a3a3a3] mt-0.5">
+            {isProfit ? '✓' : '✗'} {runData.total_return_percent?.toFixed(1) || 0}% • {runData.total_trades || 0} trades
+          </p>
         </div>
       </div>
 
@@ -83,17 +137,28 @@ export function AnalysisCard() {
           </Button>
         </div>
 
-        {/* Impact Summary */}
-        <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4">
-          <p className="text-sm text-[#3b82f6] leading-relaxed">
-            💡 With these 3 rules, this run would have changed from -5.2% loss to +2.1% gain
-          </p>
+        {/* Performance Summary */}
+        <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-[#a3a3a3]">Win Rate:</span>
+            <span className="text-white font-mono">{runData.win_rate?.toFixed(1) || 0}%</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[#a3a3a3]">Profit Factor:</span>
+            <span className="text-white font-mono">{runData.profit_factor?.toFixed(2) || 0}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[#a3a3a3]">Max Drawdown:</span>
+            <span className="text-[#ef4444] font-mono">{runData.max_drawdown?.toFixed(1) || 0}%</span>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-2">
-          <Button className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white">Apply All 3 Rules</Button>
+          <Button className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white">
+            View Full Report
+          </Button>
           <Button variant="ghost" className="flex-1 text-[#a3a3a3] hover:text-white">
-            View Trade Log
+            Chat About Run
           </Button>
         </div>
       </div>
