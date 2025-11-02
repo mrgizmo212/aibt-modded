@@ -99,6 +99,29 @@ async def run_intraday_session(
             "message": f"Loading market data for {symbol}..."
         })
     
+    # Check if cache is complete
+    from intraday_loader import get_minute_bar_from_cache
+    
+    # Quick check: sample a few minutes to estimate cache completeness
+    test_minutes = ["09:30", "10:00", "12:00", "14:00", "15:30"]
+    found = 0
+    for test_min in test_minutes:
+        bar = await get_minute_bar_from_cache(model_id, date, symbol, test_min)
+        if bar:
+            found += 1
+    
+    cache_health = (found / len(test_minutes)) * 100
+    
+    if cache_health < 80:  # Less than 80% of test samples found
+        print(f"  🔄 Cache incomplete ({cache_health:.0f}% health) - reloading data...")
+        if event_stream:
+            await event_stream.emit(model_id, "terminal", {
+                "message": f"  🔄 Cache incomplete ({cache_health:.0f}% health) - reloading..."
+            })
+    else:
+        print(f"  ✅ Cache healthy ({cache_health:.0f}%) - using cached data")
+    
+    # Load data (will fetch from API and re-cache)
     stats = await load_intraday_session(
         model_id=model_id,
         symbols=[symbol],
@@ -178,14 +201,23 @@ async def run_intraday_session(
     # Load all bars in one batch
     found_count = 0
     missing_count = 0
-    for minute in minutes:
+    
+    # DEBUG: Check a few keys to see what's being looked up
+    print(f"  🔍 DEBUG: Looking for bars with keys like:")
+    print(f"     intraday:model_{model_id}:{date}:{symbol}:09:30")
+    print(f"     intraday:model_{model_id}:{date}:{symbol}:15:59")
+    
+    for idx, minute in enumerate(minutes):
         bar = await get_minute_bar_from_cache(model_id, date, symbol, minute)
         if bar:
             all_bars[minute] = bar
             found_count += 1
+            # Show first 5 successful retrievals for debugging
+            if found_count <= 5:
+                print(f"  ✅ Found bar for {minute}")
         else:
             missing_count += 1
-            if missing_count <= 3:  # Show first 3 missing
+            if missing_count <= 10:  # Show first 10 missing for debugging
                 print(f"  ⚠️  Missing bar for {minute}")
                 if event_stream and missing_count <= 3:
                     await event_stream.emit(model_id, "terminal", {
@@ -193,6 +225,7 @@ async def run_intraday_session(
                     })
     
     print(f"  ✅ Loaded {len(all_bars)} bars into memory")
+    print(f"  📊 Success rate: {found_count}/{len(minutes)} = {(found_count/len(minutes)*100):.1f}%")
     
     if event_stream:
         await event_stream.emit(model_id, "terminal", {

@@ -235,11 +235,30 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-white">Positions</h2>
-              {positions.length > 0 && (
+              {positions.length > 0 && !loading && (
                 <span className="text-xs text-[#737373]">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
               )}
             </div>
-            {positions.length > 0 ? (
+            {loading ? (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4">
+                <div className="animate-pulse space-y-2">
+                  <div className="flex justify-between">
+                    <div className="h-3 bg-[#262626] rounded w-12"></div>
+                    <div className="h-3 bg-[#262626] rounded w-12"></div>
+                    <div className="h-3 bg-[#262626] rounded w-16"></div>
+                    <div className="h-3 bg-[#262626] rounded w-12"></div>
+                  </div>
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="flex justify-between pt-2">
+                      <div className="h-4 bg-[#262626] rounded w-12"></div>
+                      <div className="h-4 bg-[#262626] rounded w-8"></div>
+                      <div className="h-4 bg-[#262626] rounded w-16"></div>
+                      <div className="h-4 bg-[#262626] rounded w-12"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : positions.length > 0 ? (
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-[#262626]">
                   <span className="text-[#a3a3a3] font-semibold">Symbol</span>
@@ -270,11 +289,22 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-white">All Runs</h2>
-              {runs.length > 0 && (
+              {runs.length > 0 && !loading && (
                 <span className="text-xs text-[#737373]">{runs.length} total</span>
               )}
             </div>
-            {runs.length > 0 ? (
+            {loading ? (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-6">
+                <div className="animate-pulse space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="h-4 bg-[#262626] rounded w-24"></div>
+                      <div className="h-4 bg-[#262626] rounded w-16"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : runs.length > 0 ? (
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg max-h-[400px] overflow-y-auto scrollbar-thin">
                 <div className="p-4 space-y-3">
                   {runs.map((run: any) => (

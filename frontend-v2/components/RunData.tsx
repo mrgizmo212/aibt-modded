@@ -40,51 +40,50 @@ export default function RunData({ run }: { run: any }) {
         </div>
       </div>
       
-      {/* Strategy Used */}
+      {/* Trade Details */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Strategy Configuration</h3>
+        <h3 className="text-lg font-semibold mb-4">Performance Breakdown</h3>
         
         <div className="space-y-4">
-          {strategy.default_ai_model && (
-            <div>
-              <p className="text-sm text-gray-400 mb-1">AI Model</p>
-              <p className="text-sm font-mono bg-zinc-950 px-3 py-2 rounded">
-                {strategy.default_ai_model}
-              </p>
+          {/* Profit/Loss Details */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">Initial Capital</span>
+              <span className="text-lg font-semibold">${(run.final_portfolio_value - (run.final_portfolio_value * (run.final_return || 0))).toFixed(2)}</span>
             </div>
-          )}
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">Final Value</span>
+              <span className="text-lg font-semibold">${run.final_portfolio_value?.toFixed(2) || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">Profit/Loss</span>
+              <span className={`text-lg font-semibold ${(run.final_return || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {(run.final_return || 0) >= 0 ? '+' : ''}${((run.final_portfolio_value || 0) - (run.final_portfolio_value - (run.final_portfolio_value * (run.final_return || 0)))).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-400">Return %</span>
+              <span className={`text-lg font-semibold ${(run.final_return || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {(run.final_return || 0) >= 0 ? '+' : ''}{((run.final_return || 0) * 100).toFixed(2)}%
+              </span>
+            </div>
+          </div>
           
-          {strategy.custom_rules && (
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Custom Rules</p>
-              <pre className="text-xs bg-zinc-950 px-3 py-2 rounded overflow-x-auto whitespace-pre-wrap">
-                {strategy.custom_rules}
-              </pre>
+          {/* Trading Activity */}
+          <div className="pt-4 border-t border-zinc-800">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">Total Trades</span>
+              <span className="text-sm font-semibold">{run.total_trades || 0}</span>
             </div>
-          )}
-          
-          {strategy.custom_instructions && (
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Custom Instructions</p>
-              <pre className="text-xs bg-zinc-950 px-3 py-2 rounded overflow-x-auto whitespace-pre-wrap">
-                {strategy.custom_instructions}
-              </pre>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">Positions Held</span>
+              <span className="text-sm font-semibold">{run.position_count || 0}</span>
             </div>
-          )}
-          
-          {strategy.model_parameters && (
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Model Parameters</p>
-              <div className="text-xs bg-zinc-950 px-3 py-2 rounded">
-                {Object.entries(strategy.model_parameters).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-1">
-                    <span className="text-gray-500">{key}:</span>
-                    <span className="font-mono">{String(value)}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-400">AI Decisions</span>
+              <span className="text-sm font-semibold">{run.reasoning_count || 0}</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
       

@@ -223,16 +223,36 @@ async def cache_intraday_bars(
     """
     
     cached = 0
+    failed = 0
     
     # EDT timezone offset (UTC-4 for EDT, UTC-5 for EST)
     # For simplicity, using -4 (should check DST in production)
     edt_offset = timedelta(hours=-4)
     
-    for bar in bars:
-        # Convert timestamp to HH:MM format IN EDT (not UTC!)
-        ts_utc = datetime.fromtimestamp(bar['timestamp'] / 1000, tz=timezone.utc)
-        ts_edt = ts_utc + edt_offset  # Convert UTC to EDT
+    # Track unique times to detect duplicates
+    unique_times = set()
+    duplicates = 0
+    
+    for idx, bar in enumerate(bars):
+        # Convert timestamp to HH:MM format IN EDT
+        # bar['timestamp'] is in milliseconds UTC
+        ts_ms = bar['timestamp']
+        
+        # Create UTC datetime
+        ts_utc = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
+        
+        # Create EDT timezone (UTC-4)
+        edt_tz = timezone(timedelta(hours=-4))
+        
+        # Convert to EDT
+        ts_edt = ts_utc.astimezone(edt_tz)
         minute_str = ts_edt.strftime('%H:%M')
+        
+        # Check for duplicates
+        if minute_str in unique_times:
+            duplicates += 1
+        else:
+            unique_times.add(minute_str)
         
         # Per-model key for isolation
         key = f"intraday:model_{model_id}:{date}:{symbol}:{minute_str}"
@@ -242,8 +262,18 @@ async def cache_intraday_bars(
         
         if success:
             cached += 1
+            # Show first 5 and last 5 successful caches
+            if cached <= 5 or idx >= len(bars) - 5:
+                print(f"  ✅ Cached {minute_str} (bar {idx+1}/{len(bars)})")
+        else:
+            failed += 1
+            if failed <= 5:
+                print(f"  ❌ Failed to cache {minute_str}")
     
     print(f"  💾 Cached {cached} bars in Redis (TTL: 2 hours)")
+    print(f"  📊 Unique times: {len(unique_times)}, Duplicates: {duplicates}")
+    if failed > 0:
+        print(f"  ⚠️  Failed to cache: {failed} bars")
     
     return cached
 

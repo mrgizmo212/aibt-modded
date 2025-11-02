@@ -75,28 +75,16 @@ export function ChatInterface({
         const newMessage: Message = {
           id: Date.now().toString(),
           type: "ai",
-          text: `Here are the details for Run #${runData.run_number}:`,
+          text: `Here are the details for Run #${runData.run_number} (${runData.trading_mode === 'intraday' ? '⚡ Intraday' : '📅 Daily'}):`,
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           embeddedComponent: {
             type: "run_details",
             props: { run: runData, modelId }
           },
-          suggestedActions: ["View chart", "Compare with other runs", "Analyze decisions"]
+          suggestedActions: ["Compare with other runs", "Analyze AI decisions", "View all runs"]
         }
         
-        // Add performance chart as second message
-        const chartMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: "ai",
-          text: "Performance visualization:",
-          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          embeddedComponent: {
-            type: "performance_chart",
-            props: { modelId }
-          }
-        }
-        
-        setMessages(prev => [...prev, newMessage, chartMessage])
+        setMessages(prev => [...prev, newMessage])
       }
       
       // Store it for parent to call
