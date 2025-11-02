@@ -18,8 +18,9 @@
 | **Region** | Same as backend (Oregon recommended) |
 | **Branch** | `main` |
 | **Root Directory** | `frontend-v2` |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `npm install --legacy-peer-deps && npm run build` |
 | **Publish Directory** | `out` |
+| **Node Version** | 22 (auto-detected from .node-version) |
 
 ---
 
@@ -128,15 +129,26 @@ https://ttaibtback.onrender.com
 
 ### Build Failed: "Module not found"
 
-**Check:**
-- All dependencies in `package.json`
-- `node_modules/` not in Git (should be .gitignored)
+**Causes:**
+1. Wrong Node.js version (must be 22+)
+2. Missing TypeScript path resolution
+3. Missing dependencies
 
 **Fix:**
+1. **Node version**: Ensure `.node-version` file exists with `22`
+2. **TypeScript config**: Ensure `tsconfig.json` has `"baseUrl": "."`
+3. **Install dependencies**: 
 ```bash
-npm install
+npm install --legacy-peer-deps
 npm run build  # Test locally first
 ```
+
+**Our Fix:**
+- ✅ Added `.node-version` file (forces Render to use Node 22)
+- ✅ Added `.nvmrc` file (backup for nvm)
+- ✅ Fixed `tsconfig.json` with `baseUrl: "."`
+- ✅ Added engine requirements in `package.json`
+- ✅ Updated build command to use `--legacy-peer-deps`
 
 ### Build Failed: "output: 'export' not supported with..."
 

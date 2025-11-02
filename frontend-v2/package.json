@@ -2,6 +2,10 @@
   "name": "aibt-frontend-v2",
   "version": "2.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "build": "next build",
     "dev": "next dev",
