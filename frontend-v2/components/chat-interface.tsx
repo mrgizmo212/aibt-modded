@@ -46,10 +46,9 @@ export function ChatInterface({
     {
       id: "1",
       type: "ai",
-      text: "Good morning! Here's an overview of your trading models:",
-      timestamp: "09:30 AM",
-      embeddedComponent: { type: "stats_grid" },
-      suggestedActions: ["Show all models", "Create new model", "View recent runs"],
+      text: "Good morning! How can I help you with your trading today?",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
     },
   ])
   const [input, setInput] = useState("")

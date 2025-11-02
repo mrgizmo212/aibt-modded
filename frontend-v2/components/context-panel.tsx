@@ -269,14 +269,15 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
           {/* Runs History Section */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-white">Recent Runs</h2>
+              <h2 className="text-base font-semibold text-white">All Runs</h2>
               {runs.length > 0 && (
-                <span className="text-xs text-[#737373]">{runs.length} run{runs.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-[#737373]">{runs.length} total</span>
               )}
             </div>
             {runs.length > 0 ? (
-              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-3">
-                {runs.slice(0, 5).map((run: any) => (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg max-h-[400px] overflow-y-auto scrollbar-thin">
+                <div className="p-4 space-y-3">
+                  {runs.map((run: any) => (
                   <button
                     key={run.id}
                     onClick={() => onRunClick?.(selectedModelId!, run.id)}
@@ -304,7 +305,8 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                       </p>
                     </div>
                   </button>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-6 text-center">
