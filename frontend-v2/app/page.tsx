@@ -35,19 +35,16 @@ export default function Home() {
     // In a real app, this would update the model status
   }
 
-  const handleEditModel = (id: number) => {
-    // Mock model data - in real app, fetch from API/state
-    const mockModel = {
-      id,
-      name: "GPT-5 Momentum",
-      tradingStyle: "day-trading",
-      strategy: "momentum",
-      riskLevel: 5,
-      maxLoss: 5,
-      maxPosition: 25,
+  const handleEditModel = async (id: number) => {
+    // Fetch real model data from API
+    try {
+      const { getModelById } = await import('@/lib/api')
+      const modelData = await getModelById(id)
+      setEditingModel(modelData)
+      setIsEditDialogOpen(true)
+    } catch (error) {
+      console.error('Failed to load model for editing:', error)
     }
-    setEditingModel(mockModel)
-    setIsEditDialogOpen(true)
   }
 
   const handleSaveModel = (updatedModel: any) => {

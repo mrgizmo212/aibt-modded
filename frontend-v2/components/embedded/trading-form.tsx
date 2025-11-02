@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { startTrading } from "@/lib/api"
+import { startIntradayTrading, startTrading, getModelById } from "@/lib/api"
 import { toast } from "sonner"
 
 interface TradingFormProps {
@@ -21,6 +21,14 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
   const [session, setSession] = useState("regular")
   const [symbol, setSymbol] = useState("AAPL")
   const [loading, setLoading] = useState(false)
+  const [modelData, setModelData] = useState<any>(null)
+
+  // Load model configuration
+  useEffect(() => {
+    if (modelId) {
+      getModelById(modelId).then(setModelData).catch(console.error)
+    }
+  }, [modelId])
 
   async function handleStartTrading() {
     if (!modelId) {
@@ -28,10 +36,30 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
       return
     }
 
+    if (!modelData || !modelData.default_ai_model) {
+      toast.error('Model has no AI model configured')
+      return
+    }
+
     setLoading(true)
 
     try {
-      await startTrading(modelId, mode)
+      if (mode === 'intraday') {
+        await startIntradayTrading(
+          modelId,
+          symbol,
+          '2025-10-15',  // Recent date with complete data
+          session as 'pre' | 'regular' | 'after',
+          modelData.default_ai_model  // Use model's configured AI model
+        )
+      } else {
+        await startTrading(
+          modelId,
+          modelData.default_ai_model,  // Use model's configured AI model
+          '2025-10-15',
+          '2025-10-15'
+        )
+      }
       toast.success(`Trading started in ${mode} mode`)
       
       if (onSuccess) onSuccess()

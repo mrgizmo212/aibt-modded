@@ -71,7 +71,8 @@ class BaseAgent:
         init_date: str = "2025-10-13",
         model_id: Optional[int] = None,
         custom_rules: Optional[str] = None,
-        custom_instructions: Optional[str] = None
+        custom_instructions: Optional[str] = None,
+        model_parameters: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize BaseAgent
@@ -102,6 +103,7 @@ class BaseAgent:
         self.init_date = init_date
         self.custom_rules = custom_rules
         self.custom_instructions = custom_instructions
+        self.model_parameters = model_parameters or {}
         
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
@@ -210,17 +212,35 @@ class BaseAgent:
         try:
             # Create AI model
             print(f"🤖 Creating AI model: {self.basemodel}")
-            self.model = ChatOpenAI(
-                model=self.basemodel,
-                base_url=self.openai_base_url,
-                api_key=self.openai_api_key,
-                max_retries=3,
-                timeout=30,
-                default_headers={
+            
+            # Build ChatOpenAI kwargs with model parameters
+            chat_kwargs = {
+                "model": self.basemodel,
+                "base_url": self.openai_base_url,
+                "api_key": self.openai_api_key,
+                "max_retries": 3,
+                "timeout": 30,
+                "default_headers": {
                     "HTTP-Referer": "https://aibt.truetradinggroup.com",
                     "X-Title": "AIBT AI Trading Platform"
                 }
-            )
+            }
+            
+            # Add model_parameters if provided
+            if self.model_parameters:
+                print(f"⚙️  Applying model parameters: {list(self.model_parameters.keys())}")
+                # Filter to only valid ChatOpenAI parameters
+                valid_params = {
+                    'temperature', 'max_tokens', 'max_completion_tokens', 
+                    'top_p', 'frequency_penalty', 'presence_penalty',
+                    'max_prompt_tokens', 'model_kwargs'
+                }
+                for key, value in self.model_parameters.items():
+                    if key in valid_params:
+                        chat_kwargs[key] = value
+                        print(f"   ✅ {key}: {value}")
+            
+            self.model = ChatOpenAI(**chat_kwargs)
             print(f"✅ AI model created")
             
         except Exception as e:

@@ -252,13 +252,13 @@ class LeaderboardResponse(BaseModel):
 # ============================================================================
 
 class StartTradingRequest(BaseModel):
-    base_model: Optional[str] = None  # Optional - will use model's default_ai_model from DB
+    base_model: str
     start_date: str
     end_date: str
 
 
 class IntradayTradingRequest(BaseModel):
-    base_model: Optional[str] = None  # Optional - will use model's default_ai_model from DB
+    base_model: str
     symbol: str  # Single stock for intraday
     date: str  # Specific date
     session: str = "regular"  # 'pre', 'regular', 'after'

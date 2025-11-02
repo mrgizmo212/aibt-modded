@@ -41,7 +41,8 @@ class AgentManager:
         start_date: str,
         end_date: str,
         initial_cash: float = 10000.0,
-        max_steps: int = 30
+        max_steps: int = 30,
+        model_parameters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Start AI trading agent
@@ -94,7 +95,8 @@ class AgentManager:
             init_date=start_date,
             model_id=model_id,  # Pass model_id for streaming
             custom_rules=custom_rules,
-            custom_instructions=custom_instructions
+            custom_instructions=custom_instructions,
+            model_parameters=model_parameters  # ← NEW: Pass model parameters!
         )
         
         # Store agent info

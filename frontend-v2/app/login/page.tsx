@@ -19,14 +19,20 @@ export default function LoginPage() {
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {
+    console.log('[Login] handleSubmit STARTED')
     e.preventDefault()
+    console.log('[Login] Form submitted:', { email, hasPassword: !!password })
     setError('')
     setLoading(true)
+    console.log('[Login] Loading set to true')
 
     try {
+      console.log('[Login] Calling login API...')
       await login(email, password)
+      console.log('[Login] Login successful!')
       // Redirect handled by auth context
     } catch (err: any) {
+      console.error('[Login] Login failed:', err)
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)

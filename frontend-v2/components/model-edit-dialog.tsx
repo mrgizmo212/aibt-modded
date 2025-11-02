@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createModel, updateModel, deleteModel } from "@/lib/api"
 import { toast } from "sonner"
 import { AVAILABLE_MODELS } from "@/lib/constants"
+import { ModelSettings } from "@/components/ModelSettings"
 
 interface ModelEditDialogProps {
   model?: {
@@ -31,18 +32,19 @@ interface ModelEditDialogProps {
 }
 
 export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps) {
+  // Extract model_parameters if they exist (backend stores them as nested object)
+  const modelParams = (model as any)?.model_parameters || {}
+  
   const [formData, setFormData] = useState({
     name: model?.name || "",
     default_ai_model: model?.default_ai_model || "gpt-4o",
-    system_prompt: model?.system_prompt || "You are a professional AI trading assistant. Analyze market data and make informed trading decisions based on technical analysis and risk management principles.",
-    temperature: model?.temperature || 0.7,
-    max_tokens: model?.max_tokens || 2000,
-    trading_mode: model?.trading_mode || "paper" as 'paper' | 'live',
-    starting_capital: model?.starting_capital || 10000,
-    max_position_size: model?.max_position_size || 25,
-    max_daily_loss: model?.max_daily_loss || 5,
-    allowed_symbols: model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
+    system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
+    starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+    allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
   })
+  
+  // Model parameters managed by ModelSettings component
+  const [modelParameters, setModelParameters] = useState<Record<string, any>>(modelParams)
   
   const [symbolsInput, setSymbolsInput] = useState(
     formData.allowed_symbols.join(", ")
@@ -50,6 +52,22 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   const [loading, setLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const isEditMode = !!model?.id
+
+  // Sync form data when model prop changes
+  useEffect(() => {
+    if (model) {
+      const modelParams = (model as any)?.model_parameters || {}
+      setFormData({
+        name: model?.name || "",
+        default_ai_model: model?.default_ai_model || "openai/gpt-4o",
+        system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
+        starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+        allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
+      })
+      setModelParameters(modelParams)
+      setSymbolsInput(((model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL"]).join(", "))
+    }
+  }, [model])
 
   const handleSave = async () => {
     // Validation
@@ -77,9 +95,14 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
     setLoading(true)
 
     try {
+      // Use model_parameters from ModelSettings component (nested object)
       const modelData = {
-        ...formData,
-        allowed_symbols: symbols,
+        name: formData.name,
+        default_ai_model: formData.default_ai_model,
+        initial_cash: formData.starting_capital,
+        allowed_tickers: symbols,
+        model_parameters: modelParameters,  // ← From ModelSettings component
+        custom_instructions: formData.system_prompt
       }
 
       if (isEditMode && model?.id) {
@@ -159,7 +182,9 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
               disabled={loading}
             >
               <SelectTrigger className="bg-[#1a1a1a] border-[#262626] text-white">
-                <SelectValue />
+                <SelectValue placeholder="Select AI Model">
+                  {AVAILABLE_MODELS.find(m => m.id === formData.default_ai_model)?.name || formData.default_ai_model}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#262626] max-h-[300px]">
                 {AVAILABLE_MODELS.map((aiModel) => (
@@ -192,82 +217,40 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Temperature */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-white">Temperature</Label>
-                <span className="text-sm font-mono text-[#a3a3a3]">{formData.temperature.toFixed(1)}</span>
-              </div>
-              <Slider
-                value={[formData.temperature]}
-                onValueChange={(value) => setFormData({ ...formData, temperature: value[0] })}
-                min={0}
-                max={1}
-                step={0.1}
-                className="w-full"
-                disabled={loading}
-              />
-              <div className="flex justify-between text-xs text-[#737373]">
-                <span>Focused</span>
-                <span>Creative</span>
-              </div>
-            </div>
-
-            {/* Max Tokens */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-white">Max Tokens</Label>
-                <span className="text-sm font-mono text-[#a3a3a3]">{formData.max_tokens}</span>
-              </div>
-              <Slider
-                value={[formData.max_tokens]}
-                onValueChange={(value) => setFormData({ ...formData, max_tokens: value[0] })}
-                min={500}
-                max={4000}
-                step={500}
-                className="w-full"
-                disabled={loading}
+          {/* Model Parameters - Sophisticated Component from /frontend */}
+          <div className="space-y-2">
+            <Label className="text-sm text-white">Model Parameters</Label>
+            <div className="bg-[#1a1a1a] border border-[#262626] rounded-lg p-4">
+              <ModelSettings
+                key={formData.default_ai_model}
+                selectedAIModel={formData.default_ai_model}
+                currentParams={modelParameters}
+                onParamsChange={setModelParameters}
               />
             </div>
+            <p className="text-xs text-[#737373]">
+              Parameters auto-adjust based on selected AI model (GPT-5, Claude, Gemini, etc.)
+            </p>
           </div>
 
-          {/* Trading Mode & Starting Capital */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="trading-mode" className="text-sm text-white">
-                Trading Mode *
-              </Label>
-              <Select
-                value={formData.trading_mode}
-                onValueChange={(value: 'paper' | 'live') => setFormData({ ...formData, trading_mode: value })}
-                disabled={loading}
-              >
-                <SelectTrigger className="bg-[#1a1a1a] border-[#262626] text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#262626]">
-                  <SelectItem value="paper">Paper Trading (Simulated)</SelectItem>
-                  <SelectItem value="live">Live Trading (Real Money)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="capital" className="text-sm text-white">
-                Starting Capital ($)
-              </Label>
-              <Input
-                id="capital"
-                type="number"
-                value={formData.starting_capital}
-                onChange={(e) => setFormData({ ...formData, starting_capital: parseFloat(e.target.value) || 0 })}
-                className="bg-[#1a1a1a] border-[#262626] text-white"
-                min="1000"
-                step="1000"
-                disabled={loading}
-              />
-            </div>
+          {/* Starting Capital */}
+          <div className="space-y-2">
+            <Label htmlFor="capital" className="text-sm text-white">
+              Starting Capital ($) *
+            </Label>
+            <Input
+              id="capital"
+              type="number"
+              value={formData.starting_capital}
+              onChange={(e) => setFormData({ ...formData, starting_capital: parseFloat(e.target.value) || 0 })}
+              className="bg-[#1a1a1a] border-[#262626] text-white"
+              min="1000"
+              step="1000"
+              disabled={loading}
+            />
+            <p className="text-xs text-[#737373]">
+              Initial cash amount for trading. You choose daily vs intraday when starting a run.
+            </p>
           </div>
 
           {/* Risk Management */}

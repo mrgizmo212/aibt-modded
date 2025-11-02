@@ -878,23 +878,15 @@ async def start_trading(
     if not model:
         raise NotFoundError("Model")
     
-    # Use model's configured AI model (request can override if provided)
-    ai_model = request.base_model if request.base_model else model.get("default_ai_model")
-    
-    if not ai_model:
-        raise HTTPException(
-            status_code=400,
-            detail="No AI model configured. Please set default_ai_model in your model settings."
-        )
-    
-    # Start agent
+    # Start agent with model's parameters
     result = await agent_manager.start_agent(
         model_id=model_id,
         user_id=current_user["id"],
         model_signature=model["signature"],
-        basemodel=ai_model,
+        basemodel=request.base_model,
         start_date=request.start_date,
-        end_date=request.end_date
+        end_date=request.end_date,
+        model_parameters=model.get("model_parameters")
     )
     
     return result
@@ -956,25 +948,17 @@ async def start_intraday_trading(
     from trading.intraday_agent import run_intraday_session
     from trading.base_agent import BaseAgent
     
-    # Use model's configured AI model (request can override if provided)
-    ai_model = request.base_model if request.base_model else model.get("default_ai_model")
-    
-    if not ai_model:
-        raise HTTPException(
-            status_code=400,
-            detail="No AI model configured. Please set default_ai_model in your model settings."
-        )
-    
-    # Create agent instance (with custom rules!)
+    # Create agent instance (with custom rules and model parameters!)
     agent = BaseAgent(
         signature=model["signature"],
-        basemodel=ai_model,
+        basemodel=request.base_model,
         stock_symbols=[request.symbol],
         max_steps=10,
         initial_cash=model.get("initial_cash", 10000.0),
         model_id=model_id,
-        custom_rules=model.get("custom_rules"),  # ← NEW: Pass rules
-        custom_instructions=model.get("custom_instructions")  # ← NEW: Pass instructions
+        custom_rules=model.get("custom_rules"),  # ← Pass rules
+        custom_instructions=model.get("custom_instructions"),  # ← Pass instructions
+        model_parameters=model.get("model_parameters")  # ← Pass model parameters!
     )
     
     # Initialize agent

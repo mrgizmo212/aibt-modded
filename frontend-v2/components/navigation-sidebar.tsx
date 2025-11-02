@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { getModels, getTradingStatus, startTrading, stopTrading, updateModel } from "@/lib/api"
+import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { useTradingStream } from "@/hooks/use-trading-stream"
@@ -28,6 +28,8 @@ interface Model {
   name: string
   status: "running" | "stopped"
   tradingStyle: "day-trading" | "swing-trading" | "scalping" | "long-term"
+  default_ai_model?: string
+  model_parameters?: Record<string, any>
 }
 
 interface NavigationSidebarProps {
@@ -140,6 +142,8 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
         name: model.name,
         status: "stopped" as const, // Will be updated by loadTradingStatus
         tradingStyle: "day-trading" as const, // Default, could be derived from model settings
+        default_ai_model: model.default_ai_model,  // ← KEEP this from DB!
+        model_parameters: model.model_parameters   // ← KEEP this too!
       }))
       setModelList(mappedModels)
     } catch (error) {
@@ -198,7 +202,21 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           await loadModels()
         }, 1000)
       } else {
-        await startTrading(modelId, 'intraday')
+        // Get model configuration first
+        const model = modelList.find(m => m.id === modelId)
+        if (!model || !model.default_ai_model) {
+          toast.error('Model has no AI model configured')
+          return
+        }
+        
+        // Start intraday with model's configuration
+        await startIntradayTrading(
+          modelId,
+          'AAPL',  // Default symbol (could be made configurable)
+          '2025-10-15',  // Recent date with complete data
+          'regular',
+          model.default_ai_model  // Use model's configured AI model
+        )
         toast.success('Trading started in intraday mode')
         
         // Wait a bit for backend to start agent
