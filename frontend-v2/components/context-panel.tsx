@@ -106,7 +106,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white">{event.data?.message || `Event: ${event.type}`}</p>
                       <p className="text-xs text-[#737373] mt-0.5" suppressHydrationWarning>
-                        {new Date(event.timestamp).toLocaleTimeString()}
+                        {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'}
                       </p>
                     </div>
                   </div>
@@ -177,7 +177,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
                 {recentEvents.slice(0, 5).map((event, index) => (
                   <div key={`${event.timestamp}-${index}`} className="text-xs font-mono">
                     <span className="text-[#737373]" suppressHydrationWarning>
-                      {new Date(event.timestamp).toLocaleTimeString()}
+                      {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'}
                     </span>
                     <span className={`ml-2 ${
                       event.type === 'trade' ? 'text-[#10b981]' :

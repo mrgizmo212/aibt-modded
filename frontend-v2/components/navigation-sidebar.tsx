@@ -48,44 +48,61 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
 
   // Get running model IDs for SSE connections
   const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
-
-  // Connect to SSE for first running model (to test)
-  // Note: In production, you might want to connect to all running models
   const firstRunningId = runningModelIds[0] || null
+
+  // Connect to SSE for running models
   const { events, connected } = useTradingStream(firstRunningId, {
-    enabled: !!firstRunningId,
+    enabled: true, // Always enabled, will connect when firstRunningId becomes non-null
     onEvent: (event) => {
       // Handle real-time events
       console.log('[Navigation] SSE Event:', event.type, event.data)
       
       if (event.type === 'trade') {
         toast.info(`Trading Activity`, {
-          description: event.data.message,
+          description: event.data?.message || event.data?.action,
           duration: 3000
+        })
+      }
+      
+      if (event.type === 'status') {
+        toast.info('Status Update', {
+          description: event.data?.message,
+          duration: 2000
         })
       }
       
       if (event.type === 'complete' || event.type === 'session_complete') {
         toast.success('Trading Session Completed')
         // Refresh trading status
-        loadTradingStatus()
-        loadModels()
+        setTimeout(() => {
+          loadTradingStatus()
+          loadModels()
+        }, 1000)
       }
       
       if (event.type === 'error') {
         toast.error('Trading Error', {
-          description: event.data.message
+          description: event.data?.message
         })
       }
     }
   })
 
-  // Track connected models
+  // Track connected models and log connection status
   useEffect(() => {
+    console.log('[Navigation] Running models:', runningModelIds, 'First:', firstRunningId, 'Connected:', connected)
+    
     if (firstRunningId && connected) {
       setStreamConnections(prev => ({ ...prev, [firstRunningId]: true }))
+    } else if (firstRunningId && !connected) {
+      // Remove connection if disconnected
+      setStreamConnections(prev => {
+        const next = { ...prev }
+        delete next[firstRunningId]
+        return next
+      })
     }
-  }, [firstRunningId, connected])
+  }, [firstRunningId, connected, runningModelIds.length])
 
   // Load models and trading status on mount
   useEffect(() => {
@@ -122,20 +139,32 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   async function loadTradingStatus() {
     try {
       const statuses = await getTradingStatus()
+      console.log('[Navigation] Trading status response:', statuses)
+      
       // Convert array of statuses to map
       const statusMap: Record<number, boolean> = {}
       if (Array.isArray(statuses)) {
+        console.log('[Navigation] Status is array, length:', statuses.length)
         statuses.forEach((status: any) => {
+          console.log('[Navigation] Processing status:', status)
           statusMap[status.model_id] = status.is_running
         })
+      } else {
+        console.log('[Navigation] Status is NOT array:', typeof statuses)
       }
+      
+      console.log('[Navigation] Final statusMap:', statusMap)
       setTradingStatusMap(statusMap)
       
       // Update model list with trading status
-      setModelList(prev => prev.map(model => ({
-        ...model,
-        status: statusMap[model.id] ? "running" : "stopped"
-      })))
+      setModelList(prev => {
+        const updated = prev.map(model => ({
+          ...model,
+          status: (statusMap[model.id] ? "running" : "stopped") as "running" | "stopped"
+        }))
+        console.log('[Navigation] Updated model list:', updated)
+        return updated
+      })
     } catch (error) {
       console.error('Failed to load trading status:', error)
     }
@@ -155,8 +184,8 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           await loadModels()
         }, 1000)
       } else {
-        await startTrading(modelId, 'paper')
-        toast.success('Trading started')
+        await startTrading(modelId, 'intraday')
+        toast.success('Trading started in intraday mode')
         
         // Wait a bit for backend to start agent
         setTimeout(async () => {

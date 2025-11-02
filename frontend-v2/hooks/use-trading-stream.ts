@@ -44,15 +44,20 @@ export function useTradingStream(
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
+    console.log('[SSE Hook] useEffect triggered - modelId:', modelId, 'enabled:', enabled)
+    
     // Don't connect if disabled or no model selected
     if (!enabled || !modelId) {
+      console.log('[SSE Hook] Not connecting - disabled or no modelId')
       return
     }
 
+    console.log('[SSE Hook] Calling connectToStream for model:', modelId)
     connectToStream()
 
     // Cleanup on unmount or dependency change
     return () => {
+      console.log('[SSE Hook] Cleanup - disconnecting')
       disconnectFromStream()
     }
   }, [modelId, enabled])

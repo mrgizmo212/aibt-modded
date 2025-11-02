@@ -103,8 +103,8 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
         await stopTrading(modelId)
         toast.success('Trading stopped')
       } else {
-        await startTrading(modelId, 'paper')
-        toast.success('Trading started')
+        await startTrading(modelId, 'intraday')
+        toast.success('Trading started in intraday mode')
       }
 
       // Refresh models to get updated status
