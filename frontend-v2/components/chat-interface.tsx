@@ -322,7 +322,7 @@ export function ChatInterface({
                     )}
                   </div>
 
-                      {message.embeddedComponent && (
+                  {message.embeddedComponent && (
                     <div className="mt-3 lg:mt-4">
                       {message.embeddedComponent.type === "stats_grid" && <StatsGrid />}
                       {message.embeddedComponent.type === "model_cards" && (

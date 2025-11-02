@@ -230,15 +230,31 @@ class BaseAgent:
             if self.model_parameters:
                 print(f"⚙️  Applying model parameters: {list(self.model_parameters.keys())}")
                 # Filter to only valid ChatOpenAI parameters
+                # NOTE: max_prompt_tokens is NOT a valid ChatOpenAI param (causes errors)
                 valid_params = {
                     'temperature', 'max_tokens', 'max_completion_tokens', 
-                    'top_p', 'frequency_penalty', 'presence_penalty',
-                    'max_prompt_tokens', 'model_kwargs'
+                    'top_p', 'frequency_penalty', 'presence_penalty'
                 }
+                
+                # Special handling for parameters that need model_kwargs
+                special_params = {'verbosity', 'reasoning_effort', 'web_search'}
+                model_kwargs = {}
+                
                 for key, value in self.model_parameters.items():
                     if key in valid_params:
                         chat_kwargs[key] = value
                         print(f"   ✅ {key}: {value}")
+                    elif key in special_params:
+                        model_kwargs[key] = value
+                        print(f"   ✅ {key}: {value} (in model_kwargs)")
+                    elif key == 'max_prompt_tokens':
+                        print(f"   ⏭️  {key}: {value} (skipped - not supported by ChatOpenAI)")
+                    else:
+                        print(f"   ⚠️  {key}: {value} (unknown parameter, skipped)")
+                
+                # Add model_kwargs if we have any
+                if model_kwargs:
+                    chat_kwargs['model_kwargs'] = model_kwargs
             
             self.model = ChatOpenAI(**chat_kwargs)
             print(f"✅ AI model created")

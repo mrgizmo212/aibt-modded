@@ -86,7 +86,14 @@ async def fetch_all_trades_for_session(
                         if cursor:
                             # Route through YOUR proxy with cursor
                             url = f"{settings.POLYGON_PROXY_URL}/polygon/stocks/trades/{symbol}"
-                            params = {"cursor": cursor, "limit": 50000}
+                            # CRITICAL: Keep timestamp filters on ALL pages to prevent wrong-date data!
+                            params = {
+                                "cursor": cursor,
+                                "limit": 50000,
+                                "timestamp.gte": start_nano,  # ← Keep date filter!
+                                "timestamp.lte": end_nano,     # ← Keep date filter!
+                                "order": "asc"
+                            }
                             page += 1
                             print(f"  📄 Next page cursor: {cursor[:20]}...")
                         else:

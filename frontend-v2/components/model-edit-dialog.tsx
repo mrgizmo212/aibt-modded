@@ -234,20 +234,20 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
           </div>
 
           {/* Starting Capital */}
-          <div className="space-y-2">
-            <Label htmlFor="capital" className="text-sm text-white">
+            <div className="space-y-2">
+              <Label htmlFor="capital" className="text-sm text-white">
               Starting Capital ($) *
-            </Label>
-            <Input
-              id="capital"
-              type="number"
-              value={formData.starting_capital}
-              onChange={(e) => setFormData({ ...formData, starting_capital: parseFloat(e.target.value) || 0 })}
-              className="bg-[#1a1a1a] border-[#262626] text-white"
-              min="1000"
-              step="1000"
-              disabled={loading}
-            />
+              </Label>
+              <Input
+                id="capital"
+                type="number"
+                value={formData.starting_capital}
+                onChange={(e) => setFormData({ ...formData, starting_capital: parseFloat(e.target.value) || 0 })}
+                className="bg-[#1a1a1a] border-[#262626] text-white"
+                min="1000"
+                step="1000"
+                disabled={loading}
+              />
             <p className="text-xs text-[#737373]">
               Initial cash amount for trading. You choose daily vs intraday when starting a run.
             </p>

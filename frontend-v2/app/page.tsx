@@ -61,7 +61,7 @@ export default function Home() {
       const { getModelById } = await import('@/lib/api')
       const modelData = await getModelById(id)
       setEditingModel(modelData)
-      setIsEditDialogOpen(true)
+    setIsEditDialogOpen(true)
     } catch (error) {
       console.error('Failed to load model for editing:', error)
     }
