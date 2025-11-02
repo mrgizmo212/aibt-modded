@@ -13,6 +13,7 @@ import {
   Pencil,
   Check,
   X,
+  Loader2,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
@@ -46,7 +47,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [loading, setLoading] = useState(true)
   const [tradingStatusMap, setTradingStatusMap] = useState<Record<number, boolean>>({})
   const [streamConnections, setStreamConnections] = useState<Record<number, boolean>>({})
-  const { user } = useAuth()
+  const [togglingModelId, setTogglingModelId] = useState<number | null>(null)
+  const [savingModelId, setSavingModelId] = useState<number | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const { user, logout } = useAuth()
 
   // Get running model IDs for SSE connections
   const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
@@ -191,8 +195,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   async function handleToggle(modelId: number) {
     const isRunning = tradingStatusMap[modelId]
     
+    setTogglingModelId(modelId)
     try {
       if (isRunning) {
+        toast.info('Stopping trading...')
         await stopTrading(modelId)
         toast.success('Trading stopped')
         
@@ -209,6 +215,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           return
         }
         
+        toast.info('Starting trading...')
         // Start intraday with model's configuration
         await startIntradayTrading(
           modelId,
@@ -230,6 +237,8 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     } catch (error: any) {
       console.error('Failed to toggle trading:', error)
       toast.error(error.message || 'Failed to toggle trading')
+    } finally {
+      setTogglingModelId(null)
     }
   }
 
@@ -258,6 +267,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   }
 
   const handleSaveEdit = async (modelId: number) => {
+    setSavingModelId(modelId)
     try {
       await updateModel(modelId, { name: editingName })
       setModelList(modelList.map((m) => (m.id === modelId ? { ...m, name: editingName } : m)))
@@ -266,6 +276,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       console.error('Failed to update model name:', error)
       toast.error('Failed to update model name')
     } finally {
+      setSavingModelId(null)
       setEditingModelId(null)
       setEditingName("")
     }
@@ -274,6 +285,18 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const handleCancelEdit = () => {
     setEditingModelId(null)
     setEditingName("")
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+      // Don't show error toast as logout will still clear local state
+    }
+    // Note: logout() in auth context handles redirect and cleanup
+    // isLoggingOut will be reset when component unmounts
   }
 
   return (
@@ -318,7 +341,21 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
 
             {modelsExpanded && (
               <div className="mt-1 space-y-3">
-                {Object.entries(groupedModels).map(([style, styleModels]) => (
+                {loading ? (
+                  <div className="px-3 py-4 space-y-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2">
+                        <div className="w-2 h-2 rounded-full bg-[#262626] animate-pulse" />
+                        <div className="h-4 bg-[#262626] rounded animate-pulse flex-1" />
+                      </div>
+                    ))}
+                  </div>
+                ) : modelList.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-[#737373] text-sm">
+                    No models yet. Create your first model!
+                  </div>
+                ) : (
+                  Object.entries(groupedModels).map(([style, styleModels]) => (
                   <div key={style}>
                     <div className="px-3 py-1 text-[#737373] text-xs font-medium uppercase tracking-wide">
                       {tradingStyleLabels[style]}
@@ -352,9 +389,14 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                               />
                               <button
                                 onClick={() => handleSaveEdit(model.id)}
-                                className="p-1 hover:bg-[#1a1a1a] rounded text-[#10b981]"
+                                disabled={savingModelId === model.id}
+                                className="p-1 hover:bg-[#1a1a1a] rounded text-[#10b981] disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Check className="w-4 h-4" />
+                                {savingModelId === model.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Check className="w-4 h-4" />
+                                )}
                               </button>
                               <button
                                 onClick={handleCancelEdit}
@@ -380,19 +422,25 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <Switch
-                                checked={model.status === "running"}
-                                onCheckedChange={() => handleToggle(model.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => e.stopPropagation()}
-                              />
+                              {togglingModelId === model.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-[#3b82f6] opacity-100" />
+                              ) : (
+                                <Switch
+                                  checked={model.status === "running"}
+                                  onCheckedChange={() => handleToggle(model.id)}
+                                  disabled={togglingModelId === model.id}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              )}
                             </>
                           )}
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             )}
           </div>
@@ -415,9 +463,17 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           <Settings className="w-5 h-5" />
           <span className="text-sm font-medium">Settings</span>
         </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a3a3a3] hover:text-white hover:bg-[#141414] transition-colors">
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Logout</span>
+        <button 
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a3a3a3] hover:text-white hover:bg-[#141414] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoggingOut ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <LogOut className="w-5 h-5" />
+          )}
+          <span className="text-sm font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
         </button>
       </div>
     </div>
