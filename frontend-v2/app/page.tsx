@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { NavigationSidebar } from "@/components/navigation-sidebar"
 import { ChatInterface } from "@/components/chat-interface"
 import { ContextPanel } from "@/components/context-panel"
@@ -13,18 +15,43 @@ import { SystemStatusDrawer } from "@/components/system-status-drawer"
 import { SystemStatusTrigger } from "@/components/system-status-trigger"
 
 export default function Home() {
+  const router = useRouter()
+  const { user, loading } = useAuth()
+  
+  // State declarations
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [context, setContext] = useState<"dashboard" | "model" | "run">("dashboard")
-
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isContextOpen, setIsContextOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
-
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<any>(null)
-
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState(false)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+    }
+  }, [user, loading, router])
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render dashboard if not authenticated
+  if (!user) {
+    return null
+  }
 
   const handleModelSelect = (id: number) => {
     setSelectedModelId(id)
