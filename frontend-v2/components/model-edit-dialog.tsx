@@ -37,7 +37,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   
   const [formData, setFormData] = useState({
     name: model?.name || "",
-    default_ai_model: model?.default_ai_model || "gpt-4o",
+    default_ai_model: model?.default_ai_model || "",  // Empty - user must select
     system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
     starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
     allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
@@ -59,7 +59,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
       const modelParams = (model as any)?.model_parameters || {}
       setFormData({
         name: model?.name || "",
-        default_ai_model: model?.default_ai_model || "openai/gpt-4o",
+        default_ai_model: model?.default_ai_model || "",  // Empty - user must select
         system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
         starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
         allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
@@ -177,14 +177,12 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
               AI Model *
             </Label>
             <Select
-              value={formData.default_ai_model}
+              value={formData.default_ai_model || undefined}
               onValueChange={(value) => setFormData({ ...formData, default_ai_model: value })}
               disabled={loading}
             >
               <SelectTrigger className="bg-[#1a1a1a] border-[#262626] text-white">
-                <SelectValue placeholder="Select AI Model">
-                  {AVAILABLE_MODELS.find(m => m.id === formData.default_ai_model)?.name || formData.default_ai_model}
-                </SelectValue>
+                <SelectValue placeholder="Select AI Model" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#262626] max-h-[300px]">
                 {AVAILABLE_MODELS.map((aiModel) => (
@@ -218,20 +216,30 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
           </div>
 
           {/* Model Parameters - Sophisticated Component from /frontend */}
-          <div className="space-y-2">
-            <Label className="text-sm text-white">Model Parameters</Label>
-            <div className="bg-[#1a1a1a] border border-[#262626] rounded-lg p-4">
-              <ModelSettings
-                key={formData.default_ai_model}
-                selectedAIModel={formData.default_ai_model}
-                currentParams={modelParameters}
-                onParamsChange={setModelParameters}
-              />
+          {formData.default_ai_model && (
+            <div className="space-y-2">
+              <Label className="text-sm text-white">Model Parameters</Label>
+              <div className="bg-[#1a1a1a] border border-[#262626] rounded-lg p-4">
+                <ModelSettings
+                  key={formData.default_ai_model}
+                  selectedAIModel={formData.default_ai_model}
+                  currentParams={modelParameters}
+                  onParamsChange={setModelParameters}
+                />
+              </div>
+              <p className="text-xs text-[#737373]">
+                Parameters auto-adjust based on selected AI model (GPT-5, Claude, Gemini, etc.)
+              </p>
             </div>
-            <p className="text-xs text-[#737373]">
-              Parameters auto-adjust based on selected AI model (GPT-5, Claude, Gemini, etc.)
-            </p>
-          </div>
+          )}
+          
+          {!formData.default_ai_model && (
+            <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4">
+              <p className="text-sm text-[#3b82f6]">
+                ℹ️ Select an AI model above to configure model-specific parameters
+              </p>
+            </div>
+          )}
 
           {/* Starting Capital */}
             <div className="space-y-2">

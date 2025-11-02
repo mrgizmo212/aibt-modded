@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
+import { AVAILABLE_MODELS } from "@/lib/constants"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -175,7 +176,12 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#a3a3a3]">AI Model</span>
-                  <span className="text-sm font-mono text-white">{modelData.default_ai_model || 'N/A'}</span>
+                  <span className="text-sm font-mono text-white">
+                    {modelData.default_ai_model 
+                      ? AVAILABLE_MODELS.find(m => m.id === modelData.default_ai_model)?.name || modelData.default_ai_model
+                      : 'N/A'
+                    }
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#a3a3a3]">Trading Mode</span>

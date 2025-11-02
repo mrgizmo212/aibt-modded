@@ -7,6 +7,8 @@ import { useState, useEffect } from "react"
 import { getModels, getPerformance, getTradingStatus, startTrading, stopTrading } from "@/lib/api"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { TradingForm } from "./trading-form"
 
 interface ModelCardsGridProps {
   onModelSelect: (id: number) => void
@@ -24,6 +26,8 @@ interface ModelCard {
   hours: string
   tradingStyle: string
   strategy: string
+  default_ai_model?: string
+  model_parameters?: Record<string, any>
 }
 
 export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClick }: ModelCardsGridProps) {
@@ -32,6 +36,11 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
   const [loadingModels, setLoadingModels] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
+  
+  // Trading form modal state
+  const [showTradingForm, setShowTradingForm] = useState(false)
+  const [tradingFormModelId, setTradingFormModelId] = useState<number | null>(null)
+  const [tradingFormModelName, setTradingFormModelName] = useState<string>("")
 
   useEffect(() => {
     loadModels()
@@ -99,45 +108,51 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
   const handleToggleModel = async (modelId: number, currentStatus: "running" | "stopped") => {
     console.log("Toggling model", modelId, "from", currentStatus)
 
-    // Add to loading set
-    setLoadingModels((prev) => new Set(prev).add(modelId))
-
-    try {
-      if (currentStatus === "running") {
+    if (currentStatus === "running") {
+      // STOP trading
+      setLoadingModels((prev) => new Set(prev).add(modelId))
+      
+      try {
         await stopTrading(modelId)
         toast.success('Trading stopped')
-      } else {
-        // Get model configuration first
-        const model = models.find(m => m.id === modelId)
-        if (!model || !model.default_ai_model) {
-          toast.error('Model has no AI model configured')
-          return
-        }
         
-        // Start intraday with model's configuration
-        await startIntradayTrading(
-          modelId,
-          'AAPL',  // Default symbol (could be made configurable)
-          '2025-10-15',  // Recent date with complete data
-          'regular',
-          model.default_ai_model  // Use model's configured AI model
-        )
-        toast.success('Trading started in intraday mode')
+        // Refresh models to get updated status
+        await loadModels()
+      } catch (error: any) {
+        console.error("Error stopping trading:", error)
+        toast.error(error.message || 'Failed to stop trading')
+      } finally {
+        setLoadingModels((prev) => {
+          const next = new Set(prev)
+          next.delete(modelId)
+          return next
+        })
       }
-
-      // Refresh models to get updated status
-      await loadModels()
-    } catch (error: any) {
-      console.error("Error toggling model:", error)
-      toast.error(error.message || 'Failed to toggle trading')
-    } finally {
-      // Remove from loading set
-      setLoadingModels((prev) => {
-        const next = new Set(prev)
-        next.delete(modelId)
-        return next
-      })
+    } else {
+      // START trading - SHOW FORM MODAL instead of immediately starting
+      const model = models.find(m => m.id === modelId)
+      if (!model || !model.default_ai_model) {
+        toast.error('Model has no AI model configured. Please edit the model first.')
+        return
+      }
+      
+      // Open Trading Form modal
+      setTradingFormModelId(modelId)
+      setTradingFormModelName(model.name)
+      setShowTradingForm(true)
     }
+  }
+  
+  // Callback when trading form successfully starts
+  function handleTradingFormSuccess() {
+    setShowTradingForm(false)
+    setTradingFormModelId(null)
+    setTradingFormModelName("")
+    
+    // Refresh models to get updated status
+    setTimeout(() => {
+      loadModels()
+    }, 2000)
   }
 
   const handleViewDetails = (modelId: number) => {
@@ -271,6 +286,19 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
           </div>
         )
       })}
+      
+      {/* Trading Form Modal */}
+      <Dialog open={showTradingForm} onOpenChange={setShowTradingForm}>
+        <DialogContent className="bg-[#0a0a0a] border-[#262626] max-w-2xl">
+          <DialogTitle className="sr-only">Start Trading Configuration</DialogTitle>
+          <TradingForm
+            modelId={tradingFormModelId || undefined}
+            modelName={tradingFormModelName}
+            onClose={() => setShowTradingForm(false)}
+            onSuccess={handleTradingFormSuccess}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
