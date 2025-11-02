@@ -9,20 +9,46 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHea
 from supabase import create_client, Client
 from jose import jwt, JWTError
 from typing import Optional, Dict, Any
+import os
 from config import settings, is_approved_email, is_admin
 
 # Security schemes (both optional - don't auto-error)
 security = HTTPBearer(auto_error=False)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# Valid API keys (in production, store in environment variables or database)
-VALID_API_KEYS = {
-    "customkey1": {
-        "name": "Default API Key",
-        "role": "admin",  # API keys have admin access by default
-        "email": "api@truetradinggroup.com"
-    }
-}
+# Valid API keys (read from environment variables)
+def get_valid_api_keys() -> Dict[str, Dict[str, Any]]:
+    """Build API keys dict from environment variables"""
+    keys = {}
+    
+    # Primary API key from environment
+    api_key_1 = os.getenv("API_KEY_1")
+    if api_key_1:
+        keys[api_key_1] = {
+            "name": "Primary API Key",
+            "role": "admin",
+            "email": "api@truetradinggroup.com"
+        }
+    
+    # Add more keys as needed (API_KEY_2, API_KEY_3, etc.)
+    api_key_2 = os.getenv("API_KEY_2")
+    if api_key_2:
+        keys[api_key_2] = {
+            "name": "Secondary API Key",
+            "role": "admin",
+            "email": "api2@truetradinggroup.com"
+        }
+    
+    return keys
+
+# Load API keys on module import
+VALID_API_KEYS = get_valid_api_keys()
+
+# Log API key status on startup
+if VALID_API_KEYS:
+    print(f"✅ API Key Authentication: {len(VALID_API_KEYS)} key(s) configured")
+else:
+    print("⚠️  API Key Authentication: No keys configured (set API_KEY_1 env var)")
 
 # Supabase client
 def get_supabase_client() -> Client:
