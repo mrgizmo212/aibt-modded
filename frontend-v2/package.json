@@ -69,6 +69,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "tw-animate-css": "1.3.3",
     "vaul": "^0.9.9",
     "zod": "3.25.76",
     "@supabase/supabase-js": "^2.47.10",
@@ -80,7 +81,6 @@
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "tw-animate-css": "1.3.3"
+    "@types/react-dom": "^19"
   }
 }
