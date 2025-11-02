@@ -1,0 +1,171 @@
+"use client"
+
+import { useEffect, useState, useRef } from 'react'
+import { getToken } from '@/lib/auth'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const MAX_EVENTS = 100 // Keep only last 100 events in memory
+const RECONNECT_DELAY = 3000 // 3 seconds
+const MAX_RECONNECT_ATTEMPTS = 5
+
+export interface TradingEvent {
+  type: 'connected' | 'status' | 'trade' | 'session_complete' | 'complete' | 'error'
+  timestamp: string
+  data: {
+    model_id?: number
+    message?: string
+    action?: 'buy' | 'sell' | 'hold'
+    [key: string]: any
+  }
+}
+
+interface UseTradingStreamOptions {
+  enabled?: boolean
+  onEvent?: (event: TradingEvent) => void
+  autoReconnect?: boolean
+}
+
+export function useTradingStream(
+  modelId: number | null,
+  options: UseTradingStreamOptions = {}
+) {
+  const {
+    enabled = true,
+    onEvent,
+    autoReconnect = true
+  } = options
+
+  const [events, setEvents] = useState<TradingEvent[]>([])
+  const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    // Don't connect if disabled or no model selected
+    if (!enabled || !modelId) {
+      return
+    }
+
+    connectToStream()
+
+    // Cleanup on unmount or dependency change
+    return () => {
+      disconnectFromStream()
+    }
+  }, [modelId, enabled])
+
+  function connectToStream() {
+    // Clean up any existing connection
+    disconnectFromStream()
+
+    const token = getToken()
+    if (!token) {
+      setError('Not authenticated')
+      return
+    }
+
+    try {
+      // Create EventSource with token in query parameter
+      // EventSource can't send custom headers, so token must be in URL
+      const url = `${API_BASE}/api/trading/stream/${modelId}?token=${token}`
+      const eventSource = new EventSource(url)
+
+      eventSource.onopen = () => {
+        console.log(`[SSE] Connected to trading stream for model ${modelId}`)
+        setConnected(true)
+        setError(null)
+        setReconnectAttempts(0)
+      }
+
+      eventSource.onmessage = (event) => {
+        try {
+          const parsedEvent: TradingEvent = JSON.parse(event.data)
+          
+          // Add to events array (keep only last MAX_EVENTS)
+          setEvents(prev => {
+            const updated = [...prev, parsedEvent]
+            return updated.slice(-MAX_EVENTS)
+          })
+
+          // Call custom event handler if provided
+          if (onEvent) {
+            onEvent(parsedEvent)
+          }
+
+          console.log(`[SSE] Event received:`, parsedEvent.type, parsedEvent.data)
+        } catch (e) {
+          console.error('[SSE] Failed to parse event:', e)
+        }
+      }
+
+      eventSource.onerror = (err) => {
+        console.error('[SSE] Connection error:', err)
+        setConnected(false)
+        setError('Connection lost')
+        
+        // Close current connection
+        eventSource.close()
+
+        // Attempt reconnection if enabled
+        if (autoReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts) // Exponential backoff
+          console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`)
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setReconnectAttempts(prev => prev + 1)
+            connectToStream()
+          }, delay)
+        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          setError('Max reconnection attempts reached')
+          console.error('[SSE] Max reconnection attempts reached')
+        }
+      }
+
+      eventSourceRef.current = eventSource
+
+    } catch (e) {
+      console.error('[SSE] Failed to create EventSource:', e)
+      setError('Failed to connect')
+    }
+  }
+
+  function disconnectFromStream() {
+    // Clear reconnection timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+
+    // Close EventSource
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+      console.log(`[SSE] Disconnected from trading stream for model ${modelId}`)
+    }
+
+    setConnected(false)
+  }
+
+  function clearEvents() {
+    setEvents([])
+  }
+
+  function reconnect() {
+    setReconnectAttempts(0)
+    connectToStream()
+  }
+
+  return {
+    events,
+    connected,
+    error,
+    reconnectAttempts,
+    clearEvents,
+    reconnect,
+    disconnect: disconnectFromStream,
+  }
+}
+

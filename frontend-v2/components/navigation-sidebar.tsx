@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { getModels, getTradingStatus, startTrading, stopTrading, updateModel } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
+import { useTradingStream } from "@/hooks/use-trading-stream"
 
 interface Model {
   id: number
@@ -42,12 +43,61 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [modelList, setModelList] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
   const [tradingStatusMap, setTradingStatusMap] = useState<Record<number, boolean>>({})
+  const [streamConnections, setStreamConnections] = useState<Record<number, boolean>>({})
   const { user } = useAuth()
+
+  // Get running model IDs for SSE connections
+  const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
+
+  // Connect to SSE for first running model (to test)
+  // Note: In production, you might want to connect to all running models
+  const firstRunningId = runningModelIds[0] || null
+  const { events, connected } = useTradingStream(firstRunningId, {
+    enabled: !!firstRunningId,
+    onEvent: (event) => {
+      // Handle real-time events
+      console.log('[Navigation] SSE Event:', event.type, event.data)
+      
+      if (event.type === 'trade') {
+        toast.info(`Trading Activity`, {
+          description: event.data.message,
+          duration: 3000
+        })
+      }
+      
+      if (event.type === 'complete' || event.type === 'session_complete') {
+        toast.success('Trading Session Completed')
+        // Refresh trading status
+        loadTradingStatus()
+        loadModels()
+      }
+      
+      if (event.type === 'error') {
+        toast.error('Trading Error', {
+          description: event.data.message
+        })
+      }
+    }
+  })
+
+  // Track connected models
+  useEffect(() => {
+    if (firstRunningId && connected) {
+      setStreamConnections(prev => ({ ...prev, [firstRunningId]: true }))
+    }
+  }, [firstRunningId, connected])
 
   // Load models and trading status on mount
   useEffect(() => {
     loadModels()
     loadTradingStatus()
+    
+    // Refresh status periodically for models not using SSE
+    const interval = setInterval(() => {
+      loadTradingStatus()
+    }, 30000) // Every 30 seconds
+    
+    return () => clearInterval(interval)
   }, [])
 
   async function loadModels() {
@@ -98,13 +148,23 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       if (isRunning) {
         await stopTrading(modelId)
         toast.success('Trading stopped')
+        
+        // Wait a bit for backend to update status
+        setTimeout(async () => {
+          await loadTradingStatus()
+          await loadModels()
+        }, 1000)
       } else {
         await startTrading(modelId, 'paper')
         toast.success('Trading started')
+        
+        // Wait a bit for backend to start agent
+        setTimeout(async () => {
+          await loadTradingStatus()
+          await loadModels()
+        }, 2000)
       }
       
-      // Refresh status
-      await loadTradingStatus()
       onToggleModel(modelId)
     } catch (error: any) {
       console.error('Failed to toggle trading:', error)
@@ -244,7 +304,15 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                             </div>
                           ) : (
                             <>
-                              <span className="flex-1 text-sm text-white truncate">{model.name}</span>
+                              <div className="flex-1 flex items-center gap-2 min-w-0">
+                                <span className="text-sm text-white truncate">{model.name}</span>
+                                {model.status === "running" && streamConnections[model.id] && (
+                                  <span className="text-xs text-[#10b981] flex items-center gap-1 flex-shrink-0">
+                                    <div className="w-1.5 h-1.5 bg-[#10b981] rounded-full pulse-dot" />
+                                    Live
+                                  </span>
+                                )}
+                              </div>
                               <button
                                 onClick={(e) => handleStartEdit(model, e)}
                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#1a1a1a] rounded text-[#a3a3a3] hover:text-white transition-all"

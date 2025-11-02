@@ -184,10 +184,10 @@ export function ModelCardsGrid({ onModelSelect, onModelEdit, onMobileDetailsClic
                   model.status === "running"
                     ? "bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20"
                     : "bg-[#525252]/10 text-[#a3a3a3] border-[#525252]/20"
-                } border`}
+                } border flex items-center gap-1.5`}
               >
-                {model.status === "running" && <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />}
-                {model.status === "running" ? "Running" : "Stopped"}
+                {model.status === "running" && <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot" />}
+                {model.status === "running" ? "Live" : "Stopped"}
               </Badge>
             </div>
 

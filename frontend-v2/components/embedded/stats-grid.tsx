@@ -3,8 +3,13 @@
 import { Bot, Activity } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getModels, getPortfolioStats, getTradingStatus } from "@/lib/api"
+import { useTradingStream } from "@/hooks/use-trading-stream"
 
-export function StatsGrid() {
+interface StatsGridProps {
+  refreshTrigger?: number
+}
+
+export function StatsGrid({ refreshTrigger }: StatsGridProps = {}) {
   const [stats, setStats] = useState({
     totalModels: 0,
     activeModels: 0,
@@ -19,7 +24,7 @@ export function StatsGrid() {
 
   useEffect(() => {
     loadStats()
-  }, [])
+  }, [refreshTrigger]) // Refresh when trigger changes
 
   async function loadStats() {
     try {

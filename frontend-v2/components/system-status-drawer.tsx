@@ -152,7 +152,9 @@ export function SystemStatusDrawer({ isOpen, onClose }: SystemStatusDrawerProps)
           </div>
 
           {/* Last Updated */}
-          <div className="text-center text-[#737373] text-xs pt-2">Last updated: {new Date().toLocaleTimeString()}</div>
+          <div className="text-center text-[#737373] text-xs pt-2" suppressHydrationWarning>
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
         </div>
       </div>
     </>
