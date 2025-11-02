@@ -10,6 +10,9 @@ import { ModelCardsGrid } from "./embedded/model-cards-grid"
 import { TradingForm } from "./embedded/trading-form"
 import { AnalysisCard } from "./embedded/analysis-card"
 import { ModelCreationStep } from "./embedded/model-creation-step"
+import { PerformanceMetrics } from "./PerformanceMetrics"
+import { PortfolioChart } from "./PortfolioChart"
+import RunData from "./RunData"
 
 export interface Message {
   id: string
@@ -17,7 +20,7 @@ export interface Message {
   text: string
   timestamp: string
   embeddedComponent?: {
-    type: "stats_grid" | "model_cards" | "form" | "analysis" | "model_creation_step"
+    type: "stats_grid" | "model_cards" | "form" | "analysis" | "model_creation_step" | "run_details" | "performance_chart"
     props?: any
   }
   suggestedActions?: string[]
@@ -29,6 +32,7 @@ interface ChatInterfaceProps {
   onModelSelect: (id: number) => void
   onModelEdit?: (id: number) => void
   onMobileDetailsClick?: (id: number) => void
+  onShowRunDetails?: (modelId: number, runId: number, runData: any) => void
 }
 
 export function ChatInterface({
@@ -36,6 +40,7 @@ export function ChatInterface({
   onModelSelect,
   onModelEdit,
   onMobileDetailsClick,
+  onShowRunDetails,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -62,6 +67,43 @@ export function ChatInterface({
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+  
+  // Expose method to add run details to chat
+  useEffect(() => {
+    if (onShowRunDetails) {
+      // Create a function that adds run details to chat
+      const showRunInChat = async (modelId: number, runId: number, runData: any) => {
+        const newMessage: Message = {
+          id: Date.now().toString(),
+          type: "ai",
+          text: `Here are the details for Run #${runData.run_number}:`,
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          embeddedComponent: {
+            type: "run_details",
+            props: { run: runData, modelId }
+          },
+          suggestedActions: ["View chart", "Compare with other runs", "Analyze decisions"]
+        }
+        
+        // Add performance chart as second message
+        const chartMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: "Performance visualization:",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          embeddedComponent: {
+            type: "performance_chart",
+            props: { modelId }
+          }
+        }
+        
+        setMessages(prev => [...prev, newMessage, chartMessage])
+      }
+      
+      // Store it for parent to call
+      (window as any).__showRunInChat = showRunInChat
+    }
+  }, [onShowRunDetails])
 
   const handleModelCreationNext = (stepData: any) => {
     const updatedData = { ...modelCreationData, ...stepData }
@@ -293,7 +335,7 @@ export function ChatInterface({
                     )}
                   </div>
 
-                  {message.embeddedComponent && (
+                      {message.embeddedComponent && (
                     <div className="mt-3 lg:mt-4">
                       {message.embeddedComponent.type === "stats_grid" && <StatsGrid />}
                       {message.embeddedComponent.type === "model_cards" && (
@@ -311,6 +353,15 @@ export function ChatInterface({
                           data={message.embeddedComponent.props.data}
                           onNext={handleModelCreationNext}
                         />
+                      )}
+                      {message.embeddedComponent.type === "performance_chart" && message.embeddedComponent.props?.modelId && (
+                        <div className="space-y-4">
+                          <PerformanceMetrics modelId={message.embeddedComponent.props.modelId} />
+                          <PortfolioChart modelId={message.embeddedComponent.props.modelId} />
+                        </div>
+                      )}
+                      {message.embeddedComponent.type === "run_details" && message.embeddedComponent.props?.run && (
+                        <RunData run={message.embeddedComponent.props.run} />
                       )}
                     </div>
                   )}

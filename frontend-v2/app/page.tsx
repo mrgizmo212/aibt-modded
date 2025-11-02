@@ -31,11 +31,23 @@ export default function Home() {
     setContext("model")
   }
   
-  const handleRunClick = (modelId: number, runId: number) => {
+  const handleRunClick = async (modelId: number, runId: number) => {
     console.log('Run clicked:', modelId, runId)
-    setSelectedModelId(modelId)
-    setSelectedRunId(runId)
-    setContext("run")
+    
+    try {
+      // Fetch full run details
+      const { getRunDetails } = await import('@/lib/api')
+      const runData = await getRunDetails(modelId, runId)
+      
+      // Trigger chat to show run details
+      if ((window as any).__showRunInChat) {
+        (window as any).__showRunInChat(modelId, runId, runData)
+      }
+      
+      setContext("run")
+    } catch (error) {
+      console.error('Failed to load run details:', error)
+    }
   }
 
   const handleToggleModel = (id: number) => {
@@ -100,6 +112,7 @@ export default function Home() {
             onModelSelect={handleModelSelect}
             onModelEdit={handleEditModel}
             onMobileDetailsClick={handleMobileDetailsClick}
+            onShowRunDetails={handleRunClick}
           />
         </div>
 
