@@ -1,0 +1,658 @@
+/**
+ * Mock Functions Library for AI Trading Platform
+ * This file contains all mock functions to spec for every interactive feature in the UI
+ */
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
+export interface Model {
+  id: number
+  name: string
+  status: "running" | "stopped"
+  portfolio: number
+  return: number
+  run: number
+  lastActivity: string
+  createdAt: string
+  strategy: string
+  riskLevel: "low" | "medium" | "high"
+}
+
+export interface Trade {
+  id: string
+  modelId: number
+  symbol: string
+  action: "BUY" | "SELL"
+  quantity: number
+  price: number
+  timestamp: string
+  profit?: number
+  status: "completed" | "pending" | "failed"
+}
+
+export interface Position {
+  symbol: string
+  quantity: number
+  avgPrice: number
+  currentPrice: number
+  value: number
+  profitLoss: number
+  profitLossPercent: number
+}
+
+export interface RunStats {
+  runId: number
+  modelId: number
+  startTime: string
+  endTime?: string
+  duration: string
+  totalTrades: number
+  winRate: number
+  finalReturn: number
+  totalProfit: number
+  status: "running" | "completed" | "failed"
+}
+
+export interface PortfolioStats {
+  totalValue: number
+  totalChange: number
+  totalChangePercent: number
+  todayPL: number
+  todayPLPercent: number
+  activeModels: number
+  totalModels: number
+  winRate: number
+  cashBalance: number
+}
+
+export interface Activity {
+  id: string
+  type: "trade" | "model_start" | "model_stop" | "run_complete" | "alert"
+  message: string
+  timestamp: string
+  icon: "trending-up" | "trending-down" | "check" | "alert" | "info"
+  color: "green" | "red" | "blue" | "yellow"
+}
+
+export interface SystemStatus {
+  mcpServices: "online" | "offline" | "degraded"
+  market: "open" | "closed" | "pre-market" | "after-hours"
+  database: "connected" | "disconnected" | "slow"
+  apiLatency: number
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+export async function getCurrentUser() {
+  console.log("[v0] Mock: Getting current user")
+  return {
+    id: "user_123",
+    name: "Adam",
+    email: "adam@truetradinggroup.com",
+    avatar: "https://ui-avatars.com/api/?name=Adam&background=3b82f6&color=fff",
+    role: "admin",
+    createdAt: "2024-01-15",
+  }
+}
+
+export async function logout() {
+  console.log("[v0] Mock: Logging out user")
+  return { success: true }
+}
+
+export async function updateUserSettings(settings: Record<string, any>) {
+  console.log("[v0] Mock: Updating user settings", settings)
+  return { success: true, settings }
+}
+
+// ============================================================================
+// MODEL MANAGEMENT
+// ============================================================================
+
+export async function getModels(): Promise<Model[]> {
+  console.log("[v0] Mock: Fetching all models")
+  return [
+    {
+      id: 1,
+      name: "GPT-5 Momentum",
+      status: "running",
+      portfolio: 10234,
+      return: 2.3,
+      run: 5,
+      lastActivity: "3 hours ago",
+      createdAt: "2024-01-10",
+      strategy: "momentum",
+      riskLevel: "medium",
+    },
+    {
+      id: 2,
+      name: "Claude Day Trader",
+      status: "stopped",
+      portfolio: 9876,
+      return: -1.2,
+      run: 12,
+      lastActivity: "Yesterday",
+      createdAt: "2024-01-08",
+      strategy: "day-trading",
+      riskLevel: "high",
+    },
+    {
+      id: 3,
+      name: "Gemini Long Term",
+      status: "running",
+      portfolio: 11500,
+      return: 15.0,
+      run: 8,
+      lastActivity: "2 days ago",
+      createdAt: "2024-01-05",
+      strategy: "long-term",
+      riskLevel: "low",
+    },
+    {
+      id: 4,
+      name: "DeepSeek Scalper",
+      status: "stopped",
+      portfolio: 8500,
+      return: -3.5,
+      run: 15,
+      lastActivity: "3 days ago",
+      createdAt: "2024-01-12",
+      strategy: "scalping",
+      riskLevel: "high",
+    },
+    {
+      id: 5,
+      name: "GPT-4o Conservative",
+      status: "running",
+      portfolio: 12800,
+      return: 8.2,
+      run: 3,
+      lastActivity: "1 hour ago",
+      createdAt: "2024-01-20",
+      strategy: "conservative",
+      riskLevel: "low",
+    },
+    {
+      id: 6,
+      name: "Qwen Swing",
+      status: "stopped",
+      portfolio: 9200,
+      return: 1.5,
+      run: 7,
+      lastActivity: "5 days ago",
+      createdAt: "2024-01-03",
+      strategy: "swing",
+      riskLevel: "medium",
+    },
+    {
+      id: 7,
+      name: "Mixtral Options",
+      status: "stopped",
+      portfolio: 7800,
+      return: -2.1,
+      run: 9,
+      lastActivity: "1 week ago",
+      createdAt: "2024-01-01",
+      strategy: "options",
+      riskLevel: "high",
+    },
+  ]
+}
+
+export async function getModelById(id: number): Promise<Model | null> {
+  console.log("[v0] Mock: Fetching model by ID", id)
+  const models = await getModels()
+  return models.find((m) => m.id === id) || null
+}
+
+export async function createModel(data: {
+  name: string
+  strategy: string
+  riskLevel: "low" | "medium" | "high"
+  initialCapital: number
+}) {
+  console.log("[v0] Mock: Creating new model", data)
+  return {
+    success: true,
+    model: {
+      id: Math.floor(Math.random() * 1000) + 8,
+      name: data.name,
+      status: "stopped" as const,
+      portfolio: data.initialCapital,
+      return: 0,
+      run: 0,
+      lastActivity: "Just created",
+      createdAt: new Date().toISOString(),
+      strategy: data.strategy,
+      riskLevel: data.riskLevel,
+    },
+  }
+}
+
+export async function toggleModel(id: number, newStatus: "running" | "stopped") {
+  console.log("[v0] Mock: Toggling model", id, "to", newStatus)
+  return {
+    success: true,
+    modelId: id,
+    status: newStatus,
+    message: newStatus === "running" ? "Model started successfully" : "Model stopped successfully",
+  }
+}
+
+export async function deleteModel(id: number) {
+  console.log("[v0] Mock: Deleting model", id)
+  return {
+    success: true,
+    modelId: id,
+    message: "Model deleted successfully",
+  }
+}
+
+export async function updateModelSettings(id: number, settings: Record<string, any>) {
+  console.log("[v0] Mock: Updating model settings", id, settings)
+  return {
+    success: true,
+    modelId: id,
+    settings,
+  }
+}
+
+// ============================================================================
+// TRADING OPERATIONS
+// ============================================================================
+
+export async function startTrading(params: {
+  modelId: number
+  mode: "intraday" | "daily"
+  symbol: string
+  session: "regular" | "premarket" | "afterhours"
+  stopLoss?: number
+  profitTarget?: number
+  minHoldTime?: number
+}) {
+  console.log("[v0] Mock: Starting trading with params", params)
+  return {
+    success: true,
+    runId: Math.floor(Math.random() * 1000) + 100,
+    modelId: params.modelId,
+    startTime: new Date().toISOString(),
+    message: `Started trading ${params.symbol} in ${params.mode} mode`,
+  }
+}
+
+export async function stopTrading(modelId: number) {
+  console.log("[v0] Mock: Stopping trading for model", modelId)
+  return {
+    success: true,
+    modelId,
+    endTime: new Date().toISOString(),
+    message: "Trading stopped successfully",
+  }
+}
+
+export async function executeTrade(params: {
+  modelId: number
+  symbol: string
+  action: "BUY" | "SELL"
+  quantity: number
+  price: number
+}) {
+  console.log("[v0] Mock: Executing trade", params)
+  return {
+    success: true,
+    trade: {
+      id: `trade_${Date.now()}`,
+      modelId: params.modelId,
+      symbol: params.symbol,
+      action: params.action,
+      quantity: params.quantity,
+      price: params.price,
+      timestamp: new Date().toISOString(),
+      status: "completed" as const,
+    },
+  }
+}
+
+export async function getTradeHistory(modelId?: number, limit = 50): Promise<Trade[]> {
+  console.log("[v0] Mock: Fetching trade history", { modelId, limit })
+  return [
+    {
+      id: "trade_1",
+      modelId: 1,
+      symbol: "AAPL",
+      action: "BUY",
+      quantity: 10,
+      price: 180.5,
+      timestamp: "2024-01-25T14:45:23Z",
+      profit: 47,
+      status: "completed",
+    },
+    {
+      id: "trade_2",
+      modelId: 3,
+      symbol: "TSLA",
+      action: "SELL",
+      quantity: 5,
+      price: 245.0,
+      timestamp: "2024-01-25T14:30:15Z",
+      profit: -25,
+      status: "completed",
+    },
+    {
+      id: "trade_3",
+      modelId: 1,
+      symbol: "MSFT",
+      action: "BUY",
+      quantity: 8,
+      price: 350.25,
+      timestamp: "2024-01-25T13:20:10Z",
+      profit: 120,
+      status: "completed",
+    },
+  ]
+}
+
+export async function getCurrentPositions(modelId?: number): Promise<Position[]> {
+  console.log("[v0] Mock: Fetching current positions", modelId)
+  return [
+    {
+      symbol: "AAPL",
+      quantity: 10,
+      avgPrice: 180.5,
+      currentPrice: 185.2,
+      value: 1852,
+      profitLoss: 47,
+      profitLossPercent: 2.6,
+    },
+    {
+      symbol: "MSFT",
+      quantity: 5,
+      avgPrice: 350.0,
+      currentPrice: 345.0,
+      value: 1725,
+      profitLoss: -25,
+      profitLossPercent: -1.4,
+    },
+    {
+      symbol: "NVDA",
+      quantity: 8,
+      avgPrice: 460.0,
+      currentPrice: 475.0,
+      value: 3800,
+      profitLoss: 120,
+      profitLossPercent: 3.3,
+    },
+  ]
+}
+
+// ============================================================================
+// RUN ANALYSIS
+// ============================================================================
+
+export async function getRunStats(runId: number): Promise<RunStats> {
+  console.log("[v0] Mock: Fetching run stats for run", runId)
+  return {
+    runId,
+    modelId: 2,
+    startTime: "2024-01-25T08:00:00Z",
+    endTime: "2024-01-25T14:30:00Z",
+    duration: "6.5 hours",
+    totalTrades: 23,
+    winRate: 35,
+    finalReturn: -5.2,
+    totalProfit: -520,
+    status: "completed",
+  }
+}
+
+export async function analyzeRun(runId: number) {
+  console.log("[v0] Mock: Analyzing run", runId)
+  return {
+    success: true,
+    runId,
+    issues: [
+      {
+        type: "no_stop_loss",
+        severity: "high",
+        impact: "Biggest loss was -$215 on TSLA",
+        recommendation: "Add stop-loss at -5%",
+        potentialImprovement: 3.5,
+      },
+      {
+        type: "poor_win_loss_ratio",
+        severity: "medium",
+        impact: "Avg win $45 vs avg loss $87",
+        recommendation: "Add profit target at +10%",
+        potentialImprovement: 2.8,
+      },
+      {
+        type: "overtrading",
+        severity: "medium",
+        impact: "23 trades in 6.5 hours",
+        recommendation: "Add min hold time: 30min",
+        potentialImprovement: 1.5,
+      },
+    ],
+    projectedImprovement: {
+      from: -5.2,
+      to: 2.1,
+      difference: 7.3,
+    },
+  }
+}
+
+export async function applyRunRecommendations(runId: number, recommendations: string[]) {
+  console.log("[v0] Mock: Applying recommendations for run", runId, recommendations)
+  return {
+    success: true,
+    runId,
+    appliedRules: recommendations,
+    message: "Rules applied successfully to model",
+  }
+}
+
+// ============================================================================
+// PORTFOLIO & STATS
+// ============================================================================
+
+export async function getPortfolioStats(): Promise<PortfolioStats> {
+  console.log("[v0] Mock: Fetching portfolio stats")
+  return {
+    totalValue: 73245,
+    totalChange: 2400,
+    totalChangePercent: 3.4,
+    todayPL: 1245,
+    todayPLPercent: 1.7,
+    activeModels: 3,
+    totalModels: 7,
+    winRate: 62,
+    cashBalance: 3245,
+  }
+}
+
+export async function getPerformanceHistory(period: "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL") {
+  console.log("[v0] Mock: Fetching performance history for period", period)
+  const dataPoints = period === "1D" ? 24 : period === "1W" ? 7 : period === "1M" ? 30 : 90
+  return Array.from({ length: dataPoints }, (_, i) => ({
+    timestamp: new Date(Date.now() - (dataPoints - i) * 3600000).toISOString(),
+    value: 70000 + Math.random() * 5000,
+    change: (Math.random() - 0.5) * 1000,
+  }))
+}
+
+// ============================================================================
+// ACTIVITY & NOTIFICATIONS
+// ============================================================================
+
+export async function getRecentActivity(limit = 10): Promise<Activity[]> {
+  console.log("[v0] Mock: Fetching recent activity", limit)
+  return [
+    {
+      id: "act_1",
+      type: "trade",
+      message: "GPT-5: BUY AAPL 10 @ $180.50",
+      timestamp: "14:45:23",
+      icon: "trending-up",
+      color: "green",
+    },
+    {
+      id: "act_2",
+      type: "trade",
+      message: "Gemini: SELL TSLA 5 @ $245.00",
+      timestamp: "14:30:15",
+      icon: "trending-down",
+      color: "red",
+    },
+    {
+      id: "act_3",
+      type: "run_complete",
+      message: "Run #12 completed",
+      timestamp: "14:15:00",
+      icon: "check",
+      color: "green",
+    },
+    {
+      id: "act_4",
+      type: "alert",
+      message: "Claude Day Trader stopped due to loss limit",
+      timestamp: "13:45:00",
+      icon: "alert",
+      color: "red",
+    },
+  ]
+}
+
+export async function getSystemStatus(): Promise<SystemStatus> {
+  console.log("[v0] Mock: Fetching system status")
+  return {
+    mcpServices: "online",
+    market: "open",
+    database: "connected",
+    apiLatency: 45,
+  }
+}
+
+export async function clearNotifications() {
+  console.log("[v0] Mock: Clearing notifications")
+  return { success: true }
+}
+
+// ============================================================================
+// CHAT & AI ASSISTANT
+// ============================================================================
+
+export async function sendChatMessage(message: string, context?: Record<string, any>) {
+  console.log("[v0] Mock: Sending chat message", message, context)
+
+  // Simulate AI processing delay
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+
+  // Simple keyword-based responses
+  if (message.toLowerCase().includes("model")) {
+    return {
+      success: true,
+      response: {
+        text: "Here are your 7 trading models:",
+        embeddedComponent: { type: "model_cards" },
+        suggestedActions: ["Start a model", "View performance", "Create new model"],
+      },
+    }
+  }
+
+  if (message.toLowerCase().includes("start") && message.toLowerCase().includes("trading")) {
+    return {
+      success: true,
+      response: {
+        text: "Ready to start trading! Please configure:",
+        embeddedComponent: { type: "form" },
+      },
+    }
+  }
+
+  if (message.toLowerCase().includes("analyze") || message.toLowerCase().includes("why")) {
+    return {
+      success: true,
+      response: {
+        text: "I found 3 main issues with this run:",
+        embeddedComponent: { type: "analysis" },
+        suggestedActions: ["Apply recommendations", "View trade log"],
+      },
+    }
+  }
+
+  return {
+    success: true,
+    response: {
+      text: "I can help you with that! Try asking me to 'Show my models' or 'Analyze performance'.",
+      suggestedActions: ["Show my models", "Analyze performance", "Start trading"],
+    },
+  }
+}
+
+export async function getChatHistory(limit = 50) {
+  console.log("[v0] Mock: Fetching chat history", limit)
+  return []
+}
+
+export async function clearChatHistory() {
+  console.log("[v0] Mock: Clearing chat history")
+  return { success: true }
+}
+
+// ============================================================================
+// ADMIN & SETTINGS
+// ============================================================================
+
+export async function getAdminStats() {
+  console.log("[v0] Mock: Fetching admin stats")
+  return {
+    totalUsers: 1,
+    totalModels: 7,
+    totalTrades: 1247,
+    totalVolume: 2450000,
+    systemUptime: "99.8%",
+    avgLatency: 45,
+  }
+}
+
+export async function exportData(type: "trades" | "models" | "runs" | "all") {
+  console.log("[v0] Mock: Exporting data", type)
+  return {
+    success: true,
+    downloadUrl: `/api/export/${type}`,
+    message: "Export ready for download",
+  }
+}
+
+export async function updateSystemSettings(settings: Record<string, any>) {
+  console.log("[v0] Mock: Updating system settings", settings)
+  return {
+    success: true,
+    settings,
+  }
+}
+
+// ============================================================================
+// MOBILE-SPECIFIC FUNCTIONS
+// ============================================================================
+
+export async function getMobileNotifications() {
+  console.log("[v0] Mock: Fetching mobile notifications")
+  return {
+    unread: 3,
+    notifications: [
+      { id: "1", message: "GPT-5 made a profitable trade", timestamp: "5 min ago", read: false },
+      { id: "2", message: "Run #12 completed with -5.2% return", timestamp: "1 hour ago", read: false },
+      { id: "3", message: "Market opened", timestamp: "2 hours ago", read: true },
+    ],
+  }
+}
+
+export async function markNotificationRead(id: string) {
+  console.log("[v0] Mock: Marking notification as read", id)
+  return { success: true, id }
+}
