@@ -7,15 +7,6 @@ const nextConfig = {
   images: {
     unoptimized: true,  // Required for static export
   },
-  // Explicitly configure module resolution for Turbopack
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        '@': './',
-        '@/*': './*',
-      },
-    },
-  },
 }
 
 export default nextConfig
