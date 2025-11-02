@@ -192,9 +192,15 @@ async def run_intraday_session(
         
         current_price = bar.get('close', 0)
         
-        # Every 10 minutes, show progress
+        # Every 10 minutes, show progress and emit status
         if idx % 10 == 0:
             print(f"  🕐 Minute {idx+1}/{len(minutes)}: {minute} - {symbol} @ ${current_price:.2f}")
+            # Emit progress update every 10 minutes (not every minute - reduces spam)
+            if event_stream and idx > 0:
+                await event_stream.emit(model_id, "progress", {
+                    "message": f"Trading minute {idx+1}/{len(minutes)}: {minute}",
+                    "progress": int((idx / len(minutes)) * 100)
+                })
         
         # AI decision with full context (rejections + conversation history)
         decision = await _ai_decide_intraday(

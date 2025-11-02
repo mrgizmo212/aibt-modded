@@ -58,17 +58,28 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       console.log('[Navigation] SSE Event:', event.type, event.data)
       
       if (event.type === 'trade') {
-        toast.info(`Trading Activity`, {
-          description: event.data?.message || event.data?.action,
-          duration: 3000
-        })
+        // Limit trade notifications (show every 5th trade to avoid spam)
+        if (Math.random() < 0.2) {  // 20% chance = ~1 in 5 trades
+          toast.info(`Trade: ${event.data?.action?.toUpperCase()}`, {
+            description: event.data?.message,
+            duration: 2000
+          })
+        }
       }
       
       if (event.type === 'status') {
-        toast.info('Status Update', {
-          description: event.data?.message,
-          duration: 2000
-        })
+        // Only toast for important status updates, not every progress update
+        if (!event.data?.message?.includes('minute')) {
+          toast.info('Status Update', {
+            description: event.data?.message,
+            duration: 2000
+          })
+        }
+      }
+      
+      if (event.type === 'progress') {
+        // Don't toast progress, just log it (reduces spam)
+        console.log('[Progress]', event.data?.message)
       }
       
       if (event.type === 'complete' || event.type === 'session_complete') {
