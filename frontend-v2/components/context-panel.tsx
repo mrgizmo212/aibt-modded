@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
+import { LogsViewer } from "@/components/LogsViewer"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -344,6 +345,12 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                 <p className="text-xs text-[#525252] mt-1">Start trading to create runs</p>
               </div>
             )}
+          </div>
+
+          {/* AI Decision Logs Section */}
+          <div>
+            <h2 className="text-base font-semibold text-white mb-4">AI Decision Logs</h2>
+            <LogsViewer modelId={selectedModelId} />
           </div>
         </div>
       </div>
