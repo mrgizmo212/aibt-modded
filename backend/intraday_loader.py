@@ -44,9 +44,20 @@ async def fetch_all_trades_for_session(
     
     print(f"📡 Fetching {symbol} trades for {date} ({session} session)...")
     
+    # Use timestamp-based pagination (NOT cursors)
+    # Cursors were returning wrong-date data after page 1
+    current_start = start_nano
+    
     async with httpx.AsyncClient() as client:
         page = 1
-        while url:
+        while page <= 50 and current_start < end_nano:  # Max 50 pages
+            params = {
+                "timestamp.gte": current_start,
+                "timestamp.lte": end_nano,
+                "limit": 50000,
+                "order": "asc"
+            }
+            
             response = await client.get(
                 url,
                 headers=headers,
@@ -64,49 +75,54 @@ async def fetch_all_trades_for_session(
             if "data" in data and "results" in data["data"]:
                 trades = data["data"]["results"]
                 
+                if not trades:
+                    print(f"  ✅ No more trades (reached end)")
+                    break
+                
                 # Debug: Check first trade structure
-                if trades and page == 1:
+                if page == 1:
                     print(f"  🔍 First trade fields: {list(trades[0].keys())}")
                     print(f"  🔍 First trade sample: {trades[0]}")
                 
                 all_trades.extend(trades)
                 print(f"  📄 Page {page}: {len(trades)} trades")
                 
-                # Check for pagination - extract cursor and route through proxy
-                if "next_url" in data["data"] and page < 10:  # Max 10 pages (500k trades)
-                    next_url_str = data["data"]["next_url"]
-                    
-                    # Extract cursor from Polygon's next_url
-                    # Example: https://api.polygon.io/v3/trades/AAPL?cursor=XYZ&limit=50000
-                    if "cursor=" in next_url_str:
-                        import urllib.parse
-                        parsed = urllib.parse.urlparse(next_url_str)
-                        cursor = urllib.parse.parse_qs(parsed.query).get("cursor", [None])[0]
-                        
-                        if cursor:
-                            # Route through YOUR proxy with cursor
-                            url = f"{settings.POLYGON_PROXY_URL}/polygon/stocks/trades/{symbol}"
-                            # CRITICAL: Keep timestamp filters on ALL pages to prevent wrong-date data!
-                            params = {
-                                "cursor": cursor,
-                                "limit": 50000,
-                                "timestamp.gte": start_nano,  # ← Keep date filter!
-                                "timestamp.lte": end_nano,     # ← Keep date filter!
-                                "order": "asc"
-                            }
-                            page += 1
-                            print(f"  📄 Next page cursor: {cursor[:20]}...")
-                        else:
-                            break
-                    else:
-                        break
-                else:
-                    break
+                # Advance timestamp to AFTER last trade
+                # This ensures we get next batch without duplicates
+                last_ts = trades[-1]['participant_timestamp']
+                current_start = last_ts + 1  # Add 1 nanosecond
+                
+                page += 1
             else:
                 break
     
     print(f"  ✅ Total trades fetched: {len(all_trades):,}")
-    return all_trades
+    
+    # CLIENT-SIDE DATE FILTERING: Remove wrong-date trades
+    print(f"  🔍 Filtering trades to match target date...")
+    
+    target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    filtered_trades = []
+    wrong_date_count = 0
+    
+    for trade in all_trades:
+        ts_nano = trade.get('participant_timestamp', 0)
+        if start_nano <= ts_nano <= end_nano:
+            # Additional date validation
+            ts_utc = datetime.fromtimestamp(ts_nano / 1e9, tz=timezone.utc)
+            if ts_utc.date() == target_date:
+                filtered_trades.append(trade)
+            else:
+                wrong_date_count += 1
+        else:
+            wrong_date_count += 1
+    
+    if wrong_date_count > 0:
+        print(f"  🗑️  Filtered out {wrong_date_count:,} wrong-date trades")
+    
+    print(f"  ✅ Clean trades: {len(filtered_trades):,} (from {date})")
+    
+    return filtered_trades
 
 
 def _get_session_timestamp_range(date: str, session: str) -> tuple:

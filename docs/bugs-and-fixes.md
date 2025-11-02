@@ -1,6 +1,6 @@
 # Bugs and Fixes Log - AIBT Platform
 
-**Last Updated:** 2025-10-31 (AI Decision Parsing Fix)  
+**Last Updated:** 2025-11-02 (Intraday Cursor Pagination Fix)  
 **Project:** AI-Trader Platform (AIBT)
 
 ---
@@ -12,6 +12,121 @@ This file tracks all bugs encountered and fixed in the **AIBT platform** develop
 ---
 
 ## Critical Bugs Fixed
+
+### BUG-011: Polygon Cursor Pagination Wrong-Date Bug (CRITICAL) ✅ FIXED
+
+**Date Discovered:** 2025-11-02  
+**Date Fixed:** 2025-11-02  
+**Severity:** Critical - Data Pipeline Broken  
+**Status:** 🟢 Resolved
+
+#### Symptoms:
+- AAPL intraday trading only gets 6 minute bars instead of 390
+- IBM gets 264 bars (partial session)
+- Only first page of data is usable
+- AI cannot trade (insufficient data)
+
+#### Root Cause:
+**FILENAME:** `backend/intraday_loader.py` (Lines 47-97)
+
+Polygon API cursor pagination was returning **wrong-date data** after page 1:
+- Page 1: Oct 21 data (correct) ✅
+- Pages 2-50: Oct 31 data (wrong date!) ❌
+- Client-side filtering removed wrong-date trades
+- Result: Only page 1 data remained (6 bars for AAPL)
+
+**Original cursor-based code:**
+```python
+# Extract cursor from Polygon's next_url
+if "cursor=" in next_url_str:
+    cursor = parse_cursor(next_url_str)
+    url = f"{proxy_url}/polygon/stocks/trades/{symbol}"
+    params = {"cursor": cursor, "limit": 50000}  # Cursor jumps to wrong date!
+```
+
+**Impact:**
+- AAPL: Only 6 bars (09:30-09:35) - AI cannot trade
+- IBM: Only 264 bars (partial session)
+- Cursor pagination is unreliable for date-specific queries
+- Wrong-date contamination in all requests
+
+#### The Fix:
+**FILENAME:** `backend/intraday_loader.py` (Lines 47-97)
+
+Replaced cursor-based pagination with **timestamp-based pagination**:
+
+```python
+# Use timestamp-based pagination (NOT cursors)
+current_start = start_nano
+
+while page <= 50 and current_start < end_nano:
+    params = {
+        "timestamp.gte": current_start,  # Start from this timestamp
+        "timestamp.lte": end_nano,       # End of session
+        "limit": 50000,
+        "order": "asc"
+    }
+    
+    # Fetch page...
+    
+    # Advance timestamp to AFTER last trade
+    last_ts = trades[-1]['participant_timestamp']
+    current_start = last_ts + 1  # Next nanosecond
+```
+
+**How it works:**
+1. Page 1: Start from session_start timestamp
+2. Get last trade's timestamp from page 1
+3. Page 2: Start from last_timestamp + 1 nanosecond
+4. Repeat until reaching session_end or no more trades
+5. Completely bypasses Polygon's cursor logic
+
+#### Test Scripts:
+1. **`prove-cursor-bug.py`** - ✅ Proved cursors return wrong-date data
+2. **`test-timestamp-pagination.py`** - ✅ Proved timestamp approach works
+3. **`prove-timestamp-fix-complete.py`** - ✅ 100% end-to-end proof
+
+**Test Results:**
+```
+BEFORE FIX:
+  AAPL: 6 minute bars
+  IBM: 264 minute bars
+
+AFTER FIX:
+  AAPL: 390 minute bars (09:30-15:59 EDT) ✅
+  IBM: 390 minute bars (09:30-15:59 EDT) ✅
+```
+
+#### Verification:
+```bash
+python scripts/prove-timestamp-fix-complete.py
+# Output:
+# ✅ SUCCESS! Timestamp-based pagination fix WORKS!
+#    AAPL: 390 bars (expected 200+) ✅
+#    IBM:  390 bars (expected 250+) ✅
+```
+
+**Results:**
+- AAPL: **65x more data** (6 → 390 bars)
+- IBM: **1.5x more data** (264 → 390 bars)
+- Full session coverage
+- No wrong-date contamination
+- Production-ready
+
+#### Lessons Learned:
+1. **Never trust opaque API cursors** - They can jump to unexpected data ranges
+2. **Timestamp-based pagination is more reliable** - We control exactly what we request
+3. **Client-side filtering is a safety net** - But shouldn't be the primary defense
+4. **Test end-to-end before implementing** - Proof scripts prevented guesswork
+5. **Document API quirks** - Polygon cursor behavior is now documented
+
+#### Prevention Strategy:
+- Use timestamp-based pagination for all date-specific Polygon queries
+- Keep client-side filtering as backup validation
+- Test with multiple symbols (high-volume and low-volume)
+- Monitor for wrong-date contamination in logs
+
+---
 
 ### BUG-010: AI Decision Parser Executing Wrong Actions (CRITICAL) ✅ FIXED
 
