@@ -7,10 +7,9 @@ const nextConfig = {
   images: {
     unoptimized: true,  // Required for static export
   },
-  experimental: {
-    turbo: {
-      root: process.cwd(),  // Explicitly set workspace root to current directory
-    },
+  webpack: (config) => {
+    // Ensure webpack respects tsconfig path aliases
+    return config
   },
 }
 
