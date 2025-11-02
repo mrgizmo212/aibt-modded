@@ -7,9 +7,6 @@ const nextConfig = {
   images: {
     unoptimized: true,  // Required for static export
   },
-  turbopack: {
-    root: '.',  // Force Turbopack to use current directory as root
-  },
 }
 
 export default nextConfig
