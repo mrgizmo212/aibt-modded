@@ -3,11 +3,9 @@
 import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
-import { TradingTerminal } from "./trading-terminal"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -21,6 +19,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
   const [positions, setPositions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [recentEvents, setRecentEvents] = useState<TradingEvent[]>([])
+  const liveUpdatesRef = useRef<HTMLDivElement>(null)
 
   // Connect to SSE for ANY running model to show in dashboard
   // If on model context, connect to that specific model
@@ -43,17 +42,26 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
   // Update recent events from SSE
   useEffect(() => {
     if (events.length > 0) {
-      setRecentEvents(events.slice(-10).reverse()) // Last 10 events, newest first
+      setRecentEvents(events.slice(-100)) // Keep last 100 events (not reversed - newest at end)
       
-      // Check if latest event is a trade - refresh positions
+      // Auto-scroll to bottom when new events arrive
+      setTimeout(() => {
+        if (liveUpdatesRef.current) {
+          liveUpdatesRef.current.scrollTop = liveUpdatesRef.current.scrollHeight
+        }
+      }, 100)
+      
+      // Check if latest event is a trade - refresh positions IMMEDIATELY
       const latestEvent = events[events.length - 1]
       if (latestEvent.type === 'trade' && selectedModelId) {
-        // Refresh positions after trade
+        console.log('[ContextPanel] Trade detected - refreshing positions')
+        // Refresh positions after trade with minimal delay
         setTimeout(() => {
           if (context === "model") {
+            console.log('[ContextPanel] Reloading positions for model', selectedModelId)
             loadModelData()
           }
-        }, 1000) // Small delay for backend to save trade
+        }, 500) // Reduced delay for faster updates
       }
     }
   }, [events])
@@ -187,7 +195,10 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
                 </Badge>
               </div>
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
-                <div className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1">
+                <div 
+                  ref={liveUpdatesRef}
+                  className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
+                >
                   {recentEvents.map((event, index) => {
                     // Filter to show only terminal events for the terminal view
                     if (event.type !== 'terminal') return null
@@ -216,76 +227,40 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
             </div>
           )}
 
-          {/* Tabbed Content: Positions / Terminal */}
-          <Tabs defaultValue="positions" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-[#0a0a0a] border border-[#262626]">
-              <TabsTrigger value="positions" className="data-[state=active]:bg-[#1a1a1a]">
-                Positions
-              </TabsTrigger>
-              <TabsTrigger value="terminal" className="data-[state=active]:bg-[#1a1a1a]">
-                Trading Log
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="positions" className="mt-4">
-              {positions.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#a3a3a3] font-semibold">Symbol</span>
-                    <span className="text-[#a3a3a3] font-semibold">Qty</span>
-                    <span className="text-[#a3a3a3] font-semibold">Avg Price</span>
-                    <span className="text-[#a3a3a3] font-semibold">P/L</span>
-                  </div>
-                  {positions.map((position: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between text-xs py-2 border-t border-[#262626]">
-                      <span className="text-white font-semibold">{position.symbol}</span>
-                      <span className="text-[#a3a3a3] font-mono">{position.quantity}</span>
-                      <span className="text-white font-mono">${position.avg_price?.toFixed(2)}</span>
-                      <span className={`font-mono ${position.unrealized_pl >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
-                        {position.unrealized_pl >= 0 ? '+' : ''}${position.unrealized_pl?.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center">
-                  <p className="text-sm text-[#737373]">No positions yet</p>
-                  <p className="text-xs text-[#525252] mt-1">Start trading to see positions</p>
-                </div>
+          {/* Positions Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-white">Positions</h2>
+              {positions.length > 0 && (
+                <span className="text-xs text-[#737373]">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
               )}
-            </TabsContent>
-            
-            <TabsContent value="terminal" className="mt-4">
-              {/* Trading log view - Terminal Output */}
-              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
-                <div className="bg-[#1a1a1a] border-b border-[#262626] px-4 py-2">
-                  <span className="text-xs font-semibold text-white">Live Trading Log</span>
+            </div>
+            {positions.length > 0 ? (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#262626]">
+                  <span className="text-[#a3a3a3] font-semibold">Symbol</span>
+                  <span className="text-[#a3a3a3] font-semibold">Qty</span>
+                  <span className="text-[#a3a3a3] font-semibold">Avg Price</span>
+                  <span className="text-[#a3a3a3] font-semibold">P/L</span>
                 </div>
-                <div className="h-[400px] overflow-y-auto scrollbar-thin p-4 font-mono text-xs space-y-1">
-                  {recentEvents.filter(e => e.type === 'terminal').length > 0 ? (
-                    recentEvents.map((event, index) => {
-                      // Show only terminal events
-                      if (event.type !== 'terminal') return null
-                      
-                      const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
-                      const message = event.data?.message || ''
-                      
-                      return (
-                        <div key={index} className="leading-relaxed">
-                          <div className="text-[#525252]" suppressHydrationWarning>{timestamp}</div>
-                          <div className="text-[#10b981] whitespace-pre-wrap">{message}</div>
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <div className="text-center py-8 text-[#737373]">
-                      Waiting for trading activity...
-                    </div>
-                  )}
-                </div>
+                {positions.map((position: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between text-xs py-2 border-t border-[#262626]/50">
+                    <span className="text-white font-semibold">{position.symbol}</span>
+                    <span className="text-[#a3a3a3] font-mono">{position.quantity}</span>
+                    <span className="text-white font-mono">${position.avg_price?.toFixed(2)}</span>
+                    <span className={`font-mono ${position.unrealized_pl >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
+                      {position.unrealized_pl >= 0 ? '+' : ''}${position.unrealized_pl?.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </TabsContent>
-          </Tabs>
+            ) : (
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-6 text-center">
+                <p className="text-sm text-[#737373]">No positions yet</p>
+                <p className="text-xs text-[#525252] mt-1">Start trading to see positions</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )

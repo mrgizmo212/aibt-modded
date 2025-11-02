@@ -878,12 +878,21 @@ async def start_trading(
     if not model:
         raise NotFoundError("Model")
     
+    # Use model's configured AI model (request can override if provided)
+    ai_model = request.base_model if request.base_model else model.get("default_ai_model")
+    
+    if not ai_model:
+        raise HTTPException(
+            status_code=400,
+            detail="No AI model configured. Please set default_ai_model in your model settings."
+        )
+    
     # Start agent
     result = await agent_manager.start_agent(
         model_id=model_id,
         user_id=current_user["id"],
         model_signature=model["signature"],
-        basemodel=request.base_model,
+        basemodel=ai_model,
         start_date=request.start_date,
         end_date=request.end_date
     )
@@ -947,10 +956,19 @@ async def start_intraday_trading(
     from trading.intraday_agent import run_intraday_session
     from trading.base_agent import BaseAgent
     
+    # Use model's configured AI model (request can override if provided)
+    ai_model = request.base_model if request.base_model else model.get("default_ai_model")
+    
+    if not ai_model:
+        raise HTTPException(
+            status_code=400,
+            detail="No AI model configured. Please set default_ai_model in your model settings."
+        )
+    
     # Create agent instance (with custom rules!)
     agent = BaseAgent(
         signature=model["signature"],
-        basemodel=request.base_model,
+        basemodel=ai_model,
         stock_symbols=[request.symbol],
         max_steps=10,
         initial_cash=model.get("initial_cash", 10000.0),
