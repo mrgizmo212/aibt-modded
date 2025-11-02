@@ -23,6 +23,8 @@ import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateM
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { useTradingStream } from "@/hooks/use-trading-stream"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { TradingForm } from "@/components/embedded/trading-form"
 
 interface Model {
   id: number
@@ -50,6 +52,12 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [togglingModelId, setTogglingModelId] = useState<number | null>(null)
   const [savingModelId, setSavingModelId] = useState<number | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  
+  // Trading form modal state
+  const [showTradingForm, setShowTradingForm] = useState(false)
+  const [tradingFormModelId, setTradingFormModelId] = useState<number | null>(null)
+  const [tradingFormModelName, setTradingFormModelName] = useState<string>("")
+  
   const { user, logout } = useAuth()
 
   // Get running model IDs for SSE connections
@@ -195,9 +203,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   async function handleToggle(modelId: number) {
     const isRunning = tradingStatusMap[modelId]
     
-    setTogglingModelId(modelId)
-    try {
-      if (isRunning) {
+    if (isRunning) {
+      // STOP trading
+      setTogglingModelId(modelId)
+      try {
         toast.info('Stopping trading...')
         await stopTrading(modelId)
         toast.success('Trading stopped')
@@ -207,38 +216,43 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           await loadTradingStatus()
           await loadModels()
         }, 1000)
-      } else {
-        // Get model configuration first
-        const model = modelList.find(m => m.id === modelId)
-        if (!model || !model.default_ai_model) {
-          toast.error('Model has no AI model configured')
-          return
-        }
         
-        toast.info('Starting trading...')
-        // Start intraday with model's configuration
-        await startIntradayTrading(
-          modelId,
-          'AAPL',  // Default symbol (could be made configurable)
-          '2025-10-15',  // Recent date with complete data
-          'regular',
-          model.default_ai_model  // Use model's configured AI model
-        )
-        toast.success('Trading started in intraday mode')
-        
-        // Wait a bit for backend to start agent
-        setTimeout(async () => {
-          await loadTradingStatus()
-          await loadModels()
-        }, 2000)
+        onToggleModel(modelId)
+      } catch (error: any) {
+        console.error('Failed to stop trading:', error)
+        toast.error(error.message || 'Failed to stop trading')
+      } finally {
+        setTogglingModelId(null)
+      }
+    } else {
+      // START trading - SHOW FORM MODAL instead of immediately starting
+      const model = modelList.find(m => m.id === modelId)
+      if (!model || !model.default_ai_model) {
+        toast.error('Model has no AI model configured. Please edit the model first.')
+        return
       }
       
-      onToggleModel(modelId)
-    } catch (error: any) {
-      console.error('Failed to toggle trading:', error)
-      toast.error(error.message || 'Failed to toggle trading')
-    } finally {
-      setTogglingModelId(null)
+      // Open Trading Form modal
+      setTradingFormModelId(modelId)
+      setTradingFormModelName(model.name)
+      setShowTradingForm(true)
+    }
+  }
+  
+  // Callback when trading form successfully starts
+  function handleTradingFormSuccess() {
+    setShowTradingForm(false)
+    setTradingFormModelId(null)
+    setTradingFormModelName("")
+    
+    // Refresh status
+    setTimeout(async () => {
+      await loadTradingStatus()
+      await loadModels()
+    }, 2000)
+    
+    if (tradingFormModelId) {
+      onToggleModel(tradingFormModelId)
     }
   }
 
@@ -476,6 +490,19 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
           <span className="text-sm font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
         </button>
       </div>
+
+      {/* Trading Form Modal */}
+      <Dialog open={showTradingForm} onOpenChange={setShowTradingForm}>
+        <DialogContent className="bg-[#0a0a0a] border-[#262626] max-w-2xl">
+          <DialogTitle className="sr-only">Start Trading Configuration</DialogTitle>
+          <TradingForm
+            modelId={tradingFormModelId || undefined}
+            modelName={tradingFormModelName}
+            onClose={() => setShowTradingForm(false)}
+            onSuccess={handleTradingFormSuccess}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
