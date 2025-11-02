@@ -7,9 +7,14 @@ const nextConfig = {
   images: {
     unoptimized: true,  // Required for static export
   },
-  webpack: (config) => {
-    // Ensure webpack respects tsconfig path aliases
-    return config
+  // Explicitly configure module resolution for Turbopack
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        '@': './',
+        '@/*': './*',
+      },
+    },
   },
 }
 

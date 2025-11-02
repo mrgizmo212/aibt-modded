@@ -7,8 +7,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "next build --no-turbopack",
-    "build:prod": "next build --no-turbopack",
+    "build": "next build",
+    "build:prod": "next build",
     "dev": "next dev",
     "dev:3000": "next dev -p 3000",
     "dev:3100": "next dev -p 3100",
