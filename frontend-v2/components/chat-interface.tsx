@@ -174,7 +174,7 @@ export function ChatInterface({
     }
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return
 
     const userMessage: Message = {
@@ -185,15 +185,16 @@ export function ChatInterface({
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const userInput = input // Save input before clearing
     setInput("")
     setIsTyping(true)
 
-    setTimeout(() => {
+    setTimeout(async () => {
       let aiMessage: Message
 
       if (
-        input.toLowerCase().includes("create") &&
-        (input.toLowerCase().includes("model") || input.toLowerCase().includes("new"))
+        userInput.toLowerCase().includes("create") &&
+        (userInput.toLowerCase().includes("model") || userInput.toLowerCase().includes("new"))
       ) {
         setCurrentCreationStep("name")
         aiMessage = {
@@ -203,7 +204,7 @@ export function ChatInterface({
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           embeddedComponent: { type: "model_creation_step", props: { step: "name", data: {} } },
         }
-      } else if (input.toLowerCase().includes("show") && input.toLowerCase().includes("model")) {
+      } else if (userInput.toLowerCase().includes("show") && userInput.toLowerCase().includes("model")) {
         // Fetch actual model count
         const { getModels } = await import('@/lib/api')
         const modelList = await getModels()
@@ -220,7 +221,7 @@ export function ChatInterface({
           suggestedActions: modelCount === 0 ? ["Create new model"] : undefined,
         }
         onContextChange("dashboard")
-      } else if (input.toLowerCase().includes("start") && input.toLowerCase().includes("claude")) {
+      } else if (userInput.toLowerCase().includes("start") && userInput.toLowerCase().includes("claude")) {
         aiMessage = {
           id: (Date.now() + 1).toString(),
           type: "ai",
@@ -230,7 +231,7 @@ export function ChatInterface({
         }
         onContextChange("model")
         onModelSelect(2)
-      } else if (input.toLowerCase().includes("why") && input.toLowerCase().includes("run")) {
+      } else if (userInput.toLowerCase().includes("why") && userInput.toLowerCase().includes("run")) {
         setMessages((prev) => [
           ...prev,
           {
