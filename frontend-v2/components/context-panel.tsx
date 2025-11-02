@@ -3,9 +3,11 @@
 import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useState, useEffect } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
+import { TradingTerminal } from "./trading-terminal"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -184,54 +186,94 @@ export function ContextPanel({ context, selectedModelId, onEditModel }: ContextP
                   Streaming
                 </Badge>
               </div>
-              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-3 space-y-2">
-                {recentEvents.slice(0, 5).map((event, index) => (
-                  <div key={`${event.timestamp}-${index}`} className="text-xs font-mono">
-                    <span className="text-[#737373]" suppressHydrationWarning>
-                      {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'}
-                    </span>
-                    <span className={`ml-2 ${
-                      event.type === 'trade' ? 'text-[#10b981]' :
-                      event.type === 'error' ? 'text-[#ef4444]' :
-                      'text-[#a3a3a3]'
-                    }`}>
-                      {event.data?.message || event.type}
-                    </span>
-                  </div>
-                ))}
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
+                <div className="max-h-[300px] overflow-y-auto scrollbar-thin p-3 space-y-2">
+                  {recentEvents.map((event, index) => (
+                    <div key={`${event.timestamp}-${index}`} className="text-xs font-mono">
+                      <span className="text-[#737373]" suppressHydrationWarning>
+                        {event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'}
+                      </span>
+                      <span className={`ml-2 ${
+                        event.type === 'trade' ? 'text-[#10b981]' :
+                        event.type === 'error' ? 'text-[#ef4444]' :
+                        'text-[#a3a3a3]'
+                      }`}>
+                        {event.data?.message || event.type}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Current Positions */}
-          <div>
-            <h2 className="text-base font-semibold text-white mb-4">Current Positions</h2>
-            {positions.length > 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#a3a3a3] font-semibold">Symbol</span>
-                  <span className="text-[#a3a3a3] font-semibold">Qty</span>
-                  <span className="text-[#a3a3a3] font-semibold">Avg Price</span>
-                  <span className="text-[#a3a3a3] font-semibold">P/L</span>
-                </div>
-                {positions.map((position: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between text-xs py-2 border-t border-[#262626]">
-                    <span className="text-white font-semibold">{position.symbol}</span>
-                    <span className="text-[#a3a3a3] font-mono">{position.quantity}</span>
-                    <span className="text-white font-mono">${position.avg_price?.toFixed(2)}</span>
-                    <span className={`font-mono ${position.unrealized_pl >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
-                      {position.unrealized_pl >= 0 ? '+' : ''}${position.unrealized_pl?.toFixed(2)}
-                    </span>
+          {/* Tabbed Content: Positions / Terminal */}
+          <Tabs defaultValue="positions" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-[#0a0a0a] border border-[#262626]">
+              <TabsTrigger value="positions" className="data-[state=active]:bg-[#1a1a1a]">
+                Positions
+              </TabsTrigger>
+              <TabsTrigger value="terminal" className="data-[state=active]:bg-[#1a1a1a]">
+                Trading Log
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="positions" className="mt-4">
+              {positions.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#a3a3a3] font-semibold">Symbol</span>
+                    <span className="text-[#a3a3a3] font-semibold">Qty</span>
+                    <span className="text-[#a3a3a3] font-semibold">Avg Price</span>
+                    <span className="text-[#a3a3a3] font-semibold">P/L</span>
                   </div>
-                ))}
+                  {positions.map((position: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between text-xs py-2 border-t border-[#262626]">
+                      <span className="text-white font-semibold">{position.symbol}</span>
+                      <span className="text-[#a3a3a3] font-mono">{position.quantity}</span>
+                      <span className="text-white font-mono">${position.avg_price?.toFixed(2)}</span>
+                      <span className={`font-mono ${position.unrealized_pl >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
+                        {position.unrealized_pl >= 0 ? '+' : ''}${position.unrealized_pl?.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center">
+                  <p className="text-sm text-[#737373]">No positions yet</p>
+                  <p className="text-xs text-[#525252] mt-1">Start trading to see positions</p>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="terminal" className="mt-4">
+              {/* Trading log view */}
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
+                <div className="bg-[#1a1a1a] border-b border-[#262626] px-4 py-2">
+                  <span className="text-xs font-semibold text-white">Live Trading Log</span>
+                </div>
+                <div className="h-[300px] overflow-y-auto scrollbar-thin p-4 font-mono text-xs space-y-1">
+                  {recentEvents.length > 0 ? (
+                    recentEvents.map((event, index) => {
+                      const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
+                      const message = event.data?.message || event.type
+                      
+                      return (
+                        <div key={index} className="text-[#10b981] flex gap-2">
+                          <span className="text-[#525252]" suppressHydrationWarning>{timestamp}</span>
+                          <span className="whitespace-pre-wrap">{message}</span>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-[#737373]">
+                      Waiting for trading activity...
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 text-center">
-                <p className="text-sm text-[#737373]">No positions yet</p>
-                <p className="text-xs text-[#525252] mt-1">Start trading to see positions</p>
-              </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     )
