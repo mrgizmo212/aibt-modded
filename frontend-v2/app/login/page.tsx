@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -95,13 +94,6 @@ export default function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
-            
-            <div className="text-sm text-center text-muted-foreground">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </div>
           </CardFooter>
         </form>
       </Card>
