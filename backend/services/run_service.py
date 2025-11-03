@@ -251,3 +251,48 @@ async def get_active_run(model_id: int) -> Optional[Dict]:
     
     return result.data[0] if result.data else None
 
+
+async def delete_trading_run(
+    run_id: int,
+    model_id: int,
+    user_id: str
+) -> Dict:
+    """
+    Delete a trading run
+    
+    Args:
+        run_id: Run ID to delete
+        model_id: Model ID (for verification)
+        user_id: User ID (for ownership verification)
+    
+    Returns:
+        Success message
+    """
+    supabase = get_supabase()
+    
+    # Verify ownership
+    model = supabase.table("models").select("user_id").eq("id", model_id).execute()
+    if not model.data or model.data[0]["user_id"] != user_id:
+        raise PermissionError(f"User {user_id} does not own model {model_id}")
+    
+    # Verify run belongs to model
+    run = supabase.table("trading_runs")\
+        .select("id, status")\
+        .eq("id", run_id)\
+        .eq("model_id", model_id)\
+        .execute()
+    
+    if not run.data:
+        raise ValueError(f"Run {run_id} not found")
+    
+    # Don't allow deleting running tasks
+    if run.data[0]["status"] == "running":
+        raise ValueError("Cannot delete a running task. Stop it first.")
+    
+    # Delete run (cascades to positions and reasoning via ON DELETE CASCADE)
+    result = supabase.table("trading_runs").delete().eq("id", run_id).execute()
+    
+    print(f"🗑️  Deleted Run ID {run_id}")
+    
+    return {"status": "deleted", "run_id": run_id}
+

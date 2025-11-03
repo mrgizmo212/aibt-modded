@@ -1,10 +1,10 @@
 "use client"
 
-import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square } from "lucide-react"
+import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
-import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading } from "@/lib/api"
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { AVAILABLE_MODELS } from "@/lib/constants"
@@ -379,33 +379,57 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg max-h-[400px] overflow-y-auto scrollbar-thin">
                 <div className="p-4 space-y-3">
                   {runs.map((run: any) => (
-                  <button
+                  <div
                     key={run.id}
-                    onClick={() => onRunClick?.(selectedModelId!, run.id)}
-                    className="w-full flex items-center justify-between py-2 border-b border-[#262626]/50 last:border-0 hover:bg-[#1a1a1a] px-2 rounded transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between py-2 border-b border-[#262626]/50 last:border-0 hover:bg-[#1a1a1a] px-2 rounded transition-colors group"
                   >
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white">Run #{run.run_number}</span>
-                        <span className="text-xs text-[#737373]">
-                          {run.trading_mode === 'intraday' ? '⚡ Intraday' : '📅 Daily'}
-                        </span>
+                    <button
+                      onClick={() => onRunClick?.(selectedModelId!, run.id)}
+                      className="flex-1 flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">Run #{run.run_number}</span>
+                          <span className="text-xs text-[#737373]">
+                            {run.trading_mode === 'intraday' ? '⚡ Intraday' : '📅 Daily'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#525252] mt-0.5">
+                          {run.total_trades || 0} trades • {run.status}
+                        </p>
                       </div>
-                      <p className="text-xs text-[#525252] mt-0.5">
-                        {run.total_trades || 0} trades • {run.status}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-mono font-semibold ${
-                        (run.final_return || 0) >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'
-                      }`}>
-                        {run.final_return ? `${(run.final_return * 100).toFixed(2)}%` : '--'}
-                      </p>
-                      <p className="text-xs text-[#737373]">
-                        ${run.final_portfolio_value?.toFixed(2) || '--'}
-                      </p>
-                    </div>
-                  </button>
+                      <div className="text-right">
+                        <p className={`text-sm font-mono font-semibold ${
+                          (run.final_return || 0) >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'
+                        }`}>
+                          {run.final_return ? `${(run.final_return * 100).toFixed(2)}%` : '--'}
+                        </p>
+                        <p className="text-xs text-[#737373]">
+                          ${run.final_portfolio_value?.toFixed(2) || '--'}
+                        </p>
+                      </div>
+                    </button>
+                    {run.status !== 'running' && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (confirm(`Delete Run #${run.run_number}? This cannot be undone.`)) {
+                            try {
+                              await deleteRun(selectedModelId!, run.id)
+                              toast.success(`Run #${run.run_number} deleted`)
+                              loadModelData() // Refresh
+                            } catch (error: any) {
+                              toast.error(error.message || 'Failed to delete')
+                            }
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+                        title="Delete run"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                   ))}
                 </div>
               </div>

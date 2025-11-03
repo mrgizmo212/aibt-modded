@@ -1156,6 +1156,22 @@ async def get_run_details_endpoint(
         raise HTTPException(403, "Access denied")
 
 
+@app.delete("/api/models/{model_id}/runs/{run_id}")
+async def delete_run_endpoint(
+    model_id: int,
+    run_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Delete a trading run (cannot delete running tasks)"""
+    try:
+        result = await services.delete_trading_run(run_id, model_id, current_user["id"])
+        return result
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.post("/api/models/{model_id}/runs/{run_id}/chat", response_model=ChatResponse)
 async def chat_with_system_agent(
     model_id: int,

@@ -50,7 +50,8 @@ from .run_service import (
     complete_trading_run, 
     get_model_runs, 
     get_run_by_id,
-    get_active_run
+    get_active_run,
+    delete_trading_run
 )
 
 # Import backtesting services
@@ -96,6 +97,7 @@ __all__ = [
     'get_model_runs',
     'get_run_by_id',
     'get_active_run',
+    'delete_trading_run',
     # NEW: Backtesting
     'TradingService',
 ]

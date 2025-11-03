@@ -269,6 +269,12 @@ export async function getRunDetails(modelId: number, runId: number) {
   return apiFetch(`/api/models/${modelId}/runs/${runId}`)
 }
 
+export async function deleteRun(modelId: number, runId: number) {
+  return apiFetch(`/api/models/${modelId}/runs/${runId}`, {
+    method: 'DELETE',
+  })
+}
+
 // ============================================================================
 // PORTFOLIO & POSITIONS
 // ============================================================================
