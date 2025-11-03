@@ -903,14 +903,7 @@ async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)
         raise NotFoundError("Model")
     
     # Get active run for this model
-    runs = await services.get_model_runs(model_id, current_user["id"])
-    
-    # Find most recent running task
-    active_run = None
-    for run in runs:
-        if run.get("status") == "running":
-            active_run = run
-            break
+    active_run = await services.get_active_run(model_id)
     
     if not active_run:
         # Fallback to agent_manager (for daily trading)
@@ -920,17 +913,36 @@ async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)
             "message": "No active trading session found"
         }
     
-    # TODO: Store task_id in trading_runs table to enable Celery revoke
-    # For now, return message that stop will be implemented in Phase 2
-    return {
-        "status": "not_yet_implemented",
-        "message": "Stop functionality for Celery tasks coming in Phase 2 completion",
-        "run_id": active_run.get("id")
-    }
-    
-    # FUTURE: When task_id stored in database
-    # from celery_app import celery_app
-    # celery_app.control.revoke(task_id, terminate=True)
+    # Check if this is a Celery task (has task_id)
+    if active_run.get("task_id"):
+        from celery_app import celery_app
+        
+        task_id = active_run["task_id"]
+        
+        print(f"🛑 Revoking Celery task: {task_id} (Run #{active_run['run_number']})")
+        
+        # Revoke task (terminate=True stops it immediately)
+        celery_app.control.revoke(task_id, terminate=True)
+        
+        # Update run status in database
+        await services.update_trading_run(active_run["id"], {
+            "status": "stopped",
+            "ended_at": datetime.now().isoformat()
+        })
+        
+        print(f"✅ Stopped Run #{active_run['run_number']}")
+        
+        return {
+            "status": "stopped",
+            "task_id": task_id,
+            "run_id": active_run["id"],
+            "run_number": active_run["run_number"],
+            "message": f"Trading session stopped (Run #{active_run['run_number']})"
+        }
+    else:
+        # Fallback to agent_manager (for daily trading or old intraday)
+        result = await agent_manager.stop_agent(model_id)
+        return result
 
 
 @app.post("/api/trading/start-intraday/{model_id}")
@@ -950,6 +962,24 @@ async def start_intraday_trading(
     if not model:
         raise NotFoundError("Model")
     
+    # Create trading run first
+    run = await services.create_trading_run(
+        model_id=model_id,
+        trading_mode="intraday",
+        strategy_snapshot={
+            "custom_rules": model.get("custom_rules"),
+            "custom_instructions": model.get("custom_instructions"),
+            "model_parameters": model.get("model_parameters"),
+            "default_ai_model": model.get("default_ai_model")
+        },
+        intraday_symbol=request.symbol,
+        intraday_date=request.date,
+        intraday_session=request.session
+    )
+    
+    run_id = run["id"]
+    run_number = run["run_number"]
+    
     # Import Celery task
     from workers.trading_tasks import run_intraday_trading
     
@@ -960,14 +990,20 @@ async def start_intraday_trading(
         symbol=request.symbol,
         date=request.date,
         session=request.session,
-        base_model=request.base_model
+        base_model=request.base_model,
+        run_id=run_id  # Pass run_id to worker
     )
     
-    print(f"✅ Queued intraday trading task: {task.id}")
+    # Store task_id in run (enables stop functionality!)
+    await services.update_trading_run(run_id, {"task_id": task.id})
+    
+    print(f"✅ Queued intraday trading task: {task.id} (Run #{run_number})")
     
     return {
         "status": "queued",
         "task_id": task.id,
+        "run_id": run_id,
+        "run_number": run_number,
         "model_id": model_id,
         "symbol": request.symbol,
         "date": request.date,

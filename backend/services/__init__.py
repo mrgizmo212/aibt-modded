@@ -44,7 +44,14 @@ get_admin_leaderboard = services_module.get_admin_leaderboard
 get_system_stats = services_module.get_system_stats
 
 # Import NEW blueprint services (from run_service.py)
-from .run_service import create_trading_run, complete_trading_run, get_model_runs, get_run_by_id
+from .run_service import (
+    create_trading_run, 
+    update_trading_run,
+    complete_trading_run, 
+    get_model_runs, 
+    get_run_by_id,
+    get_active_run
+)
 
 # Import backtesting services
 from .backtesting import TradingService
@@ -84,9 +91,11 @@ __all__ = [
     'get_system_stats',
     # NEW: Run management
     'create_trading_run',
+    'update_trading_run',
     'complete_trading_run',
     'get_model_runs',
     'get_run_by_id',
+    'get_active_run',
     # NEW: Backtesting
     'TradingService',
 ]

@@ -22,7 +22,8 @@ def run_intraday_trading(
     symbol: str,
     date: str,
     session: str,
-    base_model: str
+    base_model: str,
+    run_id: int = None
 ) -> Dict[str, Any]:
     """
     Background task for intraday trading session
@@ -66,23 +67,29 @@ def run_intraday_trading(
                 'error': 'Model not found or access denied'
             }
         
-        # Create trading run
-        run = loop.run_until_complete(create_trading_run(
-            model_id=model_id,
-            trading_mode="intraday",
-            strategy_snapshot={
-                "custom_rules": model.get("custom_rules"),
-                "custom_instructions": model.get("custom_instructions"),
-                "model_parameters": model.get("model_parameters"),
-                "default_ai_model": model.get("default_ai_model")
-            },
-            intraday_symbol=symbol,
-            intraday_date=date,
-            intraday_session=session
-        ))
-        
-        run_id = run["id"]
-        run_number = run["run_number"]
+        # Get run details (run was already created in main.py)
+        if not run_id:
+            # Fallback: create run if not provided
+            run = loop.run_until_complete(create_trading_run(
+                model_id=model_id,
+                trading_mode="intraday",
+                strategy_snapshot={
+                    "custom_rules": model.get("custom_rules"),
+                    "custom_instructions": model.get("custom_instructions"),
+                    "model_parameters": model.get("model_parameters"),
+                    "default_ai_model": model.get("default_ai_model")
+                },
+                intraday_symbol=symbol,
+                intraday_date=date,
+                intraday_session=session
+            ))
+            run_id = run["id"]
+            run_number = run["run_number"]
+        else:
+            # Run already created, just get run_number
+            from services import get_run_by_id
+            run = loop.run_until_complete(get_run_by_id(model_id, run_id, user_id))
+            run_number = run["run_number"] if run else "?"
         
         print(f"🚀 Celery Task: Starting Run #{run_number} (intraday: {symbol} on {date})")
         

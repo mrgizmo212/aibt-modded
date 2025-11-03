@@ -63,6 +63,27 @@ async def create_trading_run(
     return result.data[0]
 
 
+async def update_trading_run(
+    run_id: int,
+    updates: Dict
+) -> Dict:
+    """
+    Update a trading run with arbitrary fields
+    
+    Args:
+        run_id: Run ID to update
+        updates: Dict of fields to update (e.g., {"task_id": "abc-123"})
+    
+    Returns:
+        Updated run record
+    """
+    supabase = get_supabase()
+    
+    result = supabase.table("trading_runs").update(updates).eq("id", run_id).execute()
+    
+    return result.data[0] if result.data else {}
+
+
 async def complete_trading_run(
     run_id: int,
     final_stats: Dict
@@ -210,18 +231,21 @@ async def get_run_by_id(
 
 async def get_active_run(model_id: int) -> Optional[Dict]:
     """
-    Get currently running session for a model
+    Get currently active/running trading run for a model
+    
+    Args:
+        model_id: Model ID
     
     Returns:
-        Active run or None
+        Active run record or None
     """
     supabase = get_supabase()
     
     result = supabase.table("trading_runs")\
         .select("*")\
         .eq("model_id", model_id)\
-        .eq("status", "running")\
-        .order("started_at", desc=True)\
+        .in_("status", ["pending", "running"])\
+        .order("created_at", desc=True)\
         .limit(1)\
         .execute()
     
