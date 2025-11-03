@@ -253,7 +253,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
               <div 
                 ref={liveUpdatesRef}
-                className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
+                className="h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
               >
                 {recentEvents.length > 0 ? (
                   recentEvents.map((event, index) => {
