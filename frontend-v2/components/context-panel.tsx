@@ -1,6 +1,6 @@
 "use client"
 
-import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2 } from "lucide-react"
+import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
@@ -42,7 +42,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
   }, [context])
 
   const streamModelId = context === "model" ? selectedModelId : runningModels[0] || null
-  const { events } = useTradingStream(streamModelId, { enabled: !!streamModelId })
+  const { events, clearEvents } = useTradingStream(streamModelId, { enabled: !!streamModelId })
 
   // Update recent events from SSE
   useEffect(() => {
@@ -245,10 +245,25 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-white">Live Updates</h2>
-              <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
-                <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
-                Streaming
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
+                  <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
+                  Streaming
+                </Badge>
+                {recentEvents.length > 0 && (
+                  <button
+                    onClick={() => {
+                      clearEvents()
+                      setRecentEvents([])
+                      toast.success('Terminal cleared')
+                    }}
+                    className="text-[#737373] hover:text-white hover:bg-[#1a1a1a] p-1.5 rounded transition-colors"
+                    title="Clear terminal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
               <div 
