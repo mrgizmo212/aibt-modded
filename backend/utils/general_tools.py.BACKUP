@@ -5,12 +5,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
-# Import synchronous Redis client for cross-process config
-try:
-    from utils.sync_redis_config import sync_redis_config
-except ImportError:
-    sync_redis_config = None
-
 def _load_runtime_env() -> dict:
     # Use per-model runtime file for multi-user isolation
     model_id = os.environ.get("CURRENT_MODEL_ID", "global")
@@ -27,70 +21,18 @@ def _load_runtime_env() -> dict:
 
 
 def get_config_value(key: str, default=None):
-    """
-    Get configuration value with triple fallback:
-    1. Redis (cross-process, works in subprocesses, persists across restarts)
-    2. File (local dev, backward compatibility)
-    3. Environment variable (static config)
-    
-    Args:
-        key: Configuration key (e.g., 'SIGNATURE', 'TODAY_DATE', 'IF_TRADE')
-        default: Default value if not found
-    
-    Returns:
-        Configuration value or default
-    """
-    model_id = os.environ.get("CURRENT_MODEL_ID", "global")
-    
-    # 1. Try Redis first (PRODUCTION: cross-process, multi-user isolation)
-    if sync_redis_config:
-        try:
-            redis_key = f"config:{model_id}:{key}"
-            redis_value = sync_redis_config.get(redis_key)
-            if redis_value is not None:
-                return redis_value
-        except Exception as e:
-            # Redis failed, fall through to file
-            pass
-    
-    # 2. Fallback to file (LOCAL DEV: backward compatibility)
     _RUNTIME_ENV = _load_runtime_env()
+    
     if key in _RUNTIME_ENV:
         return _RUNTIME_ENV[key]
-    
-    # 3. Fallback to environment variable (STATIC CONFIG)
     return os.getenv(key, default)
 
 def write_config_value(key: str, value: any):
-    """
-    Write configuration value to both Redis AND file:
-    - Redis: For cross-process visibility (subprocesses can read)
-    - File: For local dev and backward compatibility
-    
-    Args:
-        key: Configuration key
-        value: Value to store (JSON serializable)
-    """
-    model_id = os.environ.get("CURRENT_MODEL_ID", "global")
-    
-    # 1. Write to Redis (PRODUCTION: cross-process, persists across container restarts)
-    if sync_redis_config:
-        try:
-            redis_key = f"config:{model_id}:{key}"
-            # 1 hour TTL - config shouldn't persist forever
-            sync_redis_config.set(redis_key, value, ex=3600)
-        except Exception as e:
-            print(f"  ??  Redis config write failed for {key}: {e}")
-            # Continue to file write even if Redis fails
-    
-    # 2. Write to file (LOCAL DEV: backward compatibility)
     _RUNTIME_ENV = _load_runtime_env()
     _RUNTIME_ENV[key] = value
+    # Use same per-model path as _load_runtime_env
+    model_id = os.environ.get("CURRENT_MODEL_ID", "global")
     path = f"./data/.runtime_env_{model_id}.json"
-    
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    
     with open(path, "w", encoding="utf-8") as f:
         json.dump(_RUNTIME_ENV, f, ensure_ascii=False, indent=4)
 
@@ -201,4 +143,3 @@ def extract_first_tool_message_content(conversation: dict):
     if isinstance(first, dict):
         return first.get("content")
     return getattr(first, "content", None)
-
