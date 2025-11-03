@@ -1240,7 +1240,7 @@ async def get_chat_history_endpoint(
 # ============================================================================
 
 @app.get("/api/trading/stream/{model_id}")
-async def stream_trading_events(model_id: int, token: Optional[str] = None):
+async def stream_trading_events(model_id: int, token: Optional[str] = None, current_user: Dict = Depends(require_auth)):
     """Stream real-time trading events for a model (Server-Sent Events)"""
     from fastapi.responses import StreamingResponse
     from auth import verify_token_string
@@ -1265,17 +1265,43 @@ async def stream_trading_events(model_id: int, token: Optional[str] = None):
         raise NotFoundError("Model")
     
     async def event_generator():
-        """Generate SSE events"""
+        """
+        Generate SSE events from both:
+        1. In-memory queue (same process events)
+        2. Redis polling (worker process events)
+        """
         queue = event_stream.subscribe(model_id)
         
         try:
             # Send initial connection message
             yield f"data: {json.dumps({'type': 'connected', 'model_id': model_id})}\n\n"
             
-            # Stream events
+            # Poll Redis for worker events while streaming
+            redis_channel = f"trading:model:{model_id}:events"
+            last_event_time = datetime.now()
+            
             while True:
-                event = await queue.get()
-                yield f"data: {json.dumps(event)}\n\n"
+                try:
+                    # Try to get event from queue (non-blocking with timeout)
+                    event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    # No queue event - check Redis for worker events
+                    try:
+                        from utils.redis_client import redis_client
+                        redis_event = await redis_client.get(redis_channel)
+                        
+                        if redis_event and isinstance(redis_event, dict):
+                            event_time = datetime.fromisoformat(redis_event.get('timestamp', ''))
+                            # Only send if newer than last event
+                            if event_time > last_event_time:
+                                yield f"data: {json.dumps(redis_event)}\n\n"
+                                last_event_time = event_time
+                    except:
+                        pass  # Redis poll failed, continue
+                    
+                    # Send keepalive
+                    yield f": keepalive\n\n"
                 
         except asyncio.CancelledError:
             event_stream.unsubscribe(model_id, queue)
