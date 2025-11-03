@@ -4,7 +4,11 @@ Celery tasks for trading operations
 
 import asyncio
 from typing import Dict, Any
+
+# Import celery_app at module level (after celery_app.py has initialized)
 from celery_app import celery_app
+
+# Import services
 from services import TradingService, get_supabase, get_model_by_id, create_trading_run, complete_trading_run
 from trading.intraday_agent import run_intraday_session
 from trading.base_agent import BaseAgent

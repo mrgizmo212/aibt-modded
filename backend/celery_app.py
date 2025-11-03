@@ -3,6 +3,14 @@ Celery application for background tasks
 Uses Upstash Redis as broker and result backend
 """
 
+import sys
+from pathlib import Path
+
+# Ensure current directory is in path (for Render deployment)
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
 from celery import Celery
 from config import settings
 
@@ -45,6 +53,7 @@ celery_app.conf.update(
     worker_max_tasks_per_child=10,  # Restart worker after 10 tasks (prevent memory leaks)
 )
 
-# Auto-discover tasks in workers package
-celery_app.autodiscover_tasks(['workers'])
+# Import tasks directly (Render deployment doesn't support autodiscover properly)
+# Tasks are automatically registered via @celery_app.task decorator
+from workers import trading_tasks
 
