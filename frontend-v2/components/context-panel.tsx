@@ -1,6 +1,6 @@
 "use client"
 
-import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2, X } from "lucide-react"
+import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
@@ -25,6 +25,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
   const [recentEvents, setRecentEvents] = useState<TradingEvent[]>([])
   const liveUpdatesRef = useRef<HTMLDivElement>(null)
   const [selectedRun, setSelectedRun] = useState<any>(null)
+  const [carouselIndex, setCarouselIndex] = useState(0)
 
   // Connect to SSE for ANY running model to show in dashboard
   // If on model context, connect to that specific model
@@ -166,9 +167,9 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                 onClick={async () => {
                   if (!selectedModelId) return
                   try {
-                    toast.info('Stopping trading...')
+                    toast.info('Stopping and cleaning up...')
                     await stopTrading(selectedModelId)
-                    toast.success('Trading stopped')
+                    toast.success('Run stopped and deleted')
                     // Refresh data
                     setTimeout(() => loadModelData(), 1000)
                   } catch (error: any) {
@@ -192,16 +193,26 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             </div>
           </div>
 
-          {/* Background Tasks Progress - Show ALL running runs */}
-          {runs.filter(r => r.status === 'running').length > 0 && (
-            <div className="space-y-2 mb-4">
-              {runs.filter(r => r.status === 'running').map((run) => (
-                <div key={run.id} className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 group">
+          {/* Background Tasks Progress - Carousel for running runs */}
+          {(() => {
+            const runningRuns = runs.filter(r => r.status === 'running')
+            if (runningRuns.length === 0) return null
+            
+            // Reset carousel index if out of bounds
+            if (carouselIndex >= runningRuns.length) {
+              setCarouselIndex(0)
+            }
+            
+            const currentRun = runningRuns[carouselIndex] || runningRuns[0]
+            
+            return (
+              <div className="mb-4">
+                <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-[#3b82f6] animate-pulse" />
                       <span className="text-sm font-semibold text-white">
-                        Run #{run.run_number} In Progress
+                        Run #{currentRun.run_number} In Progress
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -211,31 +222,64 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                       <button
                         onClick={async () => {
                           try {
-                            toast.info(`Stopping Run #${run.run_number}...`)
-                            await stopSpecificRun(selectedModelId!, run.id)
-                            toast.success(`Run #${run.run_number} stopped`)
+                            toast.info(`Stopping Run #${currentRun.run_number}...`)
+                            await stopSpecificRun(selectedModelId!, currentRun.id)
+                            toast.success(`Run #${currentRun.run_number} stopped and deleted`)
+                            setCarouselIndex(0) // Reset to first
                             loadModelData()
                           } catch (error: any) {
                             toast.error(error.message || 'Failed to stop')
                           }
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 rounded"
-                        title="Stop this run"
+                        title="Stop and delete this run"
                       >
                         <Square className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <p className="text-xs text-[#a3a3a3]">
-                    {run.intraday_symbol} • {new Date(run.intraday_date).toLocaleDateString()} • {run.intraday_session}
+                    {currentRun.intraday_symbol} • {new Date(currentRun.intraday_date).toLocaleDateString()} • {currentRun.intraday_session}
                   </p>
-                  <p className="text-xs text-[#3b82f6] mt-2">
-                    ℹ️ Check Live Updates below for real-time activity
-                  </p>
+                  
+                  {/* Carousel navigation (only if multiple running) */}
+                  {runningRuns.length > 1 && (
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#3b82f6]/20">
+                      <button
+                        onClick={() => setCarouselIndex((prev) => (prev > 0 ? prev - 1 : runningRuns.length - 1))}
+                        className="p-1 hover:bg-[#3b82f6]/20 rounded transition-colors"
+                        title="Previous run"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-[#3b82f6]" />
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {runningRuns.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCarouselIndex(idx)}
+                            className={`w-2 h-2 rounded-full transition-colors ${
+                              idx === carouselIndex ? 'bg-[#3b82f6]' : 'bg-[#3b82f6]/30'
+                            }`}
+                            title={`Run #${runningRuns[idx].run_number}`}
+                          />
+                        ))}
+                        <span className="text-xs text-[#3b82f6] ml-1">
+                          {carouselIndex + 1}/{runningRuns.length}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setCarouselIndex((prev) => (prev < runningRuns.length - 1 ? prev + 1 : 0))}
+                        className="p-1 hover:bg-[#3b82f6]/20 rounded transition-colors"
+                        title="Next run"
+                      >
+                        <ChevronRight className="w-4 h-4 text-[#3b82f6]" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )
+          })()}
 
           {/* Model Info */}
           {modelData && (
@@ -461,14 +505,14 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                           try {
                             toast.info(`Stopping Run #${run.run_number}...`)
                             await stopSpecificRun(selectedModelId!, run.id)
-                            toast.success(`Run #${run.run_number} stopped`)
+                            toast.success(`Run #${run.run_number} stopped and deleted`)
                             loadModelData()
                           } catch (error: any) {
                             toast.error(error.message || 'Failed to stop')
                           }
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1.5 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 rounded"
-                        title="Stop this run"
+                        title="Stop and delete this run"
                       >
                         <Square className="w-4 h-4" />
                       </button>

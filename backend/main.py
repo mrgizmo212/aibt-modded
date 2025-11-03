@@ -895,7 +895,7 @@ async def start_trading(
 
 @app.post("/api/trading/stop/{model_id}")
 async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)):
-    """Stop trading (revoke Celery task or stop agent_manager task)"""
+    """Stop trading and auto-delete the run (clean stop = full cleanup)"""
     # Verify ownership
     model = await services.get_model_by_id(model_id, current_user["id"])
     
@@ -918,26 +918,24 @@ async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)
         from celery_app import celery_app
         
         task_id = active_run["task_id"]
+        run_number = active_run["run_number"]
         
-        print(f"🛑 Revoking Celery task: {task_id} (Run #{active_run['run_number']})")
+        print(f"🛑 Revoking and deleting run: Run #{run_number} (task: {task_id})")
         
         # Revoke task (terminate=True stops it immediately)
         celery_app.control.revoke(task_id, terminate=True)
         
-        # Update run status in database
-        await services.update_trading_run(active_run["id"], {
-            "status": "stopped",
-            "ended_at": datetime.now().isoformat()
-        })
+        # Delete run (auto-cleanup on stop)
+        await services.delete_trading_run(active_run["id"], model_id, current_user["id"])
         
-        print(f"✅ Stopped Run #{active_run['run_number']}")
+        print(f"✅ Stopped and deleted Run #{run_number}")
         
         return {
-            "status": "stopped",
+            "status": "stopped_and_deleted",
             "task_id": task_id,
             "run_id": active_run["id"],
-            "run_number": active_run["run_number"],
-            "message": f"Trading session stopped (Run #{active_run['run_number']})"
+            "run_number": run_number,
+            "message": f"Run #{run_number} stopped and deleted"
         }
     else:
         # Fallback to agent_manager (for daily trading or old intraday)
@@ -1162,7 +1160,7 @@ async def stop_specific_run(
     run_id: int,
     current_user: Dict = Depends(require_auth)
 ):
-    """Stop a specific running task by run_id"""
+    """Stop a specific running task and delete it (clean stop = auto-delete)"""
     # Verify ownership
     model = await services.get_model_by_id(model_id, current_user["id"])
     if not model:
@@ -1184,23 +1182,21 @@ async def stop_specific_run(
     from celery_app import celery_app
     task_id = run["task_id"]
     
-    print(f"🛑 Revoking specific run: Run #{run['run_number']} (task: {task_id})")
+    print(f"🛑 Revoking and deleting run: Run #{run['run_number']} (task: {task_id})")
     
     celery_app.control.revoke(task_id, terminate=True)
     
-    # Update run status
-    await services.update_trading_run(run_id, {
-        "status": "stopped",
-        "ended_at": datetime.now().isoformat()
-    })
+    # Delete run instead of marking stopped (cascades delete positions/reasoning)
+    await services.delete_trading_run(run_id, model_id, current_user["id"])
     
-    print(f"✅ Stopped Run #{run['run_number']}")
+    print(f"✅ Stopped and deleted Run #{run['run_number']}")
     
     return {
-        "status": "stopped",
+        "status": "stopped_and_deleted",
         "task_id": task_id,
         "run_id": run_id,
-        "run_number": run["run_number"]
+        "run_number": run["run_number"],
+        "message": "Run stopped and deleted"
     }
 
 

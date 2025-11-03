@@ -285,9 +285,9 @@ async def delete_trading_run(
     if not run.data:
         raise ValueError(f"Run {run_id} not found")
     
-    # Don't allow deleting running tasks
-    if run.data[0]["status"] == "running":
-        raise ValueError("Cannot delete a running task. Stop it first.")
+    # Allow deleting running tasks ONLY if called from stop endpoint
+    # (stop endpoint will revoke task first, then call this)
+    # Direct user deletion still blocked by endpoint validation
     
     # Delete run (cascades to positions and reasoning via ON DELETE CASCADE)
     result = supabase.table("trading_runs").delete().eq("id", run_id).execute()
