@@ -42,7 +42,7 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
   }, [context])
 
   const streamModelId = context === "model" ? selectedModelId : runningModels[0] || null
-  const { events, clearEvents } = useTradingStream(streamModelId, { enabled: !!streamModelId })
+  const { events, clearEvents, connected } = useTradingStream(streamModelId, { enabled: !!streamModelId })
 
   // Update recent events from SSE
   useEffect(() => {
@@ -192,26 +192,48 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             </div>
           </div>
 
-          {/* Background Task Progress */}
-          {runs.length > 0 && runs[0].status === 'running' && (
-            <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#3b82f6] animate-pulse" />
-                  <span className="text-sm font-semibold text-white">
-                    Run #{runs[0].run_number} In Progress
-                  </span>
+          {/* Background Tasks Progress - Show ALL running runs */}
+          {runs.filter(r => r.status === 'running').length > 0 && (
+            <div className="space-y-2 mb-4">
+              {runs.filter(r => r.status === 'running').map((run) => (
+                <div key={run.id} className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 group">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-[#3b82f6] animate-pulse" />
+                      <span className="text-sm font-semibold text-white">
+                        Run #{run.run_number} In Progress
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-[#3b82f6]/20 text-[#3b82f6] border-[#3b82f6]/30 text-xs">
+                        Background
+                      </Badge>
+                      <button
+                        onClick={async () => {
+                          try {
+                            toast.info(`Stopping Run #${run.run_number}...`)
+                            await stopSpecificRun(selectedModelId!, run.id)
+                            toast.success(`Run #${run.run_number} stopped`)
+                            loadModelData()
+                          } catch (error: any) {
+                            toast.error(error.message || 'Failed to stop')
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 rounded"
+                        title="Stop this run"
+                      >
+                        <Square className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[#a3a3a3]">
+                    {run.intraday_symbol} • {new Date(run.intraday_date).toLocaleDateString()} • {run.intraday_session}
+                  </p>
+                  <p className="text-xs text-[#3b82f6] mt-2">
+                    ℹ️ Check Live Updates below for real-time activity
+                  </p>
                 </div>
-                <Badge className="bg-[#3b82f6]/20 text-[#3b82f6] border-[#3b82f6]/30 text-xs">
-                  Background
-                </Badge>
-              </div>
-              <p className="text-xs text-[#a3a3a3]">
-                {runs[0].intraday_symbol} • {new Date(runs[0].intraday_date).toLocaleDateString()} • {runs[0].intraday_session}
-              </p>
-              <p className="text-xs text-[#3b82f6] mt-2">
-                ℹ️ Check Live Updates below for real-time activity
-              </p>
+              ))}
             </div>
           )}
 
@@ -246,10 +268,16 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-white">Live Updates</h2>
               <div className="flex items-center gap-2">
-                <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
-                  <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
-                  Streaming
-                </Badge>
+                {connected ? (
+                  <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
+                    <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
+                    Streaming
+                  </Badge>
+                ) : (
+                  <Badge className="bg-[#737373]/10 text-[#737373] border-[#737373]/20">
+                    Disconnected
+                  </Badge>
+                )}
                 {recentEvents.length > 0 && (
                   <button
                     onClick={() => {

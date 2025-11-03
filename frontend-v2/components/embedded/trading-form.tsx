@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Info } from "lucide-react"
+import { Info, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { startIntradayTrading, startTrading, getModelById } from "@/lib/api"
+import { startIntradayTrading, startTrading, getModelById, getRuns } from "@/lib/api"
 import { toast } from "sonner"
 
 interface TradingFormProps {
@@ -38,6 +38,7 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
   const [symbol, setSymbol] = useState("SPY")  // Default to SPY (S&P 500 ETF)
   const [loading, setLoading] = useState(false)
   const [modelData, setModelData] = useState<any>(null)
+  const [runningRunsCount, setRunningRunsCount] = useState(0)
   
   // Daily mode state
   const [startDate, setStartDate] = useState(getRecentTradingDate(3)) // 3 trading days back
@@ -45,11 +46,20 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
   
   // Intraday mode state
   const [intradayDate, setIntradayDate] = useState(getRecentTradingDate(1))
+  
+  // Limit: Max 2 concurrent runs per model
+  const MAX_CONCURRENT_RUNS = 2
 
-  // Load model configuration
+  // Load model configuration and check running runs
   useEffect(() => {
     if (modelId) {
       getModelById(modelId).then(setModelData).catch(console.error)
+      
+      // Check how many runs are currently running
+      getRuns(modelId).then(runs => {
+        const runningCount = runs.filter((r: any) => r.status === 'running').length
+        setRunningRunsCount(runningCount)
+      }).catch(console.error)
     }
   }, [modelId])
 
@@ -241,15 +251,33 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
           </>
         )}
 
-        <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-3 flex gap-3">
-          <Info className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-[#3b82f6]">
-            {mode === 'daily' 
-              ? `Will trade all symbols from ${startDate} to ${endDate} (1 decision per day)`
-              : `Will trade ${symbol} on ${intradayDate} (${session} session, minute-by-minute)`
-            }
-          </p>
-        </div>
+        {/* Concurrent run limit warning */}
+        {runningRunsCount >= MAX_CONCURRENT_RUNS && (
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 flex gap-3">
+            <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-orange-500 font-semibold">
+                Maximum concurrent runs reached ({runningRunsCount}/{MAX_CONCURRENT_RUNS})
+              </p>
+              <p className="text-xs text-orange-400 mt-1">
+                Stop one of the running sessions before starting a new one.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Trading info */}
+        {runningRunsCount < MAX_CONCURRENT_RUNS && (
+          <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-3 flex gap-3">
+            <Info className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-[#3b82f6]">
+              {mode === 'daily' 
+                ? `Will trade all symbols from ${startDate} to ${endDate} (1 decision per day)`
+                : `Will trade ${symbol} on ${intradayDate} (${session} session, minute-by-minute)`
+              }
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
           <Button 
@@ -261,11 +289,11 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
             Cancel
           </Button>
           <Button 
-            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleStartTrading}
-            disabled={loading || !modelId}
+            disabled={loading || !modelId || runningRunsCount >= MAX_CONCURRENT_RUNS}
           >
-            {loading ? 'Starting...' : 'Start Trading →'}
+            {loading ? 'Starting...' : runningRunsCount >= MAX_CONCURRENT_RUNS ? 'Max Runs Reached' : 'Start Trading →'}
           </Button>
         </div>
       </div>
