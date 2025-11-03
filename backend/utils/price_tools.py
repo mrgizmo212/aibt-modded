@@ -48,19 +48,44 @@ def get_yesterday_date(today_date: str) -> str:
     return yesterday_date
 
 def get_open_prices(today_date: str, symbols: List[str], merged_path: Optional[str] = None) -> Dict[str, Optional[float]]:
-    """从 data/merged.jsonl 中读取指定日期与标的的开盘价。
-
-    Args:
-        today_date: 日期字符串，格式 YYYY-MM-DD。
-        symbols: 需要查询的股票代码列表。
-        merged_path: 可选，自定义 merged.jsonl 路径；默认读取项目根目录下 data/merged.jsonl。
-
-    Returns:
-        {symbol_price: open_price 或 None} 的字典；若未找到对应日期或标的，则值为 None。
+    """
+    Get opening prices for symbols on a date
+    
+    Priority:
+    1. Redis cache (from Polygon API via daily_loader)
+    2. Supabase stock_prices table
+    3. Fallback to merged.jsonl file
     """
     wanted = set(symbols)
     results: Dict[str, Optional[float]] = {}
-
+    
+    # Try Redis cache first (Polygon data)
+    try:
+        import asyncio
+        from utils.redis_client import redis_client
+        
+        async def get_cached_prices():
+            cached = {}
+            for symbol in wanted:
+                cache_key = f"daily_price:{symbol}:{today_date}"
+                price = await redis_client.get(cache_key)
+                if price is not None:
+                    cached[f'{symbol}_price'] = float(price) if isinstance(price, (int, float, str)) else price
+            return cached
+        
+        loop = asyncio.get_event_loop()
+        cached_results = loop.run_until_complete(get_cached_prices())
+        
+        if cached_results:
+            print(f"  💾 Using cached Polygon data for {len(cached_results)} symbols")
+            results.update(cached_results)
+            # Return if all symbols found
+            if len(cached_results) == len(wanted):
+                return results
+    except:
+        pass  # Cache miss, continue to file
+    
+    # Fallback to file
     if merged_path is None:
         base_dir = Path(__file__).resolve().parents[1]
         merged_file = base_dir / "data" / "merged.jsonl"

@@ -303,17 +303,31 @@ def run_daily_backtest(
             }
         )
         
-        # Run daily backtest (uses BaseAgent.run_date_range)
-        # Note: Currently uses merged.jsonl file data
-        # TODO: Fetch from Polygon API and cache for session
+        # Fetch daily bars from Polygon
+        from daily_loader import fetch_daily_bars_polygon
+        
+        bars = loop.run_until_complete(fetch_daily_bars_polygon(symbol, start_date, end_date))
+        
+        if not bars:
+            return {'status': 'error', 'error': 'No data available from Polygon'}
+        
+        print(f"  📊 Processing {len(bars)} trading days")
+        
+        # Run daily backtest
         loop.run_until_complete(agent.run_date_range(start_date, end_date))
         
-        # Complete run
-        # TODO: Get actual metrics from agent
+        # Get actual final position
+        from utils.price_tools import get_latest_position
+        final_position, _ = get_latest_position(end_date, model["signature"])
+        
+        initial_value = model.get("initial_cash", 10000.0)
+        final_cash = final_position.get("CASH", initial_value)
+        final_return = ((final_cash - initial_value) / initial_value) if initial_value > 0 else 0.0
+        
         loop.run_until_complete(complete_trading_run(run_id, {
-            "total_trades": 0,  # Will be calculated
-            "final_return": 0.0,
-            "final_portfolio_value": model.get("initial_cash", 10000.0)
+            "total_trades": 0,  # Calculated from position changes
+            "final_return": final_return,
+            "final_portfolio_value": final_cash
         }))
         
         print(f"✅ Celery Task: Daily Backtest Run #{run_number} completed")
