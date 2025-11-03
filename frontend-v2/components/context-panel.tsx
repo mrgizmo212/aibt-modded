@@ -257,22 +257,41 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
               >
                 {recentEvents.length > 0 ? (
                   recentEvents.map((event, index) => {
-                    // Filter to show only terminal events for the terminal view
-                    if (event.type !== 'terminal') return null
-                    
                     const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
-                    const message = event.data?.message || ''
                     
-                    return (
-                      <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
-                        <div className="text-[#525252]" suppressHydrationWarning>
-                          {timestamp}
+                    // Show terminal events (console output)
+                    if (event.type === 'terminal') {
+                      const message = event.data?.message || ''
+                      return (
+                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                          <div className="text-[#525252]" suppressHydrationWarning>
+                            {timestamp}
+                          </div>
+                          <div className="text-[#10b981] whitespace-pre-wrap">
+                            {message}
+                          </div>
                         </div>
-                        <div className="text-[#10b981] whitespace-pre-wrap">
-                          {message}
+                      )
+                    }
+                    
+                    // Show trade events (buy/sell)
+                    if (event.type === 'trade') {
+                      const { action, symbol, amount, price } = event.data
+                      const color = action === 'buy' ? 'text-green-400' : 'text-red-400'
+                      return (
+                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                          <div className="text-[#525252]" suppressHydrationWarning>
+                            {timestamp}
+                          </div>
+                          <div className={color}>
+                            {action?.toUpperCase()} {amount} {symbol} @ ${price}
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )
+                    }
+                    
+                    // Show other events
+                    return null
                   })
                 ) : (
                   <div className="text-center py-8 text-[#737373]">
