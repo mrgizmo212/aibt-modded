@@ -303,7 +303,9 @@ def run_daily_backtest(
             }
         )
         
-        # Run daily backtest
+        # Run daily backtest (uses BaseAgent.run_date_range)
+        # Note: Currently uses merged.jsonl file data
+        # TODO: Fetch from Polygon API and cache for session
         loop.run_until_complete(agent.run_date_range(start_date, end_date))
         
         # Complete run
