@@ -948,8 +948,12 @@ async def start_intraday_trading(
     # Import intraday agent
     from trading.intraday_agent import run_intraday_session
     from trading.base_agent import BaseAgent
+    from services import TradingService
     
-    # Create agent instance (with custom rules and model parameters!)
+    # Create TradingService (fixes SIGNATURE subprocess isolation issue!)
+    trading_service = TradingService(services.get_supabase())
+    
+    # Create agent instance (with custom rules, model parameters, and TradingService!)
     agent = BaseAgent(
         signature=model["signature"],
         basemodel=request.base_model,
@@ -959,15 +963,11 @@ async def start_intraday_trading(
         model_id=model_id,
         custom_rules=model.get("custom_rules"),  # ← Pass rules
         custom_instructions=model.get("custom_instructions"),  # ← Pass instructions
-        model_parameters=model.get("model_parameters")  # ← Pass model parameters!
+        model_parameters=model.get("model_parameters"),  # ← Pass model parameters!
+        trading_service=trading_service  # ← NEW: TradingService (fixes SIGNATURE!)
     )
     
-    # CRITICAL: Set configuration for MCP tools (SIGNATURE needed for buy/sell)
-    # Without this, AI decisions will fail with "SIGNATURE environment variable is not set"
-    from utils.general_tools import write_config_value
-    os.environ["CURRENT_MODEL_ID"] = str(model_id)  # Isolate config per model
-    write_config_value("SIGNATURE", model["signature"])
-    write_config_value("TODAY_DATE", request.date)
+    # Config writes removed - TradingService gets signature from database directly!
     
     # Initialize agent
     await agent.initialize()

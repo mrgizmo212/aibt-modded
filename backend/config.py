@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_URL: str = ""
     UPSTASH_REDIS_REST_TOKEN: str = ""
     
+    # Native Redis (for BullMQ) - Upstash native endpoint
+    REDIS_HOST: str = ""
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+    REDIS_TLS: bool = True
+    
     # MCP Server Tokens (Market Intelligence)
     FINMCP_TOKEN: str = ""
     UWMCP_MCP_TOKEN: str = ""

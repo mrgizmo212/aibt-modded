@@ -72,7 +72,8 @@ class BaseAgent:
         model_id: Optional[int] = None,
         custom_rules: Optional[str] = None,
         custom_instructions: Optional[str] = None,
-        model_parameters: Optional[Dict[str, Any]] = None
+        model_parameters: Optional[Dict[str, Any]] = None,
+        trading_service: Optional[Any] = None
     ):
         """
         Initialize BaseAgent
@@ -104,6 +105,10 @@ class BaseAgent:
         self.custom_rules = custom_rules
         self.custom_instructions = custom_instructions
         self.model_parameters = model_parameters or {}
+        
+        # TradingService for trade execution (replaces MCP trade subprocess)
+        self.trading_service = trading_service
+        self._current_date: Optional[str] = None  # Set in run_trading_session
         
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
@@ -162,12 +167,7 @@ class BaseAgent:
                 "timeout": 30.0,              # Connection timeout for web requests (increased)
                 "sse_read_timeout": 240.0,    # 4 min for web searches (increased)
             },
-            "trade": {
-                "transport": "streamable_http",
-                "url": f"http://localhost:{os.getenv('TRADE_HTTP_PORT', '8002')}/mcp",
-                "timeout": 30.0,              # Connection timeout (increased)
-                "sse_read_timeout": 180.0,    # 3 min for trade operations (increased)
-            },
+            # "trade" removed - now using TradingService instead of MCP subprocess
         }
     
     async def initialize(self) -> None:
@@ -180,7 +180,7 @@ class BaseAgent:
             print(f"   Math: {self.mcp_config['math']['url']}")
             print(f"   Stock: {self.mcp_config['stock_local']['url']}")
             print(f"   Search: {self.mcp_config['search']['url']}")
-            print(f"   Trade: {self.mcp_config['trade']['url']}")
+            # Trade: Now using TradingService instead of MCP
             
             # Retry connection with backoff
             max_retries = 3
@@ -191,9 +191,35 @@ class BaseAgent:
                     print(f"   Connection attempt {attempt + 1}/{max_retries}...")
                     self.client = MultiServerMCPClient(self.mcp_config)
                     
-                    # Get tools
-                    self.tools = await self.client.get_tools()
-                    print(f"✅ Loaded {len(self.tools)} MCP tools")
+                    # Get MCP tools
+                    self.mcp_tools = await self.client.get_tools()
+                    print(f"✅ Loaded {len(self.mcp_tools)} MCP tools")
+                    
+                    # Add trading tools if TradingService provided
+                    if self.trading_service:
+                        from langchain.tools import Tool
+                        
+                        trading_tools = [
+                            Tool(
+                                name="buy",
+                                func=lambda symbol, amount: self._execute_buy(symbol, amount),
+                                description="Buy stock shares. Args: symbol (str), amount (int). Returns position dict or error."
+                            ),
+                            Tool(
+                                name="sell",
+                                func=lambda symbol, amount: self._execute_sell(symbol, amount),
+                                description="Sell stock shares. Args: symbol (str), amount (int). Returns position dict or error."
+                            )
+                        ]
+                        
+                        # Combine MCP tools + trading tools
+                        self.tools = self.mcp_tools + trading_tools
+                        print(f"  ✅ Added trading tools (buy, sell) via TradingService")
+                    else:
+                        # No TradingService - use MCP tools only
+                        self.tools = self.mcp_tools
+                        print(f"  ⚠️  No TradingService provided - trading may use MCP (if available)")
+                    
                     break
                     
                 except Exception as e:
@@ -300,6 +326,66 @@ class BaseAgent:
                 print(f"Error details: {e}")
                 await asyncio.sleep(self.base_delay * attempt)
     
+    def _execute_buy(self, symbol: str, amount: int) -> Dict[str, Any]:
+        """
+        Execute buy via TradingService
+        
+        Args:
+            symbol: Stock ticker
+            amount: Number of shares
+        
+        Returns:
+            New position or error dict
+        """
+        if not self.trading_service:
+            return {"error": "TradingService not available"}
+        
+        if not self._current_date:
+            return {"error": "Current date not set"}
+        
+        if not self.model_id:
+            return {"error": "Model ID not set"}
+        
+        result = self.trading_service.buy(
+            symbol=symbol,
+            amount=amount,
+            model_id=self.model_id,
+            date=self._current_date,
+            execution_source="ai"
+        )
+        
+        return result
+    
+    def _execute_sell(self, symbol: str, amount: int) -> Dict[str, Any]:
+        """
+        Execute sell via TradingService
+        
+        Args:
+            symbol: Stock ticker
+            amount: Number of shares
+        
+        Returns:
+            New position or error dict
+        """
+        if not self.trading_service:
+            return {"error": "TradingService not available"}
+        
+        if not self._current_date:
+            return {"error": "Current date not set"}
+        
+        if not self.model_id:
+            return {"error": "Model ID not set"}
+        
+        result = self.trading_service.sell(
+            symbol=symbol,
+            amount=amount,
+            model_id=self.model_id,
+            date=self._current_date,
+            execution_source="ai"
+        )
+        
+        return result
+    
     async def run_trading_session(self, today_date: str) -> None:
         """
         Run single day trading session
@@ -307,6 +393,9 @@ class BaseAgent:
         Args:
             today_date: Trading date
         """
+        # Set current date for trading tools
+        self._current_date = today_date
+        
         print(f"📈 Starting trading session: {today_date}")
         
         # Emit event

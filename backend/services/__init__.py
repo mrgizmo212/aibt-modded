@@ -46,6 +46,9 @@ get_system_stats = services_module.get_system_stats
 # Import NEW blueprint services (from run_service.py)
 from .run_service import create_trading_run, complete_trading_run, get_model_runs, get_run_by_id
 
+# Import backtesting services
+from .backtesting import TradingService
+
 # The other sub-modules are accessible via:
 # from services.reasoning_service import save_ai_reasoning
 # from services.chat_service import save_chat_message
@@ -84,5 +87,7 @@ __all__ = [
     'complete_trading_run',
     'get_model_runs',
     'get_run_by_id',
+    # NEW: Backtesting
+    'TradingService',
 ]
 

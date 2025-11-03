@@ -36,3 +36,6 @@ langchain-openai>=1.0.0
 langchain-mcp-adapters>=0.1.0
 fastmcp>=2.0.0
 
+# Background Job Queue (Celery with Redis backend)
+celery[redis]>=5.3.0
+
