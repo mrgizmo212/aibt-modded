@@ -219,20 +219,20 @@ class BaseAgent:
         
         # Add trading tools (whether MCP succeeded or failed)
         if self.trading_service:
-            from langchain_core.tools import Tool
+            from langchain_core.tools import tool
             
-            trading_tools = [
-                Tool(
-                    name="buy",
-                    func=lambda symbol, amount: self._execute_buy(symbol, amount),
-                    description="Buy stock shares. Args: symbol (str), amount (int). Returns position dict or error."
-                ),
-                Tool(
-                    name="sell",
-                    func=lambda symbol, amount: self._execute_sell(symbol, amount),
-                    description="Sell stock shares. Args: symbol (str), amount (int). Returns position dict or error."
-                )
-            ]
+            # Use @tool decorator instead of lambda (fixes parameter binding)
+            @tool
+            def buy(symbol: str, amount: int) -> dict:
+                """Buy stock shares. Args: symbol (str), amount (int). Returns position dict or error."""
+                return self._execute_buy(symbol, amount)
+            
+            @tool
+            def sell(symbol: str, amount: int) -> dict:
+                """Sell stock shares. Args: symbol (str), amount (int). Returns position dict or error."""
+                return self._execute_sell(symbol, amount)
+            
+            trading_tools = [buy, sell]
             
             # Combine MCP tools (if any) + trading tools
             self.tools = self.mcp_tools + trading_tools
