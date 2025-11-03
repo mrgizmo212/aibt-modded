@@ -280,7 +280,7 @@ export function ChatInterface({
   }
 
   return (
-    <div className="h-screen bg-[#121212] flex flex-col">
+    <div className="h-full bg-[#121212] flex flex-col">
       <div className="hidden lg:block p-6 border-b border-[#262626]">
         <div className="flex items-center justify-between">
           <div>
