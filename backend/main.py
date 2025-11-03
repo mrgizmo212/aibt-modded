@@ -961,6 +961,13 @@ async def start_intraday_trading(
         model_parameters=model.get("model_parameters")  # ← Pass model parameters!
     )
     
+    # CRITICAL: Set configuration for MCP tools (SIGNATURE needed for buy/sell)
+    # Without this, AI decisions will fail with "SIGNATURE environment variable is not set"
+    from utils.general_tools import write_config_value
+    os.environ["CURRENT_MODEL_ID"] = str(model_id)  # Isolate config per model
+    write_config_value("SIGNATURE", model["signature"])
+    write_config_value("TODAY_DATE", request.date)
+    
     # Initialize agent
     await agent.initialize()
     

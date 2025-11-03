@@ -1,5 +1,131 @@
 # Bugs and Fixes
 
+## 2025-11-03 16:00 - SIGNATURE Missing in Intraday Trading (Critical Fix)
+
+### Bug Description
+**Severity:** Critical  
+**Environment:** All environments (local and production)  
+**Symptom:** "AI decision failed: Error calling tool 'buy': SIGNATURE environment variable is not set, defaulting to HOLD"
+
+**Impact:**
+- ❌ AI cannot execute any BUY trades in intraday mode
+- ❌ AI cannot execute any SELL trades in intraday mode
+- ❌ All decisions default to HOLD
+- ✅ Daily trading mode unaffected (uses different code path)
+
+### Root Cause
+
+**Code Path Analysis:**
+
+**Working Path (Daily Trading):**
+```python
+base_agent.run_date_range()
+  → line 571: write_config_value("SIGNATURE", self.signature)  ✅ SET
+  → Tools work correctly
+```
+
+**Broken Path (Intraday Trading):**
+```python
+main.py:start_intraday_trading()
+  → Creates BaseAgent
+  → ❌ NEVER calls write_config_value("SIGNATURE", ...)
+  → agent.initialize()
+  → run_intraday_session()
+  → AI tries to buy/sell
+  → Tools fail: SIGNATURE not set
+```
+
+**Why Tools Need SIGNATURE:**
+- `tool_trade.py:buy()` line 45: `signature = get_config_value("SIGNATURE")`
+- `tool_trade.py:sell()` line 136: `signature = get_config_value("SIGNATURE")`
+- If SIGNATURE is None → raises ValueError
+- Error caught at `intraday_agent.py:789` → defaults to HOLD
+
+### Solution Implemented
+
+**Simple Fix:** Set SIGNATURE before initializing agent
+
+**File Modified:** `backend/main.py` lines 964-969
+
+**Code Added:**
+```python
+# CRITICAL: Set configuration for MCP tools (SIGNATURE needed for buy/sell)
+# Without this, AI decisions will fail with "SIGNATURE environment variable is not set"
+from utils.general_tools import write_config_value
+os.environ["CURRENT_MODEL_ID"] = str(model_id)  # Isolate config per model
+write_config_value("SIGNATURE", model["signature"])
+write_config_value("TODAY_DATE", request.date)
+```
+
+**Placement:** After creating BaseAgent, before `agent.initialize()`
+
+### Test Scripts Created
+
+**1. Verify Bug:** `backend/scripts/verify-bug-signature-intraday.py`
+- Confirms SIGNATURE is None before fix
+- Confirms tools fail with ValueError
+- Expected: Bug reproduced 100%
+
+**2. Prove Fix:** `backend/scripts/prove-fix-signature-intraday.py`
+- Verifies SIGNATURE is set after fix
+- Verifies tools can access config
+- Verifies multi-model isolation maintained
+- Expected: 100% success
+
+### System-Wide Impact
+
+**Direct Impact:**
+- ✅ Intraday trading now works
+- ✅ AI can execute BUY/SELL trades
+- ✅ No more defaulting to HOLD
+
+**Ripple Effects:**
+- None - isolated fix
+- Follows same pattern as daily trading
+- No breaking changes
+
+**Edge Cases Handled:**
+- ✅ Multi-model isolation: Each model has own CURRENT_MODEL_ID
+- ✅ Concurrent trading: Config namespaced per model_id
+- ✅ File system: Runtime env files created per session
+
+**Backwards Compatibility:**
+- ✅ Daily trading still works (unchanged code path)
+- ✅ No API changes
+- ✅ No database changes
+
+### Files Modified
+
+1. `backend/main.py` - Added SIGNATURE setup (lines 964-969)
+2. `backend/scripts/verify-bug-signature-intraday.py` - Created test script
+3. `backend/scripts/prove-fix-signature-intraday.py` - Created verification script
+4. `docs/tempDocs/2025-11-03-signature-missing-analysis.md` - Complete analysis
+5. `docs/bugs-and-fixes.md` - This documentation
+
+### Related Documentation
+
+- `docs/tempDocs/2025-11-03-live-deployment-signature-error.md` - Original deployment analysis (different issue)
+- `docs/tempDocs/2025-11-03-signature-missing-analysis.md` - Complete code flow analysis
+
+### Lessons Learned
+
+1. **Code path parity:** Different entry points need same initialization
+2. **Config dependencies:** Tools depend on config being set BEFORE agent runs
+3. **Error handling:** Silent defaults (HOLD) hide root causes from users
+4. **Testing:** Need test scripts for both daily and intraday paths
+5. **Documentation:** Code citations prove understanding of system
+
+### Prevention Strategy
+
+**For future similar bugs:**
+1. ✅ Check ALL entry points for required config setup
+2. ✅ Add assertions early: "SIGNATURE must be set before trading"
+3. ✅ Don't silently default to HOLD - log loud errors
+4. ✅ Create test scripts that cover all code paths
+5. ✅ Document initialization requirements clearly
+
+---
+
 ## 2025-11-03 - SIGNATURE Environment Variable Error (Production)
 
 ### Bug Description
