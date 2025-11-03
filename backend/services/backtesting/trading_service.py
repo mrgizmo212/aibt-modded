@@ -428,30 +428,7 @@ class TradingService:
             print(f"  ❌ Error querying database for model {model_id}: {e}")
             return None
     
-    def get_tradeable_symbols(self, model_id: int) -> list:
-        """
-        Get list of symbols user can trade with this model
-        
-        Future: Can add allowlist validation here
-        
-        Args:
-            model_id: Database model ID
-        
-        Returns:
-            List of allowed ticker symbols
-        """
-        try:
-            result = self.supabase.table("models")\
-                .select("allowed_tickers")\
-                .eq("id", model_id)\
-                .single()\
-                .execute()
-            
-            if result.data:
-                return result.data.get("allowed_tickers", [])
-            return []
-            
-        except Exception as e:
-            print(f"  ⚠️  Could not get tradeable symbols: {e}")
-            return []
+    # get_tradeable_symbols removed - allowed_tickers enforcement removed
+    # Users can restrict symbols via custom_rules instead:
+    # Example: "Only trade AAPL, MSFT, GOOGL"
 

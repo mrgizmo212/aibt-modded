@@ -41,15 +41,11 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
     custom_rules: (model as any)?.custom_rules || "",
     custom_instructions: (model as any)?.custom_instructions || "",
     starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
-    allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
   })
   
   // Model parameters managed by ModelSettings component
   const [modelParameters, setModelParameters] = useState<Record<string, any>>(modelParams)
   
-  const [symbolsInput, setSymbolsInput] = useState(
-    formData.allowed_symbols.join(", ")
-  )
   const [loading, setLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const isEditMode = !!model?.id
@@ -64,10 +60,8 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         custom_rules: (model as any)?.custom_rules || "",
         custom_instructions: (model as any)?.custom_instructions || "",
         starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
-        allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
       })
       setModelParameters(modelParams)
-      setSymbolsInput(((model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL"]).join(", "))
     }
   }, [model])
 
@@ -83,17 +77,6 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
       return
     }
 
-    // Parse symbols from comma-separated input
-    const symbols = symbolsInput
-      .split(',')
-      .map(s => s.trim().toUpperCase())
-      .filter(s => s.length > 0)
-
-    if (symbols.length === 0) {
-      toast.error('Please enter at least one trading symbol')
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -102,7 +85,6 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         name: formData.name,
         default_ai_model: formData.default_ai_model,
         initial_cash: formData.starting_capital,
-        allowed_tickers: symbols,
         model_parameters: modelParameters,
         custom_rules: formData.custom_rules || undefined,
         custom_instructions: formData.custom_instructions || undefined
@@ -345,23 +327,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
             </div>
           </div>
 
-          {/* Allowed Symbols */}
-          <div className="space-y-2">
-            <Label htmlFor="symbols" className="text-sm text-white">
-              Allowed Symbols *
-            </Label>
-            <Input
-              id="symbols"
-              value={symbolsInput}
-              onChange={(e) => setSymbolsInput(e.target.value)}
-              className="bg-[#1a1a1a] border-[#262626] text-white font-mono"
-              placeholder="AAPL, MSFT, GOOGL, AMZN, TSLA"
-              disabled={loading}
-            />
-            <p className="text-xs text-[#737373]">
-              Comma-separated list of stock symbols this model can trade
-            </p>
-          </div>
+          {/* Allowed Symbols - Removed: AI can trade any symbol in custom rules instead */}
         </div>
 
         {/* Footer */}
