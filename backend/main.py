@@ -895,17 +895,42 @@ async def start_trading(
 
 @app.post("/api/trading/stop/{model_id}")
 async def stop_trading(model_id: int, current_user: Dict = Depends(require_auth)):
-    """Stop AI trading agent for user's model"""
+    """Stop trading (revoke Celery task or stop agent_manager task)"""
     # Verify ownership
     model = await services.get_model_by_id(model_id, current_user["id"])
     
     if not model:
         raise NotFoundError("Model")
     
-    # Stop agent
-    result = await agent_manager.stop_agent(model_id)
+    # Get active run for this model
+    runs = await services.get_model_runs(model_id, current_user["id"])
     
-    return result
+    # Find most recent running task
+    active_run = None
+    for run in runs:
+        if run.get("status") == "running":
+            active_run = run
+            break
+    
+    if not active_run:
+        # Fallback to agent_manager (for daily trading)
+        result = await agent_manager.stop_agent(model_id)
+        return result if result.get("status") != "not_running" else {
+            "status": "not_running",
+            "message": "No active trading session found"
+        }
+    
+    # TODO: Store task_id in trading_runs table to enable Celery revoke
+    # For now, return message that stop will be implemented in Phase 2
+    return {
+        "status": "not_yet_implemented",
+        "message": "Stop functionality for Celery tasks coming in Phase 2 completion",
+        "run_id": active_run.get("id")
+    }
+    
+    # FUTURE: When task_id stored in database
+    # from celery_app import celery_app
+    # celery_app.control.revoke(task_id, terminate=True)
 
 
 @app.post("/api/trading/start-intraday/{model_id}")
@@ -915,9 +940,9 @@ async def start_intraday_trading(
     current_user: Dict = Depends(require_auth)
 ):
     """
-    Start intraday trading session
+    Start intraday trading session (async with Celery)
     
-    Loads tick data, caches in Redis, runs minute-by-minute trading
+    Returns task_id immediately, trading runs in background
     """
     # Verify ownership
     model = await services.get_model_by_id(model_id, current_user["id"])
@@ -925,90 +950,73 @@ async def start_intraday_trading(
     if not model:
         raise NotFoundError("Model")
     
-    # NEW: Create trading run
-    run = await services.create_trading_run(
-        model_id=model_id,
-        trading_mode="intraday",
-        strategy_snapshot={
-            "custom_rules": model.get("custom_rules"),
-            "custom_instructions": model.get("custom_instructions"),
-            "model_parameters": model.get("model_parameters"),
-            "default_ai_model": model.get("default_ai_model")
-        },
-        intraday_symbol=request.symbol,
-        intraday_date=request.date,
-        intraday_session=request.session
-    )
+    # Import Celery task
+    from workers.trading_tasks import run_intraday_trading
     
-    run_id = run["id"]
-    run_number = run["run_number"]
-    
-    print(f"🚀 Starting Run #{run_number} (intraday: {request.symbol} on {request.date})")
-    
-    # Import intraday agent
-    from trading.intraday_agent import run_intraday_session
-    from trading.base_agent import BaseAgent
-    from services import TradingService
-    
-    # Create TradingService (fixes SIGNATURE subprocess isolation issue!)
-    trading_service = TradingService(services.get_supabase())
-    
-    # Create agent instance (with custom rules, model parameters, and TradingService!)
-    agent = BaseAgent(
-        signature=model["signature"],
-        basemodel=request.base_model,
-        stock_symbols=[request.symbol],
-        max_steps=10,
-        initial_cash=model.get("initial_cash", 10000.0),
-        model_id=model_id,
-        custom_rules=model.get("custom_rules"),  # ← Pass rules
-        custom_instructions=model.get("custom_instructions"),  # ← Pass instructions
-        model_parameters=model.get("model_parameters"),  # ← Pass model parameters!
-        trading_service=trading_service  # ← NEW: TradingService (fixes SIGNATURE!)
-    )
-    
-    # Config writes removed - TradingService gets signature from database directly!
-    
-    # Initialize agent
-    await agent.initialize()
-    
-    # Run intraday session with run_id
-    result = await run_intraday_session(
-        agent=agent,
+    # Queue task (returns immediately)
+    task = run_intraday_trading.delay(
         model_id=model_id,
         user_id=current_user["id"],
         symbol=request.symbol,
         date=request.date,
         session=request.session,
-        run_id=run_id  # ← NEW: Link trades to run
+        base_model=request.base_model
     )
     
-    # NEW: Complete run with calculated metrics
-    try:
-        # Calculate final return (using total portfolio value, not just cash)
-        initial_value = model.get("initial_cash", 10000.0)
-        final_total_value = result.get("total_portfolio_value", result.get("final_position", {}).get("CASH", initial_value))
-        final_return = ((final_total_value - initial_value) / initial_value) if initial_value > 0 else 0.0
-        
-        # Calculate max drawdown
-        max_drawdown = max(0, (initial_value - final_total_value) / initial_value) if initial_value > 0 else 0.0
-        
-        await services.complete_trading_run(run_id, {
-            "total_trades": result.get("trades_executed", 0),
-            "final_portfolio_value": final_total_value,
-            "final_return": final_return,
-            "max_drawdown": max_drawdown
-        })
-        
-        print(f"✅ Run #{run_number} completed: {result.get('trades_executed', 0)} trades, {final_return*100:.2f}% return, Final Value: ${final_total_value:,.2f}")
-    except Exception as e:
-        print(f"⚠️ Could not complete run: {e}")
+    print(f"✅ Queued intraday trading task: {task.id}")
     
     return {
-        **result,
-        "run_id": run_id,
-        "run_number": run_number
+        "status": "queued",
+        "task_id": task.id,
+        "model_id": model_id,
+        "symbol": request.symbol,
+        "date": request.date,
+        "message": "Trading session queued. Use task_id to check status."
     }
+
+
+@app.get("/api/trading/task-status/{task_id}")
+async def get_task_status(task_id: str, current_user: Dict = Depends(require_auth)):
+    """
+    Get status of a Celery task
+    
+    Returns:
+        - state: PENDING, STARTED, PROGRESS, SUCCESS, FAILURE, REVOKED
+        - meta: Progress info (if PROGRESS)
+        - result: Final result (if SUCCESS)
+    """
+    from celery.result import AsyncResult
+    from celery_app import celery_app
+    
+    result = AsyncResult(task_id, app=celery_app)
+    
+    response = {
+        "task_id": task_id,
+        "state": result.state,
+    }
+    
+    if result.state == 'PENDING':
+        response["status"] = "Task is waiting to start"
+        
+    elif result.state == 'PROGRESS':
+        response["status"] = result.info.get('status', 'In progress')
+        response["current"] = result.info.get('current', 0)
+        response["total"] = result.info.get('total', 390)
+        response["run_id"] = result.info.get('run_id')
+        response["run_number"] = result.info.get('run_number')
+        
+    elif result.state == 'SUCCESS':
+        response["status"] = "Completed"
+        response["result"] = result.result
+        
+    elif result.state == 'FAILURE':
+        response["status"] = "Failed"
+        response["error"] = str(result.info)
+        
+    elif result.state == 'REVOKED':
+        response["status"] = "Cancelled"
+    
+    return response
 
 
 @app.get("/api/trading/status/{model_id}")

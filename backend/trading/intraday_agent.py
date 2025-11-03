@@ -28,7 +28,8 @@ async def run_intraday_session(
     symbol: str,
     date: str,
     session: str = "regular",
-    run_id: Optional[int] = None  # ← NEW: Link trades to run
+    run_id: Optional[int] = None,
+    celery_task=None  # ← NEW: For progress updates from Celery worker
 ) -> Dict[str, Any]:
     """
     Run minute-by-minute intraday trading session
@@ -279,6 +280,21 @@ async def run_intraday_session(
         if idx % 10 == 0:
             progress_msg = f"  🕐 Minute {idx+1}/{len(minutes)}: {minute} - {symbol} @ ${current_price:.2f}"
             print(progress_msg)
+            
+            # Update Celery task progress (if running in Celery worker)
+            if celery_task:
+                celery_task.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'status': f'Trading minute {idx+1}/{len(minutes)}',
+                        'current': idx + 15,  # Offset by 15 (for initialization steps)
+                        'total': len(minutes) + 15,
+                        'minute': minute,
+                        'price': current_price,
+                        'trades_executed': trades_executed
+                    }
+                )
+            
             # Emit progress update every 10 minutes (not every minute - reduces spam)
             if event_stream and idx > 0:
                 await event_stream.emit(model_id, "terminal", {
