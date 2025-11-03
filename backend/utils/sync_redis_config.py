@@ -26,6 +26,7 @@ class SyncRedisConfig:
     
     def __init__(self):
         """Initialize with Upstash REST API credentials"""
+        print("🔧 Initializing SyncRedisConfig...")
         self.base_url = settings.UPSTASH_REDIS_REST_URL
         self.token = settings.UPSTASH_REDIS_REST_TOKEN
         
@@ -33,6 +34,8 @@ class SyncRedisConfig:
             print("⚠️  Upstash Redis not configured - config will use file fallback only")
             self._client = None
             return
+        
+        print(f"✅ Redis config client initializing with URL: {self.base_url[:50]}...")
         
         self.headers = {"Authorization": f"Bearer {self.token}"}
         
@@ -42,6 +45,7 @@ class SyncRedisConfig:
             timeout=5.0,  # 5 second timeout
             headers=self.headers
         )
+        print("✅ SyncRedisConfig initialized successfully")
     
     def close(self):
         """Close the client connection"""
@@ -61,6 +65,7 @@ class SyncRedisConfig:
             True if successful, False otherwise
         """
         if not self._client:
+            print(f"  ⚠️  Redis client not initialized, cannot SET {key}")
             return False
         
         try:
@@ -70,13 +75,21 @@ class SyncRedisConfig:
             # Use SETEX command for automatic expiration
             url = f"{self.base_url}/setex/{key}/{ex}"
             
+            print(f"  🔧 Redis SET: {key} = {value}")
+            
             response = self._client.post(
                 url,
                 content=json_str,
                 headers={"Content-Type": "text/plain"}
             )
             
-            return response.status_code == 200
+            success = response.status_code == 200
+            if success:
+                print(f"  ✅ Redis SET successful: {key}")
+            else:
+                print(f"  ❌ Redis SET failed (status {response.status_code}): {key}")
+            
+            return success
             
         except Exception as e:
             print(f"  ⚠️  Redis config SET failed for key {key}: {e}")
@@ -93,10 +106,13 @@ class SyncRedisConfig:
             Parsed value or None if not found
         """
         if not self._client:
+            print(f"  ⚠️  Redis client not initialized, cannot GET {key}")
             return None
         
         try:
             url = f"{self.base_url}/get/{key}"
+            
+            print(f"  🔍 Redis GET: {key}")
             
             response = self._client.get(url)
             
@@ -105,16 +121,23 @@ class SyncRedisConfig:
                 result = data.get("result")
                 
                 if result is None:
+                    print(f"  ⚠️  Redis GET: {key} not found (None)")
                     return None
                 
                 # Parse JSON if it's a string
                 if isinstance(result, str):
                     try:
-                        return json.loads(result)
+                        parsed = json.loads(result)
+                        print(f"  ✅ Redis GET successful: {key} = {parsed}")
+                        return parsed
                     except json.JSONDecodeError:
+                        print(f"  ✅ Redis GET successful: {key} = {result}")
                         return result  # Return as-is if not JSON
                 else:
+                    print(f"  ✅ Redis GET successful: {key} = {result}")
                     return result
+            else:
+                print(f"  ❌ Redis GET failed (status {response.status_code}): {key}")
             
             return None
             

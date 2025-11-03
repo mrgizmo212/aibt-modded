@@ -203,26 +203,26 @@ aibt-modded/
 │   │
 │   └── requirements.txt              # Python dependencies
 │
-├── frontend/                         # Next.js 16 (100% Complete)
-│   ├── app/                          # App Router (8 pages + 1 shared layout)
-│   │   ├── layout.tsx                # Dark theme layout (shared wrapper, not a page)
+├── frontend/                         # Next.js 16 MVP (Proof of Concept)
+│   ├── app/                          # App Router (8 pages traditional routing)
+│   │   ├── layout.tsx                # Dark theme layout
 │   │   ├── page.tsx                  # Root redirect
 │   │   ├── login/page.tsx            # Login page
 │   │   ├── signup/page.tsx           # Signup page
 │   │   ├── dashboard/page.tsx        # User dashboard
 │   │   ├── models/create/page.tsx    # Create model form
 │   │   ├── models/[id]/page.tsx      # Model detail
-│   │   ├── models/[id]/r/[run]/page.tsx # Run detail + Chat (NEW)
+│   │   ├── models/[id]/r/[run]/page.tsx # Run detail + Chat
 │   │   └── admin/page.tsx            # Admin dashboard
 │   │
-│   ├── components/                   # React Components
+│   ├── components/                   # React Components (7 components)
 │   │   ├── PerformanceMetrics.tsx
 │   │   ├── PortfolioChart.tsx
 │   │   ├── LogsViewer.tsx
 │   │   ├── ModelSettings.tsx
 │   │   ├── TradingFeed.tsx
-│   │   ├── ChatInterface.tsx         # System agent chat (NEW)
-│   │   └── RunData.tsx               # Run details display (NEW)
+│   │   ├── ChatInterface.tsx
+│   │   └── RunData.tsx
 │   │
 │   ├── lib/                          # Utilities
 │   │   ├── api.ts                    # API client (type-safe)
@@ -234,6 +234,67 @@ aibt-modded/
 │   │
 │   ├── package.json                  # Dependencies (Next 16, React 19.2)
 │   └── next.config.ts                # Next.js config
+│   │
+│   **NOTE:** This is the MVP proof of concept - NOT for production
+│
+├── frontend-v2/                      # Next.js 16 PRODUCTION (100% Complete)
+│   ├── app/                          # SPA-style (3 pages minimal routing)
+│   │   ├── layout.tsx                # Dark theme layout
+│   │   ├── page.tsx                  # Main SPA (renders all components)
+│   │   ├── login/page.tsx            # Login page
+│   │   └── signup/page.tsx           # Signup page
+│   │
+│   ├── components/                   # 79+ Components (Production UI)
+│   │   ├── navigation-sidebar.tsx    # Model management sidebar
+│   │   ├── chat-interface.tsx        # Chat-first main interface
+│   │   ├── context-panel.tsx         # Dynamic right sidebar
+│   │   ├── trading-terminal.tsx      # Live SSE terminal output
+│   │   ├── model-edit-dialog.tsx     # Full model editing modal
+│   │   ├── system-status-drawer.tsx  # System health drawer
+│   │   │
+│   │   ├── Mobile Components:
+│   │   ├── mobile-header.tsx         # Mobile header with hamburger
+│   │   ├── mobile-drawer.tsx         # Left navigation drawer
+│   │   ├── mobile-bottom-nav.tsx     # Bottom navigation bar
+│   │   ├── mobile-bottom-sheet.tsx   # Context bottom sheet
+│   │   │
+│   │   ├── embedded/                 # Components embedded in chat
+│   │   │   ├── stats-grid.tsx        # 2x2 portfolio stats
+│   │   │   ├── model-cards-grid.tsx  # Model cards with sparklines
+│   │   │   ├── trading-form.tsx      # Trading configuration
+│   │   │   ├── analysis-card.tsx     # Run analysis
+│   │   │   └── model-creation-step.tsx # Model creation wizard
+│   │   │
+│   │   ├── Copied from /frontend:
+│   │   ├── ModelSettings.tsx         # AI model parameters
+│   │   ├── PerformanceMetrics.tsx    # Performance dashboard
+│   │   ├── PortfolioChart.tsx        # Portfolio chart
+│   │   ├── RunData.tsx               # Run details
+│   │   ├── LogsViewer.tsx            # AI reasoning logs
+│   │   │
+│   │   └── ui/                       # 60+ Shadcn/Radix components
+│   │       └── (accordion, alert, badge, button, card, etc.)
+│   │
+│   ├── lib/                          # Utilities
+│   │   ├── api.ts                    # API client (real backend calls)
+│   │   ├── auth-context.tsx          # Auth provider
+│   │   ├── auth.ts                   # Auth helpers
+│   │   ├── supabase.ts               # Supabase client
+│   │   ├── types.ts                  # TypeScript types
+│   │   ├── constants.ts              # Display names
+│   │   └── utils.ts                  # Helper functions
+│   │
+│   ├── hooks/                        # Custom React hooks
+│   │   ├── use-mobile.ts             # Mobile detection
+│   │   ├── use-toast.ts              # Toast notifications
+│   │   └── use-trading-stream.ts     # SSE streaming hook
+│   │
+│   ├── IMPLEMENTATION_MAPPING.md     # Complete component inventory
+│   ├── RENDER_DEPLOYMENT_GUIDE.md    # Production deployment guide
+│   ├── package.json                  # Dependencies (Next 16, React 19.2)
+│   └── next.config.mjs               # Next.js config
+│   │
+│   **NOTE:** THIS IS THE PRODUCTION FRONTEND - Deploy this one!
 │
 ├── scripts/                          # Root-Level Scripts (7 files)
 │   ├── start_backend.ps1             # Start backend server
@@ -516,59 +577,64 @@ aibt-modded/
 
 ## 7. CURRENT PLATFORM STATUS
 
-**Status:** 🟡 Functional - Refinements Ongoing  
-**Backend:** 🟢 Production-Ready + MCP 2025-06-18 Compliant  
-**Frontend:** 🟡 Functional - UI/UX improvements in progress  
+**Status:** 🟡 Functional - Active Development  
+**Backend:** 🟡 Functional - Testing & refinement ongoing  
+**Frontend MVP (`/frontend`):** 🟡 Proof of Concept - Development/testing only  
+**Frontend Production (`/frontend-v2`):** 🟡 In Progress - Integration ongoing  
 **Version:** 2.1  
-**Build Date:** 2025-10-31
+**Build Date:** 2025-10-31  
+**Last Integration:** 2025-11-02 (Frontend V2 backend integration work)
 
 ### What's Working:
 
-**Backend (100%):**
-- ✅ 38 API endpoints functional (verified via grep)
+**Backend (Functional - Testing Phase):**
+- ✅ 38 API endpoints implemented (verified via grep)
 - ✅ Authentication & authorization (JWT + Supabase)
 - ✅ User data isolation (RLS at database level)
 - ✅ Portfolio calculations (verified mathematically)
-- ✅ AI reasoning logs (100% migrated)
+- ✅ AI reasoning logs (migrated)
 - ✅ Trading controls (daily + intraday)
 - ✅ **Run tracking system** (session-based organization)
-- ✅ **AI reasoning audit trail** (complete transparency)
+- ✅ **AI reasoning audit trail** (transparency features)
 - ✅ **Structured rules engine** (programmatic enforcement)
 - ✅ **System agent** (conversational strategy analyst)
-- ✅ **Risk gates** (hard-coded safety checks)
+- ✅ **Risk gates** (safety checks)
 - ✅ MCP service management (4 services, 6 tools)
 - ✅ MCP 2025-06-18 Streamable HTTP compliance
-- ✅ Performance metrics (on-demand calculation)
+- ✅ Performance metrics (calculation logic)
 - ✅ Admin features (user management, global settings)
-- ✅ Concurrent multi-user support (verified)
+- ⚠️ Concurrent multi-user support (needs more testing)
+- ✅ SSE streaming (real-time terminal output)
+- **Status:** Core features functional, needs extensive testing
 
-**Frontend (Functional - Ongoing Improvements):**
-- ✅ 8 complete pages (verified)
-- ✅ Login/signup with JWT auth
-- ✅ User dashboard with model cards
-- ✅ Model detail pages (2-column responsive layout)
-- ✅ Create Model form with AI config
-- ✅ Edit Model feature (settings modal)
-- ✅ Delete Model feature (batch deletion)
-- ✅ **Run detail page** (`/models/[id]/r/[run]`) - NEW
-- ✅ **Chat interface** (strategy analyst conversations) - NEW
-- ✅ **Run comparison** (compare different trading sessions) - NEW
-- ✅ Admin dashboard (users, models, stats)
-- ✅ Portfolio chart visualization (SVG line chart, 227 LOC)
-- ✅ Real-time trading feed (SSE EventSource, 159 LOC)
-- ✅ Performance metrics display
-- ✅ AI logs viewer
-- ✅ Dark theme with True Trading Group branding
-- ✅ Mobile responsive (Tailwind)
-- ✅ Type-safe (0 TypeScript linter errors)
-- ✅ Dual-port support (3000 dev, 3100 Stagewise)
+**Frontend MVP (`/frontend`) - Proof of Concept:**
+- ✅ 8 pages with traditional App Router
+- ✅ Basic CRUD operations working
+- ✅ Direct backend integration
+- ✅ Type-safe (0 TypeScript errors)
+- **Purpose:** Development/testing only
+- **Status:** Functional MVP for testing
 
-**Known Frontend Issues:**
-- ⚠️ UI/UX refinements needed (spacing, alignment, visual hierarchy)
-- ⚠️ Some components need polish
-- ⚠️ Edge cases may exist
-- ⚠️ Performance optimizations possible
-- **Note:** Core functionality works, but not production-perfect
+**Frontend Production Target (`/frontend-v2`) - In Development:**
+- ✅ **3 pages** (SPA-style architecture)
+- ✅ **79+ components** (professional UI library)
+- ✅ **Chat-first interface** (main interaction model)
+- 🔄 **Trading terminal** (SSE streaming - integration in progress)
+- 🔄 **Real-time stats** (working on auto-refresh)
+- 🔄 **Model parameters** (integration with AI agents in progress)
+- 🔄 **Run details** (performance dashboard being integrated)
+- ✅ **Mobile-responsive** (header, drawer, bottom nav, bottom sheet)
+- ✅ **Navigation sidebar** (model management with inline editing)
+- ✅ **Context panel** (dynamic right sidebar)
+- ✅ **System status drawer** (system health monitoring)
+- ✅ **Model edit dialog** (full parameter configuration)
+- ✅ **Embedded components** (stats, model cards, trading form, analysis)
+- 🔄 **Backend integration** (active development)
+- 🔄 **Authentication** (integration in progress)
+- ✅ **Dark theme** (professional design)
+- ✅ **Type-safe** (0 TypeScript linter errors)
+- ✅ **60+ Shadcn UI components**
+- **Status:** UI complete, backend integration in progress
 
 **MCP Services (100%):**
 - ✅ 4 services running (Math, Stock, Search, Trade)

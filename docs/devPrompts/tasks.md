@@ -21,6 +21,35 @@ ALWAYS THINK AS HARD AS YOU CAN!
 
 **** THINK AS HARD AS YOU CAN - PLAN THOROUGHLY, EXECUTE CAREFULLY ****
 
+VERIFY THAT THIS IS NOT HAPPENING NOW
+
+Option 1: Redis Config (Proper Fix)
+Store SIGNATURE in Redis instead of file
+Redis is shared across all processes
+Already analyzed in previous tempDocs
+Most reliable for production
+
+---
+
+Option 2: Pass SIGNATURE as Parameter
+Modify MCP tools to accept SIGNATURE directly
+No cross-process config lookup
+More code changes but cleanest
+
+VERIFY THIS IS NOT HAPPENING NOW 
+WHY WOULD IT GO HERE? IT'S IN SUPABASE? DOES IT NEED TO BE IN BOTH? I AM ASKING BECAUSE I DONT KNOW 
+EVERYTHING WE DO WE MUCH ENSURE ITS 100% MCP COMPLIANT WITH THE JUNE 18, 2025 UPDATE! @MCP Specification https://modelcontextprotocol.io/specification/2025-06-18/changelog 
+https://modelcontextprotocol.io/specification/2025-06-18/basic/transports   WE USE Streamable HTTP
+---
+
+Option 3: Environment Variable (Quick Test)
+Set SIGNATURE as Render env var
+Only works for single model (loses multi-user)
+Just to confirm if that's the issue
+
+I DONT UNDERSTAND WHAT WOULD BE SET HERE AND WHY 
+
+
 ```
 
 ═══════════════════════════════════════════════════════════════

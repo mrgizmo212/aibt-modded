@@ -73,15 +73,20 @@ def write_config_value(key: str, value: any):
     """
     model_id = os.environ.get("CURRENT_MODEL_ID", "global")
     
+    print(f"📝 write_config_value called: {key} = {value} (model_id={model_id})")
+    
     # 1. Write to Redis (PRODUCTION: cross-process, persists across container restarts)
     if sync_redis_config:
+        print(f"  🔧 Using Redis for config write")
         try:
             redis_key = f"config:{model_id}:{key}"
             # 1 hour TTL - config shouldn't persist forever
             sync_redis_config.set(redis_key, value, ex=3600)
         except Exception as e:
-            print(f"  ??  Redis config write failed for {key}: {e}")
+            print(f"  ⚠️  Redis config write failed for {key}: {e}")
             # Continue to file write even if Redis fails
+    else:
+        print(f"  ⚠️  sync_redis_config is None - Redis NOT available, using file only")
     
     # 2. Write to file (LOCAL DEV: backward compatibility)
     _RUNTIME_ENV = _load_runtime_env()
