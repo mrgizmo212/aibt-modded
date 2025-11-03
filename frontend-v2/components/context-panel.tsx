@@ -1,13 +1,14 @@
 "use client"
 
-import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle } from "lucide-react"
+import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
-import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance } from "@/lib/api"
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { AVAILABLE_MODELS } from "@/lib/constants"
+import { toast } from "sonner"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -158,15 +159,37 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-white">Model Details</h2>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onEditModel?.(selectedModelId)}
-              className="text-[#a3a3a3] hover:text-white hover:bg-[#0a0a0a]"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Edit Model
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  if (!selectedModelId) return
+                  try {
+                    toast.info('Stopping trading...')
+                    await stopTrading(selectedModelId)
+                    toast.success('Trading stopped')
+                    // Refresh data
+                    setTimeout(() => loadModelData(), 1000)
+                  } catch (error: any) {
+                    toast.error(error.message || 'Failed to stop')
+                  }
+                }}
+                className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+              >
+                <Square className="w-4 h-4 mr-2" />
+                Stop Trading
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onEditModel?.(selectedModelId)}
+                className="text-[#a3a3a3] hover:text-white hover:bg-[#0a0a0a]"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Edit Model
+              </Button>
+            </div>
           </div>
 
           {/* Model Info */}
