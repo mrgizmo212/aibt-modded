@@ -318,10 +318,11 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       {/* Branding & User Profile */}
       <div className="p-6 border-b border-[#262626]">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-[#3b82f6] rounded-lg flex items-center justify-center text-white font-bold text-sm">
-            TTG
-          </div>
-          <span className="text-white font-semibold text-lg">TTG Pro</span>
+          <img 
+            src="https://truetradinggroup.com/wp-content/uploads/2025/10/darkLogoN.png" 
+            alt="TTG Pro"
+            className="h-8 w-auto"
+          />
         </div>
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
