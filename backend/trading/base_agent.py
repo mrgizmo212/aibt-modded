@@ -109,6 +109,7 @@ class BaseAgent:
         # TradingService for trade execution (replaces MCP trade subprocess)
         self.trading_service = trading_service
         self._current_date: Optional[str] = None  # Set in run_trading_session
+        self._current_run_id: Optional[int] = None  # Set when run starts (for linking trades)
         
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
@@ -359,7 +360,8 @@ class BaseAgent:
             amount=amount,
             model_id=self.model_id,
             date=self._current_date,
-            execution_source="ai"
+            execution_source="ai",
+            run_id=getattr(self, '_current_run_id', None)  # ← Pass run_id if available
         )
         
         return result
@@ -389,7 +391,8 @@ class BaseAgent:
             amount=amount,
             model_id=self.model_id,
             date=self._current_date,
-            execution_source="ai"
+            execution_source="ai",
+            run_id=getattr(self, '_current_run_id', None)  # ← Pass run_id if available
         )
         
         return result

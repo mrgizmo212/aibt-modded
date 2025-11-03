@@ -31,6 +31,9 @@ async def run_intraday_session(
     run_id: Optional[int] = None,
     celery_task=None  # ← NEW: For progress updates from Celery worker
 ) -> Dict[str, Any]:
+    # Set run_id on agent so trades link to this run
+    if hasattr(agent, '_current_run_id'):
+        agent._current_run_id = run_id
     """
     Run minute-by-minute intraday trading session
     

@@ -49,7 +49,8 @@ class TradingService:
         amount: int,
         model_id: int,
         date: str,
-        execution_source: str = "ai"
+        execution_source: str = "ai",
+        run_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Execute trade (buy or sell)
@@ -69,9 +70,9 @@ class TradingService:
             ValueError: Invalid parameters
         """
         if action == "buy":
-            return self.buy(symbol, amount, model_id, date, execution_source)
+            return self.buy(symbol, amount, model_id, date, execution_source, run_id)
         elif action == "sell":
-            return self.sell(symbol, amount, model_id, date, execution_source)
+            return self.sell(symbol, amount, model_id, date, execution_source, run_id)
         else:
             raise ValueError(f"Invalid action: {action}. Must be 'buy' or 'sell'")
     
@@ -81,7 +82,8 @@ class TradingService:
         amount: int,
         model_id: int,
         date: str,
-        execution_source: str = "ai"
+        execution_source: str = "ai",
+        run_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Execute buy order
@@ -215,10 +217,11 @@ class TradingService:
                 "action_id": current_action_id + 1,
                 "action_type": "buy",
                 "symbol": symbol,
-                "amount": amount,  # ← Correct column name
-                "positions": new_position,  # ← Full position state (JSONB)
-                "cash": cash_left,  # ← Correct column name
-                "reasoning": f"{execution_source} buy"
+                "amount": amount,
+                "positions": new_position,
+                "cash": cash_left,
+                "reasoning": f"{execution_source} buy",
+                "run_id": run_id  # ← Link to run!
             }).execute()
             
             print(f"  💾 Saved to database")
@@ -236,7 +239,8 @@ class TradingService:
         amount: int,
         model_id: int,
         date: str,
-        execution_source: str = "ai"
+        execution_source: str = "ai",
+        run_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Execute sell order
@@ -377,10 +381,11 @@ class TradingService:
                 "action_id": current_action_id + 1,
                 "action_type": "sell",
                 "symbol": symbol,
-                "amount": amount,  # ← Correct column name
-                "positions": new_position,  # ← Full position state (JSONB)
-                "cash": new_position["CASH"],  # ← Correct column name
-                "reasoning": f"{execution_source} sell"
+                "amount": amount,
+                "positions": new_position,
+                "cash": new_position["CASH"],
+                "reasoning": f"{execution_source} sell",
+                "run_id": run_id  # ← Link to run!
             }).execute()
             
             print(f"  💾 Saved to database")

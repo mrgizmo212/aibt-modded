@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Trash2 } from "lucide-react"
+import { X, Trash2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,8 +37,9 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   
   const [formData, setFormData] = useState({
     name: model?.name || "",
-    default_ai_model: model?.default_ai_model || "",  // Empty - user must select
-    system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
+    default_ai_model: model?.default_ai_model || "",
+    custom_rules: (model as any)?.custom_rules || "",
+    custom_instructions: (model as any)?.custom_instructions || "",
     starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
     allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
   })
@@ -59,8 +60,9 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
       const modelParams = (model as any)?.model_parameters || {}
       setFormData({
         name: model?.name || "",
-        default_ai_model: model?.default_ai_model || "",  // Empty - user must select
-        system_prompt: (model as any)?.custom_instructions || model?.system_prompt || "You are a professional AI trading assistant.",
+        default_ai_model: model?.default_ai_model || "",
+        custom_rules: (model as any)?.custom_rules || "",
+        custom_instructions: (model as any)?.custom_instructions || "",
         starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
         allowed_symbols: (model as any)?.allowed_tickers || model?.allowed_symbols || ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
       })
@@ -101,8 +103,9 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         default_ai_model: formData.default_ai_model,
         initial_cash: formData.starting_capital,
         allowed_tickers: symbols,
-        model_parameters: modelParameters,  // ← From ModelSettings component
-        custom_instructions: formData.system_prompt
+        model_parameters: modelParameters,
+        custom_rules: formData.custom_rules || undefined,
+        custom_instructions: formData.custom_instructions || undefined
       }
 
       if (isEditMode && model?.id) {
@@ -197,22 +200,58 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
             </p>
           </div>
 
-          {/* System Prompt */}
+          {/* Custom Trading Rules */}
           <div className="space-y-2">
-            <Label htmlFor="prompt" className="text-sm text-white">
-              System Prompt
+            <Label htmlFor="custom-rules" className="text-sm text-white">
+              Custom Trading Rules <span className="text-[#737373]">(Optional)</span>
             </Label>
             <Textarea
-              id="prompt"
-              value={formData.system_prompt}
-              onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+              id="custom-rules"
+              value={formData.custom_rules}
+              onChange={(e) => setFormData({ ...formData, custom_rules: e.target.value })}
               className="bg-[#1a1a1a] border-[#262626] text-white min-h-[100px] font-mono text-sm"
-              placeholder="Enter instructions for the AI trading agent..."
+              placeholder="Example: Only trade tech stocks. Never hold more than 5 positions. Take profit at 10%. Use stop-loss at -5%."
               disabled={loading}
+              maxLength={2000}
             />
             <p className="text-xs text-[#737373]">
-              Instructions that guide the AI's trading strategy and decision-making
+              {formData.custom_rules.length}/2000 characters • Define specific trading rules the AI must follow
             </p>
+          </div>
+
+          {/* Custom Instructions */}
+          <div className="space-y-2">
+            <Label htmlFor="custom-instructions" className="text-sm text-white">
+              Custom Instructions <span className="text-[#737373]">(Optional)</span>
+            </Label>
+            <Textarea
+              id="custom-instructions"
+              value={formData.custom_instructions}
+              onChange={(e) => setFormData({ ...formData, custom_instructions: e.target.value })}
+              className="bg-[#1a1a1a] border-[#262626] text-white min-h-[100px] font-mono text-sm"
+              placeholder="Example: Focus on value investing. Prefer companies with P/E ratio under 20. Analyze market sentiment before each trade."
+              disabled={loading}
+              maxLength={2000}
+            />
+            <p className="text-xs text-[#737373]">
+              {formData.custom_instructions.length}/2000 characters • Provide additional context or strategy guidance
+            </p>
+          </div>
+
+          {/* Info Box - Rules vs Instructions */}
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-purple-400">
+                <p className="font-medium mb-1">Custom Rules & Instructions:</p>
+                <ul className="space-y-1 text-purple-300 text-xs">
+                  <li>• <strong>No rules/instructions:</strong> AI uses default trading behavior</li>
+                  <li>• <strong>With rules:</strong> AI must follow your specific trading rules</li>
+                  <li>• <strong>With instructions:</strong> AI considers your strategy guidance</li>
+                  <li>• <strong>Both:</strong> AI follows rules AND considers instructions</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           {/* Model Parameters - Sophisticated Component from /frontend */}
