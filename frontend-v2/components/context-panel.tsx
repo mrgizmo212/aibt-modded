@@ -7,8 +7,10 @@ import { useState, useEffect, useRef } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
+import { ActivityFeed } from "@/components/activity-feed"
 import { AVAILABLE_MODELS } from "@/lib/constants"
 import { toast } from "sonner"
+import { useAuth } from "@/lib/auth-context"
 
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
@@ -18,6 +20,7 @@ interface ContextPanelProps {
 }
 
 export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick }: ContextPanelProps) {
+  const { user } = useAuth()
   const [modelData, setModelData] = useState<any>(null)
   const [runs, setRuns] = useState<any[]>([])
   const [positions, setPositions] = useState<any[]>([])
