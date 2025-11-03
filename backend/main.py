@@ -1352,15 +1352,23 @@ async def stream_trading_events(model_id: int, token: Optional[str] = None):
                         redis_event = await redis_client.get(redis_channel)
                         
                         if redis_event and isinstance(redis_event, dict):
-                            event_time = datetime.fromisoformat(redis_event.get('timestamp', ''))
-                            # Only send if newer than last event
-                            if event_time > last_event_time:
-                                yield f"data: {json.dumps(redis_event)}\n\n"
-                                last_event_time = event_time
-                    except:
-                        pass  # Redis poll failed, continue
+                            # Safely get and parse timestamp
+                            timestamp_str = redis_event.get('timestamp')
+                            if timestamp_str:
+                                try:
+                                    event_time = datetime.fromisoformat(timestamp_str)
+                                    # Only send if newer than last event
+                                    if event_time > last_event_time:
+                                        yield f"data: {json.dumps(redis_event)}\n\n"
+                                        last_event_time = event_time
+                                except (ValueError, TypeError):
+                                    # Invalid timestamp format, skip this event
+                                    pass
+                    except Exception as e:
+                        # Redis poll failed - don't crash SSE connection
+                        pass
                     
-                    # Send keepalive
+                    # Send keepalive (keeps connection alive)
                     yield f": keepalive\n\n"
                 
         except asyncio.CancelledError:
