@@ -94,16 +94,17 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
           // Old blocking response (shouldn't happen anymore)
           toast.success('Trading completed')
         }
-      } else {
-        // Daily mode (still blocking for now)
-        await startTrading(
-          modelId,
-          modelData.default_ai_model,
-          startDate,
-          endDate
-        )
-        toast.success('Daily trading started')
-      }
+      } 
+      // DAILY MODE TEMPORARILY DISABLED
+      // else {
+      //   await startTrading(
+      //     modelId,
+      //     modelData.default_ai_model,
+      //     startDate,
+      //     endDate
+      //   )
+      //   toast.success('Daily trading started')
+      // }
       
       if (onClose) onClose()
       
@@ -126,8 +127,8 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
       </h3>
 
       <div className="space-y-6">
-        {/* Trading Mode Selection: Daily vs Intraday */}
-        <div>
+        {/* Trading Mode Selection: Daily vs Intraday - DAILY TEMPORARILY DISABLED */}
+        {/* <div>
           <Label className="text-sm text-white mb-3 block">Trading Mode</Label>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -158,10 +159,10 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
               <div className="text-xs mt-1 opacity-75">Minute-by-minute, single day</div>
             </button>
           </div>
-        </div>
+        </div> */}
 
-        {/* Daily Mode Fields */}
-        {mode === 'daily' && (
+        {/* Daily Mode Fields - COMMENTED OUT */}
+        {/* {mode === 'daily' && (
           <>
             <div>
               <Label className="text-sm text-white mb-2 block">Start Date</Label>
@@ -185,7 +186,7 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
               />
             </div>
           </>
-        )}
+        )} */}
 
         {/* Intraday Mode Fields */}
         {mode === 'intraday' && (
@@ -275,10 +276,7 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
           <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-3 flex gap-3">
             <Info className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
             <p className="text-sm text-[#3b82f6]">
-              {mode === 'daily' 
-                ? `Will trade all symbols from ${startDate} to ${endDate} (1 decision per day)`
-                : `Will trade ${symbol} on ${intradayDate} (${session} session, minute-by-minute)`
-              }
+              Will trade {symbol} on {intradayDate} ({session} session, minute-by-minute)
             </p>
           </div>
         )}
