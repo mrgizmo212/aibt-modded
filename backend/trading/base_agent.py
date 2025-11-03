@@ -174,66 +174,74 @@ class BaseAgent:
         """Initialize MCP client and AI model"""
         print(f"🚀 Initializing agent: {self.signature}")
         
-        try:
-            # Create MCP client
-            print(f"📡 Connecting to MCP services...")
-            print(f"   Math: {self.mcp_config['math']['url']}")
-            print(f"   Stock: {self.mcp_config['stock_local']['url']}")
-            print(f"   Search: {self.mcp_config['search']['url']}")
-            # Trade: Now using TradingService instead of MCP
-            
-            # Retry connection with backoff
-            max_retries = 3
-            retry_delay = 2
-            
-            for attempt in range(max_retries):
-                try:
-                    print(f"   Connection attempt {attempt + 1}/{max_retries}...")
-                    self.client = MultiServerMCPClient(self.mcp_config)
-                    
-                    # Get MCP tools
-                    self.mcp_tools = await self.client.get_tools()
-                    print(f"✅ Loaded {len(self.mcp_tools)} MCP tools")
-                    
-                    # Add trading tools if TradingService provided
-                    if self.trading_service:
-                        from langchain_core.tools import Tool
+        # Try to connect to MCP services (optional - graceful degradation)
+        self.mcp_tools = []
+        
+        if self.mcp_config:
+            try:
+                # Create MCP client
+                print(f"📡 Connecting to MCP services...")
+                print(f"   Math: {self.mcp_config.get('math', {}).get('url', 'N/A')}")
+                print(f"   Stock: {self.mcp_config.get('stock_local', {}).get('url', 'N/A')}")
+                print(f"   Search: {self.mcp_config.get('search', {}).get('url', 'N/A')}")
+                # Trade: Now using TradingService instead of MCP
+                
+                # Retry connection with backoff
+                max_retries = 2  # Reduced from 3 for faster failure
+                retry_delay = 1  # Reduced from 2 for faster startup
+                
+                for attempt in range(max_retries):
+                    try:
+                        print(f"   Connection attempt {attempt + 1}/{max_retries}...")
+                        self.client = MultiServerMCPClient(self.mcp_config)
                         
-                        trading_tools = [
-                            Tool(
-                                name="buy",
-                                func=lambda symbol, amount: self._execute_buy(symbol, amount),
-                                description="Buy stock shares. Args: symbol (str), amount (int). Returns position dict or error."
-                            ),
-                            Tool(
-                                name="sell",
-                                func=lambda symbol, amount: self._execute_sell(symbol, amount),
-                                description="Sell stock shares. Args: symbol (str), amount (int). Returns position dict or error."
-                            )
-                        ]
-                        
-                        # Combine MCP tools + trading tools
-                        self.tools = self.mcp_tools + trading_tools
-                        print(f"  ✅ Added trading tools (buy, sell) via TradingService")
-                    else:
-                        # No TradingService - use MCP tools only
-                        self.tools = self.mcp_tools
-                        print(f"  ⚠️  No TradingService provided - trading may use MCP (if available)")
+                        # Get MCP tools
+                        self.mcp_tools = await self.client.get_tools()
+                        print(f"✅ Loaded {len(self.mcp_tools)} MCP tools")
+                        break
                     
-                    break
-                    
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        print(f"   ⚠️  Attempt {attempt + 1} failed, retrying in {retry_delay}s...")
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        raise e
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            print(f"   ⚠️  Attempt {attempt + 1} failed, retrying in {retry_delay}s...")
+                            await asyncio.sleep(retry_delay)
+                        else:
+                            raise e
+                
+            except Exception as e:
+                # MCP connection failed - continue without MCP tools (graceful degradation)
+                print(f"⚠️  Could not connect to MCP services: {str(e)}")
+                print(f"   Continuing without MCP tools (Math, Search, Price)")
+                print(f"   Trading will still work via TradingService")
+                self.mcp_tools = []
+        else:
+            print(f"  ℹ️  No MCP config provided - skipping MCP services")
+            self.mcp_tools = []
+        
+        # Add trading tools (whether MCP succeeded or failed)
+        if self.trading_service:
+            from langchain_core.tools import Tool
             
-        except Exception as e:
-            print(f"❌ Failed to connect to MCP services after {max_retries} attempts")
-            print(f"   Error: {str(e)}")
-            print(f"   Make sure MCP services are running on ports 8000-8003")
-            raise Exception(f"MCP connection failed: {str(e)}")
+            trading_tools = [
+                Tool(
+                    name="buy",
+                    func=lambda symbol, amount: self._execute_buy(symbol, amount),
+                    description="Buy stock shares. Args: symbol (str), amount (int). Returns position dict or error."
+                ),
+                Tool(
+                    name="sell",
+                    func=lambda symbol, amount: self._execute_sell(symbol, amount),
+                    description="Sell stock shares. Args: symbol (str), amount (int). Returns position dict or error."
+                )
+            ]
+            
+            # Combine MCP tools (if any) + trading tools
+            self.tools = self.mcp_tools + trading_tools
+            print(f"  ✅ Added trading tools (buy, sell) via TradingService")
+            print(f"  📊 Total tools: {len(self.tools)} (MCP: {len(self.mcp_tools)}, Trading: 2)")
+        else:
+            # No TradingService - use MCP tools only
+            self.tools = self.mcp_tools
+            print(f"  ⚠️  No TradingService provided - using {len(self.mcp_tools)} MCP tools only")
         
         try:
             # Create AI model
