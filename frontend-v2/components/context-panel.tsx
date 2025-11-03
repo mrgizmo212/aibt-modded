@@ -60,18 +60,8 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
         }
       }, 100)
       
-      // Check if latest event is a trade - refresh positions IMMEDIATELY
-      const latestEvent = events[events.length - 1]
-      if (latestEvent.type === 'trade' && selectedModelId) {
-        console.log('[ContextPanel] Trade detected - refreshing positions')
-        // Refresh positions after trade with minimal delay
-        setTimeout(() => {
-          if (context === "model") {
-            console.log('[ContextPanel] Reloading positions for model', selectedModelId)
-            loadModelData()
-          }
-        }, 500) // Reduced delay for faster updates
-      }
+      // Removed aggressive refresh on trade events
+      // Positions now update via SSE trade events or manual refresh only
     }
   }, [events])
 
@@ -79,10 +69,11 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     if (context === "model" && selectedModelId) {
       loadModelData()
       
-      // Poll for updates every 10 seconds when model is selected
+      // Poll for updates every 30 seconds (just for new runs, not trades)
+      // Positions/trades update via SSE events
       const intervalId = setInterval(() => {
         loadModelData()
-      }, 10000) // 10 seconds
+      }, 30000) // 30 seconds (reduced from 10)
       
       return () => clearInterval(intervalId)
     }

@@ -211,14 +211,13 @@ class TradingService:
             self.supabase.table("positions").insert({
                 "model_id": model_id,
                 "date": date,
-                "minute_time": None,  # For intraday, could track minute
+                "minute_time": None,
                 "action_id": current_action_id + 1,
                 "action_type": "buy",
                 "symbol": symbol,
-                "quantity": amount,
-                "price": current_price,
-                "cost": cost,
-                "cash_after": cash_left,
+                "amount": amount,  # ← Correct column name
+                "positions": new_position,  # ← Full position state (JSONB)
+                "cash": cash_left,  # ← Correct column name
                 "reasoning": f"{execution_source} buy"
             }).execute()
             
@@ -378,10 +377,9 @@ class TradingService:
                 "action_id": current_action_id + 1,
                 "action_type": "sell",
                 "symbol": symbol,
-                "quantity": amount,
-                "price": current_price,
-                "proceeds": proceeds,
-                "cash_after": new_position["CASH"],
+                "amount": amount,  # ← Correct column name
+                "positions": new_position,  # ← Full position state (JSONB)
+                "cash": new_position["CASH"],  # ← Correct column name
                 "reasoning": f"{execution_source} sell"
             }).execute()
             
