@@ -197,7 +197,7 @@ class BaseAgent:
                     
                     # Add trading tools if TradingService provided
                     if self.trading_service:
-                        from langchain.tools import Tool
+                        from langchain_core.tools import Tool
                         
                         trading_tools = [
                             Tool(
