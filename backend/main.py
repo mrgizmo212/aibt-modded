@@ -1240,7 +1240,7 @@ async def get_chat_history_endpoint(
 # ============================================================================
 
 @app.get("/api/trading/stream/{model_id}")
-async def stream_trading_events(model_id: int, token: Optional[str] = None, current_user: Dict = Depends(require_auth)):
+async def stream_trading_events(model_id: int, token: Optional[str] = None):
     """Stream real-time trading events for a model (Server-Sent Events)"""
     from fastapi.responses import StreamingResponse
     from auth import verify_token_string
