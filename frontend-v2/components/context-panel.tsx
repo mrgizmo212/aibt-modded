@@ -241,22 +241,22 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             </div>
           )}
 
-          {/* Live Updates - Terminal Style */}
-          {recentEvents.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-white">Live Updates</h2>
-                <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
-                  <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
-                  Streaming
-                </Badge>
-              </div>
-              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
-                <div 
-                  ref={liveUpdatesRef}
-                  className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
-                >
-                  {recentEvents.map((event, index) => {
+          {/* Live Updates - Terminal Style (ALWAYS SHOW) */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-white">Live Updates</h2>
+              <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
+                <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
+                Streaming
+              </Badge>
+            </div>
+            <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
+              <div 
+                ref={liveUpdatesRef}
+                className="max-h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
+              >
+                {recentEvents.length > 0 ? (
+                  recentEvents.map((event, index) => {
                     // Filter to show only terminal events for the terminal view
                     if (event.type !== 'terminal') return null
                     
@@ -273,16 +273,15 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                         </div>
                       </div>
                     )
-                  })}
-                  {recentEvents.filter(e => e.type === 'terminal').length === 0 && (
-                    <div className="text-center py-8 text-[#737373]">
-                      Waiting for trading activity...
-                    </div>
-                  )}
-                </div>
+                  })
+                ) : (
+                  <div className="text-center py-8 text-[#737373]">
+                    Waiting for trading activity...
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Positions Section */}
           <div>

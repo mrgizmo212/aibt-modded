@@ -206,7 +206,29 @@ class TradingService:
                 "date": date
             }
         
-        # Step 7: Return new position
+        # Step 7: Also write to DATABASE for frontend
+        try:
+            self.supabase.table("positions").insert({
+                "model_id": model_id,
+                "date": date,
+                "minute_time": None,  # For intraday, could track minute
+                "action_id": current_action_id + 1,
+                "action_type": "buy",
+                "symbol": symbol,
+                "quantity": amount,
+                "price": current_price,
+                "cost": cost,
+                "cash_after": cash_left,
+                "reasoning": f"{execution_source} buy"
+            }).execute()
+            
+            print(f"  💾 Saved to database")
+            
+        except Exception as e:
+            print(f"  ⚠️  Database write failed (file write succeeded): {e}")
+            # Don't fail the trade if DB write fails
+        
+        # Step 8: Return new position
         return new_position
     
     def sell(
@@ -347,7 +369,29 @@ class TradingService:
                 "date": date
             }
         
-        # Step 7: Return new position
+        # Step 7: Also write to DATABASE for frontend
+        try:
+            self.supabase.table("positions").insert({
+                "model_id": model_id,
+                "date": date,
+                "minute_time": None,
+                "action_id": current_action_id + 1,
+                "action_type": "sell",
+                "symbol": symbol,
+                "quantity": amount,
+                "price": current_price,
+                "proceeds": proceeds,
+                "cash_after": new_position["CASH"],
+                "reasoning": f"{execution_source} sell"
+            }).execute()
+            
+            print(f"  💾 Saved to database")
+            
+        except Exception as e:
+            print(f"  ⚠️  Database write failed (file write succeeded): {e}")
+            # Don't fail the trade if DB write fails
+        
+        # Step 8: Return new position
         return new_position
     
     def _get_signature(self, model_id: int) -> Optional[str]:
