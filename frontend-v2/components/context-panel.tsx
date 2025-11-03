@@ -75,6 +75,13 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
   useEffect(() => {
     if (context === "model" && selectedModelId) {
       loadModelData()
+      
+      // Poll for updates every 10 seconds when model is selected
+      const intervalId = setInterval(() => {
+        loadModelData()
+      }, 10000) // 10 seconds
+      
+      return () => clearInterval(intervalId)
     }
   }, [context, selectedModelId])
 
@@ -161,26 +168,51 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-white">Model Details</h2>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  if (!selectedModelId) return
-                  try {
-                    toast.info('Stopping and cleaning up...')
-                    await stopTrading(selectedModelId)
-                    toast.success('Run stopped and deleted')
-                    // Refresh data
-                    setTimeout(() => loadModelData(), 1000)
-                  } catch (error: any) {
-                    toast.error(error.message || 'Failed to stop')
-                  }
-                }}
-                className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
-              >
-                <Square className="w-4 h-4 mr-2" />
-                Stop Trading
-              </Button>
+              {(() => {
+                const runningRuns = runs.filter(r => r.status === 'running')
+                const hasRunning = runningRuns.length > 0
+                
+                return (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      if (!selectedModelId) return
+                      
+                      if (!hasRunning) {
+                        toast.info('No active runs to stop')
+                        return
+                      }
+                      
+                      try {
+                        toast.info(`Stopping ${runningRuns.length} active run${runningRuns.length > 1 ? 's' : ''}...`)
+                        
+                        // Stop ALL running runs for this model
+                        await Promise.all(
+                          runningRuns.map(run => stopSpecificRun(selectedModelId, run.id))
+                        )
+                        
+                        toast.success(`Stopped and deleted ${runningRuns.length} run${runningRuns.length > 1 ? 's' : ''}`)
+                        setCarouselIndex(0)
+                        setTimeout(() => loadModelData(), 1000)
+                      } catch (error: any) {
+                        toast.error(error.message || 'Failed to stop runs')
+                      }
+                    }}
+                    className={hasRunning 
+                      ? "text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                      : "text-[#737373] hover:text-[#a3a3a3] cursor-default"
+                    }
+                    title={hasRunning 
+                      ? `KILL SWITCH: Immediately stop and delete all ${runningRuns.length} running session${runningRuns.length > 1 ? 's' : ''} for this model`
+                      : "No active runs to stop"
+                    }
+                  >
+                    <Square className="w-4 h-4 mr-2" />
+                    Stop All Runs{runningRuns.length > 0 ? ` (${runningRuns.length})` : ''}
+                  </Button>
+                )
+              })()}
               <Button
                 size="sm"
                 variant="ghost"

@@ -105,8 +105,12 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
         toast.success('Daily trading started')
       }
       
-      if (onSuccess) onSuccess()
       if (onClose) onClose()
+      
+      // Trigger success callback AFTER closing (so parent can refresh)
+      if (onSuccess) {
+        setTimeout(() => onSuccess(), 100)
+      }
     } catch (error: any) {
       console.error('Failed to start trading:', error)
       toast.error(error.message || 'Failed to start trading')
