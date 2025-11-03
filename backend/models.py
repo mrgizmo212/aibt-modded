@@ -257,6 +257,13 @@ class StartTradingRequest(BaseModel):
     end_date: str
 
 
+class DailyBacktestRequest(BaseModel):
+    symbol: str  # Single stock for NEW daily
+    base_model: str
+    start_date: str
+    end_date: str
+
+
 class IntradayTradingRequest(BaseModel):
     base_model: str
     symbol: str  # Single stock for intraday

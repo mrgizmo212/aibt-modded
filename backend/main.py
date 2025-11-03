@@ -38,6 +38,7 @@ from models import (
     UserListResponse,
     SystemStatsResponse,
     StartTradingRequest,
+    DailyBacktestRequest,
     IntradayTradingRequest,
     ErrorResponse,
     ChatRequest,
@@ -1006,6 +1007,66 @@ async def start_intraday_trading(
         "symbol": request.symbol,
         "date": request.date,
         "message": "Trading session queued. Use task_id to check status."
+    }
+
+
+@app.post("/api/trading/start-daily/{model_id}")
+async def start_daily_backtest(
+    model_id: int,
+    request: DailyBacktestRequest,
+    current_user: Dict = Depends(require_auth)
+):
+    """
+    Start daily backtest (NEW - single stock, date range, Celery)
+    Different from old /start endpoint (multi-stock, agent_manager)
+    """
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Create run
+    run = await services.create_trading_run(
+        model_id=model_id,
+        trading_mode="daily",
+        strategy_snapshot={
+            "custom_rules": model.get("custom_rules"),
+            "custom_instructions": model.get("custom_instructions"),
+            "model_parameters": model.get("model_parameters")
+        },
+        date_range_start=request.start_date,
+        date_range_end=request.end_date
+    )
+    
+    run_id = run["id"]
+    run_number = run["run_number"]
+    
+    # Queue task
+    from workers.trading_tasks import run_daily_backtest
+    
+    task = run_daily_backtest.delay(
+        model_id=model_id,
+        user_id=current_user["id"],
+        symbol=request.symbol,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        base_model=request.base_model,
+        run_id=run_id
+    )
+    
+    # Store task_id
+    await services.update_trading_run(run_id, {"task_id": task.id})
+    
+    print(f"✅ Queued daily backtest: {task.id} (Run #{run_number}, {request.symbol})")
+    
+    return {
+        "status": "queued",
+        "task_id": task.id,
+        "run_id": run_id,
+        "run_number": run_number,
+        "symbol": request.symbol,
+        "start_date": request.start_date,
+        "end_date": request.end_date
     }
 
 

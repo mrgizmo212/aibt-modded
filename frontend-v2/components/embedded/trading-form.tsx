@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { startIntradayTrading, startTrading, getModelById, getRuns } from "@/lib/api"
+import { startIntradayTrading, startTrading, startDailyBacktest, getModelById, getRuns } from "@/lib/api"
 import { toast } from "sonner"
 
 interface TradingFormProps {
@@ -34,21 +34,28 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
   }
 
   const [mode, setMode] = useState<'daily' | 'intraday'>("intraday")
+  
+  // Intraday mode state (EXISTING - DON'T TOUCH)
+  const [symbol, setSymbol] = useState("SPY")
   const [session, setSession] = useState("regular")
-  const [symbol, setSymbol] = useState("SPY")  // Default to SPY (S&P 500 ETF)
+  const [intradayDate, setIntradayDate] = useState(getRecentTradingDate(1))
+  
+  // NEW Daily mode state (separate from old)
+  const [dailySymbol, setDailySymbol] = useState("SPY")
+  const [dailyStartDate, setDailyStartDate] = useState(getRecentTradingDate(5))
+  const [dailyEndDate, setDailyEndDate] = useState(getRecentTradingDate(1))
+  
+  // Component state
   const [loading, setLoading] = useState(false)
   const [modelData, setModelData] = useState<any>(null)
   const [runningRunsCount, setRunningRunsCount] = useState(0)
   
-  // Daily mode state
-  const [startDate, setStartDate] = useState(getRecentTradingDate(3)) // 3 trading days back
-  const [endDate, setEndDate] = useState(getRecentTradingDate(1))     // 1 trading day back
-  
-  // Intraday mode state
-  const [intradayDate, setIntradayDate] = useState(getRecentTradingDate(1))
-  
   // Limit: Max 2 concurrent runs per model
   const MAX_CONCURRENT_RUNS = 2
+  
+  // OLD daily state (commented out, preserved)
+  // const [startDate, setStartDate] = useState(getRecentTradingDate(3))
+  // const [endDate, setEndDate] = useState(getRecentTradingDate(1))
 
   // Load model configuration and check running runs
   useEffect(() => {
@@ -77,7 +84,24 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
     setLoading(true)
 
     try {
-      if (mode === 'intraday') {
+      if (mode === 'daily') {
+        // NEW DAILY MODE (Celery-based, single stock, date range)
+        const response = await startDailyBacktest(
+          modelId,
+          dailySymbol,
+          dailyStartDate,
+          dailyEndDate,
+          modelData.default_ai_model
+        )
+        
+        if (response.task_id) {
+          toast.success(`Daily backtest queued! Run #${response.run_number || '?'}`)
+          toast.info('Backtesting runs in background. Check Live Updates for progress.')
+        } else {
+          toast.success('Daily backtest completed')
+        }
+      } else if (mode === 'intraday') {
+        // EXISTING INTRADAY MODE (unchanged)
         const response = await startIntradayTrading(
           modelId,
           symbol,
@@ -86,23 +110,17 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
           modelData.default_ai_model
         )
         
-        // NEW: Handle async response with task_id
         if (response.task_id) {
           toast.success(`Trading queued! Run #${response.run_number || '?'}`)
           toast.info('Trading runs in background. Check Live Updates for progress.')
         } else {
-          // Old blocking response (shouldn't happen anymore)
           toast.success('Trading completed')
         }
-      } 
-      // DAILY MODE TEMPORARILY DISABLED
+      }
+      
+      // OLD DAILY MODE (preserved, commented)
       // else {
-      //   await startTrading(
-      //     modelId,
-      //     modelData.default_ai_model,
-      //     startDate,
-      //     endDate
-      //   )
+      //   await startTrading(modelId, modelData.default_ai_model, startDate, endDate)
       //   toast.success('Daily trading started')
       // }
       
@@ -127,7 +145,92 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
       </h3>
 
       <div className="space-y-6">
-        {/* Trading Mode Selection: Daily vs Intraday - DAILY TEMPORARILY DISABLED */}
+        {/* NEW Trading Mode Selector (Daily Backtest vs Intraday) */}
+        <div>
+          <Label className="text-sm text-white mb-3 block">Trading Mode</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setMode('daily')}
+              disabled={loading}
+              className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+                mode === 'daily'
+                  ? 'bg-green-600 border-green-600 text-white'
+                  : 'bg-[#0a0a0a] border-[#262626] text-[#a3a3a3] hover:border-[#404040]'
+              }`}
+            >
+              <div className="font-medium">📊 Daily Backtest</div>
+              <div className="text-xs mt-1 opacity-75">1 stock, multiple days, daily bars</div>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setMode('intraday')}
+              disabled={loading}
+              className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+                mode === 'intraday'
+                  ? 'bg-purple-600 border-purple-600 text-white'
+                  : 'bg-[#0a0a0a] border-[#262626] text-[#a3a3a3] hover:border-[#404040]'
+              }`}
+            >
+              <div className="font-medium">⚡ Intraday Trading</div>
+              <div className="text-xs mt-1 opacity-75">Minute-by-minute, single day</div>
+            </button>
+          </div>
+        </div>
+
+        {/* NEW Daily Backtest Fields */}
+        {mode === 'daily' && (
+          <>
+            <div>
+              <Label className="text-sm text-white mb-2 block">Symbol</Label>
+              <Select 
+                value={dailySymbol} 
+                onValueChange={setDailySymbol}
+                disabled={loading}
+              >
+                <SelectTrigger className="bg-[#0a0a0a] border-[#262626] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#262626]">
+                  <SelectItem value="SPY">SPY - S&P 500 ETF</SelectItem>
+                  <SelectItem value="AAPL">AAPL - Apple Inc.</SelectItem>
+                  <SelectItem value="MSFT">MSFT - Microsoft</SelectItem>
+                  <SelectItem value="GOOGL">GOOGL - Google</SelectItem>
+                  <SelectItem value="NVDA">NVDA - NVIDIA</SelectItem>
+                  <SelectItem value="META">META - Meta</SelectItem>
+                  <SelectItem value="AMZN">AMZN - Amazon</SelectItem>
+                  <SelectItem value="TSLA">TSLA - Tesla</SelectItem>
+                  <SelectItem value="IBM">IBM - IBM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm text-white mb-2 block">Start Date</Label>
+              <input
+                type="date"
+                value={dailyStartDate}
+                onChange={(e) => setDailyStartDate(e.target.value)}
+                disabled={loading}
+                className="w-full px-3 py-2 bg-[#0a0a0a] border border-[#262626] rounded-lg text-white focus:border-[#3b82f6] focus:outline-none"
+              />
+            </div>
+            
+            <div>
+              <Label className="text-sm text-white mb-2 block">End Date</Label>
+              <input
+                type="date"
+                value={dailyEndDate}
+                onChange={(e) => setDailyEndDate(e.target.value)}
+                disabled={loading}
+                className="w-full px-3 py-2 bg-[#0a0a0a] border border-[#262626] rounded-lg text-white focus:border-[#3b82f6] focus:outline-none"
+              />
+            </div>
+          </>
+        )}
+
+        {/* OLD DAILY COMMENTED OUT - PRESERVED */}
         {/* <div>
           <Label className="text-sm text-white mb-3 block">Trading Mode</Label>
           <div className="grid grid-cols-2 gap-3">
@@ -276,7 +379,10 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
           <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-3 flex gap-3">
             <Info className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
             <p className="text-sm text-[#3b82f6]">
-              Will trade {symbol} on {intradayDate} ({session} session, minute-by-minute)
+              {mode === 'daily' 
+                ? `Will backtest ${dailySymbol} from ${dailyStartDate} to ${dailyEndDate} (daily bars)`
+                : `Will trade ${symbol} on ${intradayDate} (${session} session, minute-by-minute)`
+              }
             </p>
           </div>
         )}

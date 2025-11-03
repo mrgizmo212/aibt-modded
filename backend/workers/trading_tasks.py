@@ -203,3 +203,134 @@ def run_intraday_trading(
             'error': str(e)
         }
 
+
+@celery_app.task(bind=True, name='workers.run_daily_backtest')
+def run_daily_backtest(
+    self,
+    model_id: int,
+    user_id: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    base_model: str,
+    run_id: int = None
+) -> Dict[str, Any]:
+    """
+    Background task for daily backtest (single stock, date range, daily bars)
+    
+    Similar to intraday but uses daily OHLCV bars instead of minute ticks
+    """
+    try:
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'status': 'Initializing daily backtest...',
+                'current': 0,
+                'total': 100,
+                'model_id': model_id,
+                'symbol': symbol
+            }
+        )
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        model = loop.run_until_complete(get_model_by_id(model_id, user_id))
+        
+        if not model:
+            return {'status': 'error', 'error': 'Model not found'}
+        
+        # Get/create run
+        if not run_id:
+            run = loop.run_until_complete(create_trading_run(
+                model_id=model_id,
+                trading_mode="daily",
+                strategy_snapshot={
+                    "custom_rules": model.get("custom_rules"),
+                    "custom_instructions": model.get("custom_instructions"),
+                    "model_parameters": model.get("model_parameters")
+                },
+                date_range_start=start_date,
+                date_range_end=end_date
+            ))
+            run_id = run["id"]
+            run_number = run["run_number"]
+        else:
+            from services import get_run_by_id
+            run = loop.run_until_complete(get_run_by_id(model_id, run_id, user_id))
+            run_number = run["run_number"] if run else "?"
+        
+        print(f"🚀 Celery Task: Daily Backtest Run #{run_number} ({symbol}: {start_date} to {end_date})")
+        
+        supabase = get_supabase()
+        trading_service = TradingService(supabase)
+        
+        # Create agent
+        agent = BaseAgent(
+            signature=model["signature"],
+            basemodel=base_model,
+            stock_symbols=[symbol],
+            max_steps=30,
+            initial_cash=model.get("initial_cash", 10000.0),
+            model_id=model_id,
+            custom_rules=model.get("custom_rules"),
+            custom_instructions=model.get("custom_instructions"),
+            model_parameters=model.get("model_parameters"),
+            trading_service=trading_service
+        )
+        
+        # Set run_id so trades link
+        agent._current_run_id = run_id
+        
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'status': 'Initializing AI agent...',
+                'current': 20,
+                'total': 100,
+                'run_id': run_id
+            }
+        )
+        
+        loop.run_until_complete(agent.initialize())
+        
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'status': f'Running backtest ({symbol})...',
+                'current': 40,
+                'total': 100
+            }
+        )
+        
+        # Run daily backtest
+        loop.run_until_complete(agent.run_date_range(start_date, end_date))
+        
+        # Complete run
+        # TODO: Get actual metrics from agent
+        loop.run_until_complete(complete_trading_run(run_id, {
+            "total_trades": 0,  # Will be calculated
+            "final_return": 0.0,
+            "final_portfolio_value": model.get("initial_cash", 10000.0)
+        }))
+        
+        print(f"✅ Celery Task: Daily Backtest Run #{run_number} completed")
+        
+        loop.close()
+        
+        return {
+            'status': 'completed',
+            'run_id': run_id,
+            'run_number': run_number
+        }
+        
+    except Exception as e:
+        print(f"❌ Daily Backtest Error: {e}")
+        
+        self.update_state(
+            state='FAILURE',
+            meta={'status': f'Error: {str(e)}', 'error': str(e)}
+        )
+        
+        return {'status': 'error', 'error': str(e)}
+

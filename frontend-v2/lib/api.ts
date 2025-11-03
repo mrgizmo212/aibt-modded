@@ -179,6 +179,7 @@ export async function getModelConfig(modelId: string) {
 // ============================================================================
 
 // Paper Trading: Explicit parameters like original frontend
+// OLD daily trading endpoint (keep for reference, may deprecate)
 export async function startTrading(
   modelId: number,
   baseModel: string,
@@ -191,6 +192,25 @@ export async function startTrading(
       base_model: baseModel,
       start_date: startDate,
       end_date: endDate
+    }),
+  })
+}
+
+// NEW daily backtest (single stock, date range, Celery)
+export async function startDailyBacktest(
+  modelId: number,
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  baseModel: string
+) {
+  return apiFetch(`/api/trading/start-daily/${modelId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      symbol,
+      start_date: startDate,
+      end_date: endDate,
+      base_model: baseModel
     }),
   })
 }
