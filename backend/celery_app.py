@@ -45,10 +45,6 @@ celery_app.conf.update(
     worker_max_tasks_per_child=10,  # Restart worker after 10 tasks (prevent memory leaks)
 )
 
-# Import tasks directly (autodiscover had path issues on Render)
-# This ensures tasks are registered when celery_app is imported
-try:
-    from workers import trading_tasks
-except ImportError as e:
-    print(f"Warning: Could not import trading_tasks: {e}")
+# Auto-discover tasks in workers package
+celery_app.autodiscover_tasks(['workers'])
 
