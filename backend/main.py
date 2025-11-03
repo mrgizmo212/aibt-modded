@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 import asyncio
+import os
 
 from config import settings
 from auth import (
