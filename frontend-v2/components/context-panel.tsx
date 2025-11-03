@@ -192,6 +192,29 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             </div>
           </div>
 
+          {/* Background Task Progress */}
+          {runs.length > 0 && runs[0].status === 'running' && (
+            <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-[#3b82f6] animate-pulse" />
+                  <span className="text-sm font-semibold text-white">
+                    Run #{runs[0].run_number} In Progress
+                  </span>
+                </div>
+                <Badge className="bg-[#3b82f6]/20 text-[#3b82f6] border-[#3b82f6]/30 text-xs">
+                  Background
+                </Badge>
+              </div>
+              <p className="text-xs text-[#a3a3a3]">
+                {runs[0].intraday_symbol} • {new Date(runs[0].intraday_date).toLocaleDateString()} • {runs[0].intraday_session}
+              </p>
+              <p className="text-xs text-[#3b82f6] mt-2">
+                ℹ️ Check Live Updates below for real-time activity
+              </p>
+            </div>
+          )}
+
           {/* Model Info */}
           {modelData && (
             <div>

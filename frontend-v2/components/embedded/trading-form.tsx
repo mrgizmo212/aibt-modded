@@ -68,19 +68,27 @@ export function TradingForm({ modelId, modelName, onClose, onSuccess }: TradingF
 
     try {
       if (mode === 'intraday') {
-        await startIntradayTrading(
+        const response = await startIntradayTrading(
           modelId,
           symbol,
-          intradayDate,  // Use selected intraday date
+          intradayDate,
           session as 'pre' | 'regular' | 'after',
-          modelData.default_ai_model  // Use model's configured AI model
+          modelData.default_ai_model
         )
-        toast.success('Intraday trading started')
+        
+        // NEW: Handle async response with task_id
+        if (response.task_id) {
+          toast.success(`Trading queued! Run #${response.run_number || '?'}`)
+          toast.info('Trading runs in background. Check Live Updates for progress.')
+        } else {
+          // Old blocking response (shouldn't happen anymore)
+          toast.success('Trading completed')
+        }
       } else {
-        // Daily mode
+        // Daily mode (still blocking for now)
         await startTrading(
           modelId,
-          modelData.default_ai_model,  // Use model's configured AI model
+          modelData.default_ai_model,
           startDate,
           endDate
         )

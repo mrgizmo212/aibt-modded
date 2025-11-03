@@ -220,6 +220,10 @@ export async function stopTrading(modelId: number) {
   })
 }
 
+export async function getTaskStatus(taskId: string) {
+  return apiFetch(`/api/trading/task-status/${taskId}`)
+}
+
 export async function getTradingStatus(modelId?: number) {
   const endpoint = modelId 
     ? `/api/trading/status/${modelId}`
