@@ -1156,6 +1156,54 @@ async def get_run_details_endpoint(
         raise HTTPException(403, "Access denied")
 
 
+@app.post("/api/models/{model_id}/runs/{run_id}/stop")
+async def stop_specific_run(
+    model_id: int,
+    run_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Stop a specific running task by run_id"""
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    if not model:
+        raise NotFoundError("Model")
+    
+    # Get the specific run
+    run = await services.get_run_by_id(model_id, run_id, current_user["id"])
+    if not run:
+        raise HTTPException(404, "Run not found")
+    
+    # Check if it's running and has task_id
+    if run.get("status") != "running":
+        return {"status": "not_running", "message": "Run is not currently running"}
+    
+    if not run.get("task_id"):
+        return {"status": "no_task", "message": "Run has no task_id (old format)"}
+    
+    # Revoke the Celery task
+    from celery_app import celery_app
+    task_id = run["task_id"]
+    
+    print(f"🛑 Revoking specific run: Run #{run['run_number']} (task: {task_id})")
+    
+    celery_app.control.revoke(task_id, terminate=True)
+    
+    # Update run status
+    await services.update_trading_run(run_id, {
+        "status": "stopped",
+        "ended_at": datetime.now().isoformat()
+    })
+    
+    print(f"✅ Stopped Run #{run['run_number']}")
+    
+    return {
+        "status": "stopped",
+        "task_id": task_id,
+        "run_id": run_id,
+        "run_number": run["run_number"]
+    }
+
+
 @app.delete("/api/models/{model_id}/runs/{run_id}")
 async def delete_run_endpoint(
     model_id: int,

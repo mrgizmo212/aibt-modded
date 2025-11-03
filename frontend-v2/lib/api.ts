@@ -275,6 +275,12 @@ export async function deleteRun(modelId: number, runId: number) {
   })
 }
 
+export async function stopSpecificRun(modelId: number, runId: number) {
+  return apiFetch(`/api/models/${modelId}/runs/${runId}/stop`, {
+    method: 'POST',
+  })
+}
+
 // ============================================================================
 // PORTFOLIO & POSITIONS
 // ============================================================================

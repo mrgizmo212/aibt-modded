@@ -4,7 +4,7 @@ import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCi
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef } from "react"
-import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun } from "@/lib/api"
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { AVAILABLE_MODELS } from "@/lib/constants"
@@ -409,6 +409,29 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                         </p>
                       </div>
                     </button>
+                    
+                    {/* Stop button for running tasks (orange square) */}
+                    {run.status === 'running' && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          try {
+                            toast.info(`Stopping Run #${run.run_number}...`)
+                            await stopSpecificRun(selectedModelId!, run.id)
+                            toast.success(`Run #${run.run_number} stopped`)
+                            loadModelData()
+                          } catch (error: any) {
+                            toast.error(error.message || 'Failed to stop')
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1.5 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 rounded"
+                        title="Stop this run"
+                      >
+                        <Square className="w-4 h-4" />
+                      </button>
+                    )}
+                    
+                    {/* Delete button for completed tasks (red trash) */}
                     {run.status !== 'running' && (
                       <button
                         onClick={async (e) => {
