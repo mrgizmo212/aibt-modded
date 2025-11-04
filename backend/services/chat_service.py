@@ -15,7 +15,7 @@ def get_supabase() -> Client:
 
 async def get_or_create_chat_session(
     model_id: int,
-    run_id: int,
+    run_id: Optional[int],
     user_id: str
 ) -> Dict:
     """
@@ -23,7 +23,7 @@ async def get_or_create_chat_session(
     
     Args:
         model_id: Model ID
-        run_id: Run ID
+        run_id: Run ID (None for general dashboard chat)
         user_id: User ID (for ownership verification)
     
     Returns:
@@ -43,23 +43,31 @@ async def get_or_create_chat_session(
         raise PermissionError(f"User {user_id} does not own model {model_id}")
     
     # Try to get existing session
-    result = supabase.table("chat_sessions")\
+    query = supabase.table("chat_sessions")\
         .select("*")\
-        .eq("model_id", model_id)\
-        .eq("run_id", run_id)\
-        .execute()
+        .eq("model_id", model_id)
+    
+    if run_id is not None:
+        query = query.eq("run_id", run_id)
+    else:
+        query = query.is_("run_id", "null")
+    
+    result = query.execute()
     
     if result.data:
         return result.data[0]
     
     # Create new session
-    run = supabase.table("trading_runs").select("run_number").eq("id", run_id).execute()
-    run_number = run.data[0]["run_number"] if run.data else "?"
+    session_title = "General Chat"
+    if run_id is not None:
+        run = supabase.table("trading_runs").select("run_number").eq("id", run_id).execute()
+        run_number = run.data[0]["run_number"] if run.data else "?"
+        session_title = f"Run #{run_number} Strategy Discussion"
     
     new_session = supabase.table("chat_sessions").insert({
         "model_id": model_id,
-        "run_id": run_id,
-        "session_title": f"Run #{run_number} Strategy Discussion",
+        "run_id": run_id,  # Can be NULL
+        "session_title": session_title,
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat()
     }).execute()
@@ -69,10 +77,10 @@ async def get_or_create_chat_session(
 
 async def save_chat_message(
     model_id: int,
-    run_id: int,
+    run_id: Optional[int],  # Can be None for general chat
     role: str,
     content: str,
-    user_id: str,  # ← ADD: Need user_id for permission check
+    user_id: str,
     tool_calls: Optional[List] = None
 ) -> Dict:
     """
@@ -114,7 +122,7 @@ async def save_chat_message(
 
 async def get_chat_messages(
     model_id: int,
-    run_id: int,
+    run_id: Optional[int],
     user_id: str,
     limit: Optional[int] = None
 ) -> List[Dict]:
@@ -123,7 +131,7 @@ async def get_chat_messages(
     
     Args:
         model_id: Model ID
-        run_id: Run ID
+        run_id: Run ID (None for general chat)
         user_id: User ID (for ownership verification)
         limit: Optional limit on messages
     

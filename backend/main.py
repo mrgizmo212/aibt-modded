@@ -1357,6 +1357,20 @@ async def get_chat_history_endpoint(
         raise HTTPException(403, "Access denied")
 
 
+@app.get("/api/models/{model_id}/chat-history")
+async def get_general_chat_history_endpoint(
+    model_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Get general chat message history (no run context)"""
+    try:
+        from services.chat_service import get_chat_messages
+        messages = await get_chat_messages(model_id, None, current_user["id"])
+        return {"messages": messages}
+    except PermissionError:
+        raise HTTPException(403, "Access denied")
+
+
 @app.get("/api/admin/chat-settings")
 async def get_global_chat_settings(current_user: Dict = Depends(require_admin)):
     """Get global chat AI configuration (admin only)"""
@@ -1470,9 +1484,9 @@ async def general_chat_stream_endpoint(
                 model_params = {"temperature": 0.3, "top_p": 0.9}
                 instructions = ""
             
-            # Get user's first model for API key
+            # Get user's first model for API key and session linking
             user_models = supabase.table("models")\
-                .select("signature")\
+                .select("id, signature")\
                 .eq("user_id", current_user["id"])\
                 .limit(1)\
                 .execute()
@@ -1509,6 +1523,19 @@ async def general_chat_stream_endpoint(
             
             model = ChatOpenAI(**params)
             
+            # Get first model ID
+            first_model_id = user_models.data[0].get("id")
+            
+            # Load conversation history (if exists)
+            chat_history = []
+            if first_model_id:
+                try:
+                    from services.chat_service import get_chat_messages
+                    chat_history = await get_chat_messages(first_model_id, None, current_user["id"], limit=10)
+                    print(f"📖 Loaded {len(chat_history)} previous messages for context")
+                except:
+                    pass  # No history yet
+            
             # Simple system prompt
             system_prompt = f"""You are a helpful assistant for True Trading Group's AI Trading Platform.
 
@@ -1522,10 +1549,16 @@ You can help users:
 
 For detailed trade analysis, ask users to select a specific run first (then you'll have access to analysis tools)."""
             
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ]
+            # Build messages with history
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add last 10 messages for context
+            for msg in chat_history[-10:]:
+                if msg["role"] in ["user", "assistant"]:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
             
             # Stream response
             full_response = ""
@@ -1536,6 +1569,36 @@ For detailed trade analysis, ask users to select a specific run first (then you'
                         "event": "message",
                         "data": json.dumps({"type": "token", "content": chunk.content})
                     }
+            
+            # Save conversation to database
+            # Use user's first model_id for session linking
+            first_model_id = user_models.data[0].get("id")
+            
+            if first_model_id:
+                try:
+                    from services.chat_service import save_chat_message
+                    
+                    # Save user message
+                    await save_chat_message(
+                        model_id=first_model_id,
+                        run_id=None,  # General chat = no run
+                        role="user",
+                        content=message,
+                        user_id=current_user["id"]
+                    )
+                    
+                    # Save AI response
+                    await save_chat_message(
+                        model_id=first_model_id,
+                        run_id=None,  # General chat = no run
+                        role="assistant",
+                        content=full_response,
+                        user_id=current_user["id"]
+                    )
+                    
+                    print(f"💾 Saved general chat conversation (model_id={first_model_id})")
+                except Exception as e:
+                    print(f"⚠️  Failed to save general chat: {e}")
             
             yield {
                 "event": "message",

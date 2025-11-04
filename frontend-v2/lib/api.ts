@@ -391,6 +391,10 @@ export async function getChatHistory(modelId: number, runId: number) {
   return apiFetch(`/api/models/${modelId}/runs/${runId}/chat-history`)
 }
 
+export async function getGeneralChatHistory(modelId: number) {
+  return apiFetch(`/api/models/${modelId}/chat-history`)
+}
+
 // ============================================================================
 // ADMIN ENDPOINTS
 // ============================================================================
