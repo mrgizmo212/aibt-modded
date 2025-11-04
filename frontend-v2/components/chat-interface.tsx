@@ -68,6 +68,7 @@ export function ChatInterface({
   >(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const streamingMessageIdRef = useRef<string | null>(null)
   
   // Streaming hook - use general chat if no run, run-specific if run selected
   const canStream = true  // Always enable streaming!
@@ -79,16 +80,18 @@ export function ChatInterface({
     isGeneral: isGeneralChat,
     onComplete: (fullResponse) => {
       console.log('[Chat] onComplete fired! Full response length:', fullResponse.length)
-      console.log('[Chat] streamingMessageId:', streamingMessageId)
-      // Update streaming message with final content
-      if (streamingMessageId) {
+      console.log('[Chat] streamingMessageIdRef.current:', streamingMessageIdRef.current)
+      // Update streaming message with final content using ref (not stale closure)
+      const msgId = streamingMessageIdRef.current
+      if (msgId) {
         console.log('[Chat] Marking message as complete, removing streaming flag')
         setMessages(prev => prev.map(m => 
-          m.id === streamingMessageId 
+          m.id === msgId 
             ? { ...m, streaming: false, text: fullResponse }
             : m
         ))
         setStreamingMessageId(null)
+        streamingMessageIdRef.current = null
       }
       setIsTyping(false)
       console.log('[Chat] onComplete finished')
@@ -114,11 +117,86 @@ export function ChatInterface({
     scrollToBottom()
   }, [messages, chatStream.streamedContent])
   
-  // DISABLED: Old chat history loading (replaced by session-based system)
-  // TODO: Wire up session-based conversation loading
-  // useEffect(() => {
-  //   Load messages from selected conversation session
-  // }, [selectedConversationId])
+  // Load conversation messages when conversation is selected
+  useEffect(() => {
+    const loadConversationMessages = async () => {
+      // Get session ID from URL
+      const params = new URLSearchParams(window.location.search)
+      const sessionId = params.get('c')
+      
+      if (!sessionId) {
+        // No conversation selected, show only welcome message
+        setMessages([{
+          id: "1",
+          type: "ai",
+          text: "Good morning! How can I help you with your trading today?",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
+        }])
+        return
+      }
+      
+      try {
+        const { getSessionMessages } = await import('@/lib/api')
+        const data = await getSessionMessages(parseInt(sessionId))
+        
+        if (data.messages && data.messages.length > 0) {
+          // Convert to Message format
+          const historicalMessages = data.messages.map((msg: any) => ({
+            id: msg.id.toString(),
+            type: msg.role === 'user' ? 'user' : 'ai',
+            text: msg.content,
+            timestamp: new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+            toolsUsed: msg.tool_calls || []
+          }))
+          
+          // Show conversation history
+          setMessages(historicalMessages)
+          console.log('[Chat] Loaded', historicalMessages.length, 'messages for conversation', sessionId)
+        }
+      } catch (error) {
+        console.error('Failed to load conversation messages:', error)
+      }
+    }
+    
+    loadConversationMessages()
+  }, [])  // Load once on mount, URL params determine which conversation
+  
+  // Reload messages when URL changes (conversation switch)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search)
+      const sessionId = params.get('c')
+      
+      if (sessionId) {
+        // Conversation selected, reload messages
+        const loadMessages = async () => {
+          try {
+            const { getSessionMessages } = await import('@/lib/api')
+            const data = await getSessionMessages(parseInt(sessionId))
+            
+            if (data.messages) {
+              const historicalMessages = data.messages.map((msg: any) => ({
+                id: msg.id.toString(),
+                type: msg.role === 'user' ? 'user' : 'ai',
+                text: msg.content,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+                toolsUsed: msg.tool_calls || []
+              }))
+              setMessages(historicalMessages)
+            }
+          } catch (error) {
+            console.error('Failed to load conversation:', error)
+          }
+        }
+        loadMessages()
+      }
+    }
+    
+    // Listen for URL changes
+    window.addEventListener('popstate', handleUrlChange)
+    return () => window.removeEventListener('popstate', handleUrlChange)
+  }, [])
   
   // Update streaming message as content arrives
   useEffect(() => {
@@ -270,6 +348,7 @@ export function ChatInterface({
     
     setMessages(prev => [...prev, streamingMessage])
     setStreamingMessageId(streamingMsgId)
+    streamingMessageIdRef.current = streamingMsgId  // ← Also save to ref
     
     // Start stream
     console.log('[Chat] Calling chatStream.startStream with message:', currentInput)
