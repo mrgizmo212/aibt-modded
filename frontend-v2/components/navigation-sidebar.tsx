@@ -412,6 +412,12 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       
       setGeneralConversations(prev => [newSession, ...prev])
       setSelectedConversationId(newSession.id)
+      
+      // Immediately update URL
+      if (onConversationSelect) {
+        onConversationSelect(newSession.id)  // This will call router.push('/?c=X')
+      }
+      
       toast.success("Started new conversation")
     } catch (error: any) {
       console.error('Failed to create general conversation:', error)
@@ -433,6 +439,12 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       }))
       setSelectedConversationId(newSession.id)
       onSelectModel(modelId)
+      
+      // Immediately update URL
+      if (onConversationSelect) {
+        onConversationSelect(newSession.id, modelId)  // This will call router.push('/?m=X&c=Y')
+      }
+      
       toast.success("Started new conversation for this model")
     } catch (error: any) {
       console.error('Failed to create model conversation:', error)
@@ -450,11 +462,11 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       if (selectedConversationId === convId) {
         setSelectedConversationId(null)
         
-        // Clear URL if this conversation was selected
-        if (onConversationSelect) {
-          // Navigate to dashboard (no conversation)
-          window.history.pushState({}, '', '/')
-        }
+        // Clear URL - go back to root
+        window.history.pushState({}, '', '/')
+        
+        // Reload page to reset chat to dashboard
+        window.location.href = '/'
       }
       
       // Then delete from backend
@@ -730,10 +742,11 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                                           if (selectedConversationId === convo.id) {
                                             setSelectedConversationId(null)
                                             
-                                            // Clear URL if this conversation was selected
-                                            if (onConversationSelect) {
-                                              window.history.pushState({}, '', '/')
-                                            }
+                                            // Clear URL - go back to root
+                                            window.history.pushState({}, '', '/')
+                                            
+                                            // Reload page to reset to dashboard
+                                            window.location.href = '/'
                                           }
                                           
                                           // Then delete from backend

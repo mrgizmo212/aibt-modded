@@ -359,7 +359,6 @@ export function ChatInterface({
     } catch (error) {
       console.error('[Chat] Stream start failed:', error)
       setIsTyping(false)
-      onError?.(error instanceof Error ? error.message : 'Stream failed')
     }
     return
     
@@ -672,22 +671,7 @@ export function ChatInterface({
             )}
           </div>
         ))}
-        {isTyping && (
-          <div className="flex gap-2 lg:gap-3 max-w-[95%] lg:max-w-[90%]">
-            <Avatar className="w-7 h-7 lg:w-8 lg:h-8 bg-[#3b82f6] flex-shrink-0">
-              <AvatarFallback className="bg-[#3b82f6] text-white">
-                <Bot className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-3 lg:p-4">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-[#a3a3a3] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <div className="w-2 h-2 bg-[#a3a3a3] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <div className="w-2 h-2 bg-[#a3a3a3] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Removed: Three loading dots (isTyping animation) */}
         <div ref={messagesEndRef} />
       </div>
 
