@@ -513,10 +513,16 @@ If user is confused, explain simply:
     async def chat_stream(
         self,
         user_message: str,
-        conversation_history: Optional[List[Dict]] = None
+        conversation_history: Optional[List[Dict]] = None,
+        conversation_summary: Optional[str] = None
     ):
         """
         Stream response tokens as they arrive
+        
+        Args:
+            user_message: Current user message
+            conversation_history: Recent messages (last 30)
+            conversation_summary: Summary of older messages (if >60 total)
         
         Yields:
             {"type": "token", "content": str} - Text chunks
@@ -526,8 +532,16 @@ If user is confused, explain simply:
         # Build messages
         messages = []
         
+        # Add summary if exists (for very long conversations)
+        if conversation_summary:
+            messages.append({
+                "role": "system",
+                "content": f"<conversation_summary>\nPrevious conversation context: {conversation_summary}\n</conversation_summary>"
+            })
+        
+        # Add recent messages (last 30)
         if conversation_history:
-            for msg in conversation_history[-10:]:
+            for msg in conversation_history[-30:]:  # Increased from 10 to 30
                 if msg["role"] in ["user", "assistant"]:
                     messages.append({"role": msg["role"], "content": msg["content"]})
         

@@ -133,7 +133,7 @@ async def get_chat_messages(
         model_id: Model ID
         run_id: Run ID (None for general chat)
         user_id: User ID (for ownership verification)
-        limit: Optional limit on messages
+        limit: Optional limit on messages (default: 30)
     
     Returns:
         List of messages ordered by time
@@ -148,12 +148,15 @@ async def get_chat_messages(
     query = supabase.table("chat_messages")\
         .select("*")\
         .eq("session_id", session_id)\
-        .order("timestamp")
+        .order("timestamp", desc=True)  # Most recent first
     
-    if limit:
-        query = query.limit(limit)
+    # Default to 30 messages
+    query = query.limit(limit if limit else 30)
     
     result = query.execute()
     
-    return result.data or []
+    # Reverse to chronological order (oldest first)
+    messages = list(reversed(result.data)) if result.data else []
+    
+    return messages
 

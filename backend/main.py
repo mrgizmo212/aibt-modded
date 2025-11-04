@@ -1543,13 +1543,24 @@ async def general_chat_stream_endpoint(
             # Get first model ID
             first_model_id = user_models.data[0].get("id")
             
-            # Load conversation history (if exists)
+            # Load conversation history and summary
             chat_history = []
+            conversation_summary = None
+            
             if first_model_id:
                 try:
-                    from services.chat_service import get_chat_messages
-                    chat_history = await get_chat_messages(first_model_id, None, current_user["id"], limit=10)
+                    from services.chat_service import get_chat_messages, get_or_create_chat_session
+                    
+                    # Get last 30 messages
+                    chat_history = await get_chat_messages(first_model_id, None, current_user["id"], limit=30)
+                    
+                    # Get session summary (if conversation is long)
+                    session = await get_or_create_chat_session(first_model_id, None, current_user["id"])
+                    conversation_summary = session.get("conversation_summary")
+                    
                     print(f"📖 Loaded {len(chat_history)} previous messages for context")
+                    if conversation_summary:
+                        print(f"📝 Using conversation summary ({len(conversation_summary)} chars)")
                 except:
                     pass  # No history yet
             
@@ -1569,8 +1580,15 @@ For detailed trade analysis, ask users to select a specific run first (then you'
             # Build messages with history
             messages = [{"role": "system", "content": system_prompt}]
             
-            # Add last 10 messages for context
-            for msg in chat_history[-10:]:
+            # Add summary if exists (for long conversations)
+            if conversation_summary:
+                messages.append({
+                    "role": "system",
+                    "content": f"<conversation_summary>\nPrevious conversation context: {conversation_summary}\n</conversation_summary>"
+                })
+            
+            # Add last 30 messages for context (increased from 10)
+            for msg in chat_history[-30:]:
                 if msg["role"] in ["user", "assistant"]:
                     messages.append({"role": msg["role"], "content": msg["content"]})
             
@@ -1614,6 +1632,33 @@ For detailed trade analysis, ask users to select a specific run first (then you'
                     )
                     
                     print(f"💾 Saved general chat conversation (model_id={first_model_id})")
+                    
+                    # Summarize if needed (>60 messages)
+                    from services.chat_summarization import should_summarize, summarize_conversation, update_session_summary
+                    from services.chat_service import get_or_create_chat_session
+                    
+                    session = await get_or_create_chat_session(first_model_id, None, current_user["id"])
+                    
+                    if await should_summarize(session["id"], supabase):
+                        print(f"📝 Summarizing general chat (>60 messages)...")
+                        
+                        # Get all messages
+                        from services.chat_service import get_chat_messages
+                        all_messages = await get_chat_messages(first_model_id, None, current_user["id"], limit=1000)
+                        
+                        if len(all_messages) > 30:
+                            messages_to_summarize = all_messages[:-30]  # Summarize all except last 30
+                            
+                            summary = await summarize_conversation(
+                                messages_to_summarize,
+                                ai_model=ai_model,
+                                api_key=api_key
+                            )
+                            
+                            if summary:
+                                await update_session_summary(session["id"], summary, supabase)
+                                print(f"✅ General chat summary saved ({len(summary)} chars)")
+                
                 except Exception as e:
                     print(f"⚠️  Failed to save general chat: {e}")
             
@@ -1676,15 +1721,26 @@ async def chat_stream_endpoint(
                 supabase=services.get_supabase()
             )
             
-            # Get history
-            from services.chat_service import get_chat_messages
-            chat_history = await get_chat_messages(model_id, run_id, current_user["id"])
+            # Get history and summary
+            from services.chat_service import get_chat_messages, get_or_create_chat_session
+            
+            chat_history = await get_chat_messages(model_id, run_id, current_user["id"], limit=30)
+            
+            # Get session for summary
+            session = await get_or_create_chat_session(model_id, run_id, current_user["id"])
+            conversation_summary = session.get("conversation_summary")
+            
+            # Check if we should summarize (>60 messages)
+            from services.chat_summarization import should_summarize, summarize_conversation, update_session_summary
+            
+            if await should_summarize(session["id"], services.get_supabase()):
+                print(f"📝 Conversation has >60 messages, will summarize after response...")
             
             # Stream response
             full_response = ""
             tool_calls = []
             
-            async for chunk in agent.chat_stream(message, chat_history):
+            async for chunk in agent.chat_stream(message, chat_history, conversation_summary):
                 if chunk["type"] == "token":
                     full_response += chunk["content"]
                     yield {
@@ -1717,6 +1773,27 @@ async def chat_stream_endpoint(
                         user_id=current_user["id"],
                         tool_calls=tool_calls if tool_calls else None
                     )
+                    
+                    # Summarize if needed (>60 messages)
+                    if await should_summarize(session["id"], services.get_supabase()):
+                        print(f"📝 Summarizing conversation (>60 messages)...")
+                        
+                        # Get ALL messages for summarization
+                        all_messages = await get_chat_messages(model_id, run_id, current_user["id"], limit=1000)
+                        
+                        # Summarize oldest 30 (keep recent 30 as-is)
+                        if len(all_messages) > 30:
+                            messages_to_summarize = all_messages[:-30]  # All except last 30
+                            
+                            summary = await summarize_conversation(
+                                messages_to_summarize,
+                                ai_model=agent.model.model_name,
+                                api_key=agent.model.openai_api_key
+                            )
+                            
+                            if summary:
+                                await update_session_summary(session["id"], summary, services.get_supabase())
+                                print(f"✅ Summary generated and saved ({len(summary)} chars)")
                     
                     yield {
                         "event": "message",
