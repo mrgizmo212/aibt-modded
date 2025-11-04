@@ -1458,10 +1458,27 @@ async def save_global_chat_settings(
 @app.get("/api/chat/general-stream")
 async def general_chat_stream_endpoint(
     message: str,
-    current_user: Dict = Depends(require_auth)
+    token: Optional[str] = None
 ):
     """General chat without run context (dashboard chat)"""
     from sse_starlette.sse import EventSourceResponse
+    
+    # Manual token verification (EventSource can't send Authorization header)
+    current_user = None
+    if token:
+        try:
+            from auth import verify_token
+            current_user = verify_token(token)
+        except:
+            pass
+    
+    if not current_user:
+        async def error_generator():
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": "Not authenticated"})
+            }
+        return EventSourceResponse(error_generator())
     
     async def event_generator():
         try:
@@ -1620,10 +1637,27 @@ async def chat_stream_endpoint(
     model_id: int,
     run_id: int,
     message: str,
-    current_user: Dict = Depends(require_auth)
+    token: Optional[str] = None
 ):
     """Stream chat response (SSE)"""
     from sse_starlette.sse import EventSourceResponse
+    
+    # Manual token verification (EventSource can't send Authorization header)
+    current_user = None
+    if token:
+        try:
+            from auth import verify_token
+            current_user = verify_token(token)
+        except:
+            pass
+    
+    if not current_user:
+        async def error_generator():
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": "Not authenticated"})
+            }
+        return EventSourceResponse(error_generator())
     
     # Verify ownership
     model = await services.get_model_by_id(model_id, current_user["id"])
