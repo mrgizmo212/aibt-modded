@@ -8,13 +8,14 @@ interface StreamMessage {
 }
 
 interface UseChatStreamProps {
-  modelId: number
-  runId: number
+  modelId?: number
+  runId?: number
+  isGeneral?: boolean  // General chat (no run context)
   onComplete?: (fullResponse: string) => void
   onError?: (error: string) => void
 }
 
-export function useChatStream({ modelId, runId, onComplete, onError }: UseChatStreamProps) {
+export function useChatStream({ modelId, runId, isGeneral = false, onComplete, onError }: UseChatStreamProps) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamedContent, setStreamedContent] = useState('')
   const [toolsUsed, setToolsUsed] = useState<string[]>([])
@@ -36,7 +37,20 @@ export function useChatStream({ modelId, runId, onComplete, onError }: UseChatSt
     contentRef.current = ''
 
     // Create EventSource for SSE
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${token}`
+    let url: string
+    
+    if (isGeneral) {
+      // General chat (no run context)
+      url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${token}`
+    } else {
+      // Run-specific chat (with analysis tools)
+      if (!modelId || !runId) {
+        onError?.('No run selected')
+        setIsStreaming(false)
+        return
+      }
+      url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${token}`
+    }
     
     const eventSource = new EventSource(url)
     eventSourceRef.current = eventSource
@@ -88,4 +102,5 @@ export function useChatStream({ modelId, runId, onComplete, onError }: UseChatSt
     toolsUsed
   }
 }
+
 

@@ -1441,6 +1441,117 @@ async def save_global_chat_settings(
         raise HTTPException(500, f"Failed to save: {str(e)}")
 
 
+@app.get("/api/chat/general-stream")
+async def general_chat_stream_endpoint(
+    message: str,
+    current_user: Dict = Depends(require_auth)
+):
+    """General chat without run context (dashboard chat)"""
+    from sse_starlette.sse import EventSourceResponse
+    
+    async def event_generator():
+        try:
+            # Get global chat settings
+            supabase = services.get_supabase()
+            
+            global_settings = supabase.table("global_chat_settings")\
+                .select("*")\
+                .eq("id", 1)\
+                .execute()
+            
+            # Get model and params
+            if global_settings.data and len(global_settings.data) > 0:
+                settings = global_settings.data[0]
+                ai_model = settings["chat_model"]
+                model_params = settings.get("model_parameters") or {}
+                instructions = settings.get("chat_instructions") or ""
+            else:
+                ai_model = "openai/gpt-4.1-mini"
+                model_params = {"temperature": 0.3, "top_p": 0.9}
+                instructions = ""
+            
+            # Get user's first model for API key
+            user_models = supabase.table("models")\
+                .select("signature")\
+                .eq("user_id", current_user["id"])\
+                .limit(1)\
+                .execute()
+            
+            if not user_models.data:
+                yield {
+                    "event": "message",
+                    "data": json.dumps({"type": "error", "error": "No model found. Create a model first."})
+                }
+                return
+            
+            api_key = user_models.data[0]["signature"]
+            
+            # Create simple ChatOpenAI (no tools for general chat)
+            from langchain_openai import ChatOpenAI
+            
+            params = {
+                "model": ai_model,
+                "temperature": model_params.get("temperature", 0.3),
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": api_key
+            }
+            
+            if "top_p" in model_params:
+                params["top_p"] = model_params["top_p"]
+            
+            # Smart token handling
+            if ai_model.startswith("openai/gpt-5") or ai_model.startswith("openai/o"):
+                if "max_completion_tokens" in model_params:
+                    params["max_completion_tokens"] = model_params["max_completion_tokens"]
+            else:
+                if "max_tokens" in model_params:
+                    params["max_tokens"] = model_params["max_tokens"]
+            
+            model = ChatOpenAI(**params)
+            
+            # Simple system prompt
+            system_prompt = f"""You are a helpful assistant for True Trading Group's AI Trading Platform.
+
+{instructions}
+
+You can help users:
+- Understand the platform
+- Explain trading concepts
+- Answer questions about features
+- Guide them to use specific tools
+
+For detailed trade analysis, ask users to select a specific run first (then you'll have access to analysis tools)."""
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message}
+            ]
+            
+            # Stream response
+            full_response = ""
+            async for chunk in model.astream(messages):
+                if chunk.content:
+                    full_response += chunk.content
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "token", "content": chunk.content})
+                    }
+            
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "done"})
+            }
+            
+        except Exception as e:
+            print(f"General chat stream error: {e}")
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": str(e)})
+            }
+    
+    return EventSourceResponse(event_generator())
+
+
 @app.get("/api/models/{model_id}/runs/{run_id}/chat-stream")
 async def chat_stream_endpoint(
     model_id: int,

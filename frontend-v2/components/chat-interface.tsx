@@ -69,11 +69,14 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   
-  // Streaming hook (only active when model+run selected)
-  const canStream = selectedModelId && selectedRunId
+  // Streaming hook - use general chat if no run, run-specific if run selected
+  const canStream = true  // Always enable streaming!
+  const isGeneralChat = !selectedModelId || !selectedRunId
+  
   const chatStream = useChatStream({
-    modelId: selectedModelId || 0,
-    runId: selectedRunId || 0,
+    modelId: selectedModelId || undefined,
+    runId: selectedRunId || undefined,
+    isGeneral: isGeneralChat,
     onComplete: (fullResponse) => {
       // Update streaming message with final content
       if (streamingMessageId) {
@@ -238,30 +241,29 @@ export function ChatInterface({
     const currentInput = input
     setInput("")
     
-    // If model+run selected, use STREAMING chat with real AI
-    if (canStream && chatStream) {
-      setIsTyping(true)
-      
-      // Create placeholder streaming message
-      const streamingMsgId = (Date.now() + 1).toString()
-      const streamingMessage: Message = {
-        id: streamingMsgId,
-        type: "ai",
-        text: "",
-        timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-        streaming: true
-      }
-      
-      setMessages(prev => [...prev, streamingMessage])
-      setStreamingMessageId(streamingMsgId)
-      
-      // Start stream
-      await chatStream.startStream(currentInput)
-      setIsTyping(false)
-      return
+    // ALWAYS use STREAMING chat with real AI (general or run-specific)
+    setIsTyping(true)
+    
+    // Create placeholder streaming message
+    const streamingMsgId = (Date.now() + 1).toString()
+    const streamingMessage: Message = {
+      id: streamingMsgId,
+      type: "ai",
+      text: "",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      streaming: true
     }
     
-    // Fallback to pattern matching for dashboard commands (keep existing functionality)
+    setMessages(prev => [...prev, streamingMessage])
+    setStreamingMessageId(streamingMsgId)
+    
+    // Start stream
+    await chatStream.startStream(currentInput)
+    setIsTyping(false)
+    return
+    
+    // OLD PATTERN MATCHING (no longer used - AI handles everything)
+    /* Fallback to pattern matching for dashboard commands (keep existing functionality)
     const userInput = currentInput.toLowerCase()
     setIsTyping(true)
 
@@ -383,12 +385,32 @@ export function ChatInterface({
         }, 2000)
         return
       } 
+      // General greetings
+      else if (userInput.includes("hello") || userInput.includes("hi") || userInput.includes("hey")) {
+        aiMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: "Hello! I'm your trading assistant. I can help you analyze performance, create models, and manage your trading strategies.",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          suggestedActions: ["Show stats", "Show all models", "Analyze performance", "Create new model"],
+        }
+      }
+      // Help/capabilities question
+      else if (userInput.includes("help") || userInput.includes("what can you") || userInput.includes("how can you")) {
+        aiMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: "I can help you with:\n\n📊 View your portfolio stats and performance\n🤖 Show and manage your trading models\n📈 Analyze trading runs and suggest improvements\n✨ Create new models with custom strategies\n📜 View trading history and recent runs\n\nClick a suggestion below or select a specific run to have a detailed AI conversation about performance!",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          suggestedActions: ["Show stats", "Show all models", "View recent runs"],
+        }
+      }
       // Fallback - helpful suggestions
       else {
         aiMessage = {
           id: (Date.now() + 1).toString(),
           type: "ai",
-          text: `I didn't quite understand "${currentInput}". Here's what I can help with:`,
+          text: `I can help with: viewing stats, showing models, analyzing performance, or creating new models. Click a suggestion or select a specific run for detailed AI analysis.`,
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           suggestedActions: ["Show stats", "Show all models", "Analyze performance", "Create new model", "View recent runs"],
         }
@@ -397,6 +419,7 @@ export function ChatInterface({
       setMessages((prev) => [...prev, aiMessage])
       setIsTyping(false)
     }, 1000)
+    */
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -568,22 +591,31 @@ export function ChatInterface({
       </div>
 
       <div className="p-3 lg:p-4 bg-[#0a0a0a] border-t border-[#262626]">
-        {/* Show context when run selected */}
-        {canStream && (
-          <div className="mb-2 text-xs text-[#737373] flex items-center gap-2">
-            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
-              Run #{selectedRunId}
-            </Badge>
-            <span>Chatting with AI about this run (uses your model's AI)</span>
-          </div>
-        )}
+        {/* Show context badge */}
+        <div className="mb-2 text-xs text-[#737373] flex items-center gap-2">
+          {!isGeneralChat ? (
+            <>
+              <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                Run #{selectedRunId}
+              </Badge>
+              <span>AI chat with full analysis tools (4 tools available)</span>
+            </>
+          ) : (
+            <>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+                General Chat
+              </Badge>
+              <span>AI assistant (select a run for detailed analysis)</span>
+            </>
+          )}
+        </div>
         
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={canStream ? "Ask about this run..." : "Ask me anything..."}
+            placeholder={isGeneralChat ? "Ask me anything..." : "Ask about this run..."}
             disabled={chatStream.isStreaming}
             className="flex-1 bg-[#1a1a1a] border-[#262626] text-white placeholder:text-[#7373a3] focus-visible:ring-[#3b82f6] h-11 lg:h-10"
           />
