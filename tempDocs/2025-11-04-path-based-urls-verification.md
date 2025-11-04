@@ -402,3 +402,49 @@ const nextConfig = {
 ### Runtime Status: ❌ Feature Completely Broken
 
 **The missing routes are a runtime issue, not a build-time issue.**
+
+---
+
+## Build Test Executed - 2025-11-04 07:55 UTC
+
+**Command:** `cd /workspace/frontend-v2 && npm run build`
+
+**Result:** ✅ **BUILD SUCCEEDED**
+
+**Output:**
+```
+> aibt-frontend-v2@2.0.0 build
+> next build
+
+   ▲ Next.js 16.0.0 (Turbopack)
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.7s
+   Skipping validation of types
+   Collecting page data ...
+ ✓ Generating static pages (6/6) in 390.3ms
+   Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /login
+└ ○ /signup
+
+○  (Static)  prerendered as static content
+```
+
+**Exit Code:** 0 (Success)
+
+**Routes Built:**
+- `/` (root page)
+- `/_not-found` (404 handler)
+- `/admin`
+- `/login`
+- `/signup`
+
+**Missing Routes (Not Built):**
+- `/c/[sessionId]` - NOT FOUND, not built
+- `/m/[modelId]/c/[sessionId]` - NOT FOUND, not built
+
+**Confirmation:** The build succeeds WITHOUT the missing dynamic routes. Next.js simply builds the routes that exist and ignores the missing ones. No build errors or warnings about the missing routes.
