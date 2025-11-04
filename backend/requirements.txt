@@ -39,3 +39,6 @@ fastmcp>=2.0.0
 # Background Job Queue (Celery with Redis backend)
 celery[redis]>=5.3.0
 
+# Server-Sent Events (SSE) for streaming
+sse-starlette>=2.0.0
+
