@@ -65,6 +65,7 @@ async def get_or_create_chat_session(
         session_title = f"Run #{run_number} Strategy Discussion"
     
     new_session = supabase.table("chat_sessions").insert({
+        "user_id": user_id,
         "model_id": model_id,
         "run_id": run_id,  # Can be NULL
         "session_title": session_title,
