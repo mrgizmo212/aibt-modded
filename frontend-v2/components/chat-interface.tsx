@@ -181,17 +181,22 @@ export function ChatInterface({
       }
     }
     
-    // Load on mount and whenever URL location changes
     loadConversationMessages()
     
-    // Also listen for manual URL changes (browser back/forward)
+    // Listen for manual URL changes (browser back/forward)
     const handlePopState = () => {
-      loadConversationMessages()
+      const params = new URLSearchParams(window.location.search)
+      const newSessionId = params.get('c')
+      
+      // Manually trigger reload by setting currentSessionId to force change detection
+      if (newSessionId !== currentSessionId) {
+        setCurrentSessionId(null)  // Force reload on next check
+      }
     }
     
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  })  // No dependency array = runs on every render, but checks currentSessionId to prevent spam
+  }, [currentSessionId])  // Only run when currentSessionId changes
   
   // Update streaming message as content arrives
   useEffect(() => {
