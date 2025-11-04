@@ -52,12 +52,19 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
       url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${token}`
     }
     
+    console.log('[Chat Stream] Connecting to:', url.replace(token, 'TOKEN_HIDDEN'))
+    
     const eventSource = new EventSource(url)
     eventSourceRef.current = eventSource
+
+    eventSource.onopen = () => {
+      console.log('[Chat Stream] Connected successfully')
+    }
 
     eventSource.onmessage = (event) => {
       try {
         const data: StreamMessage = JSON.parse(event.data)
+        console.log('[Chat Stream] Received:', data.type)
 
         if (data.type === 'token' && data.content) {
           contentRef.current += data.content
@@ -69,20 +76,30 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
           onComplete?.(contentRef.current)
           eventSource.close()
         } else if (data.type === 'error') {
+          console.error('[Chat Stream] Server error:', data.error)
           setIsStreaming(false)
           onError?.(data.error || 'Unknown error')
           eventSource.close()
         }
       } catch (err) {
-        console.error('Stream parse error:', err)
+        console.error('[Chat Stream] Parse error:', err)
       }
     }
 
     eventSource.onerror = (err) => {
-      console.error('EventSource error:', err)
-      setIsStreaming(false)
-      onError?.('Connection error')
-      eventSource.close()
+      console.error('[Chat Stream] EventSource error:', err)
+      console.error('[Chat Stream] ReadyState:', eventSource.readyState)
+      
+      // Check if we got an initial response
+      if (eventSource.readyState === EventSource.CLOSED) {
+        setIsStreaming(false)
+        onError?.('Not authenticated')
+        eventSource.close()
+      } else {
+        setIsStreaming(false)
+        onError?.('Connection error')
+        eventSource.close()
+      }
     }
   }, [modelId, runId, onComplete, onError])
 
