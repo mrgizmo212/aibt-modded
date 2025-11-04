@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useRouter } from "next/navigation"
 
 import {
   LayoutDashboard,
@@ -48,6 +49,7 @@ interface NavigationSidebarProps {
 }
 
 export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
+  const router = useRouter()
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
   const [expandedModels, setExpandedModels] = useState<Record<number, boolean>>({})
@@ -174,22 +176,34 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   
   // Listen for conversation-created events (from chat-interface after first message)
   useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout | null = null
+    
     const handleConversationCreated = (event: any) => {
       console.log('[Nav] Conversation created event received:', event.detail)
       
-      // Refresh conversation lists to show new conversation
-      loadGeneralConversations()
-      
-      // If model conversation, refresh all model conversations
-      if (event.detail?.modelId) {
-        loadAllModelConversations()
+      // Debounce refresh to prevent spam (only refresh once even if multiple events fire)
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
       }
+      
+      refreshTimeout = setTimeout(() => {
+        // Refresh conversation lists to show new conversation
+        loadGeneralConversations()
+        
+        // If model conversation, refresh all model conversations
+        if (event.detail?.modelId) {
+          loadAllModelConversations()
+        }
+      }, 500)  // Wait 500ms before refreshing
     }
     
     window.addEventListener('conversation-created', handleConversationCreated as EventListener)
     
     return () => {
       window.removeEventListener('conversation-created', handleConversationCreated as EventListener)
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
+      }
     }
   }, [])  // Empty deps - setup once
 
@@ -425,15 +439,15 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   }
   
   const handleNewGeneralChat = () => {
-    // Navigate to ephemeral route - NO API call, NO database record
+    // Navigate to ephemeral route - NO API call, NO database record, NO page reload
     console.log('[Nav] Navigating to /new (ephemeral general chat)')
-    window.location.href = '/new'
+    router.push('/new')
   }
   
   const handleNewModelChat = (modelId: number) => {
-    // Navigate to ephemeral route - NO API call, NO database record
+    // Navigate to ephemeral route - NO API call, NO database record, NO page reload
     console.log('[Nav] Navigating to /m/' + modelId + '/new (ephemeral model chat)')
-    window.location.href = `/m/${modelId}/new`
+    router.push(`/m/${modelId}/new`)
   }
   
   const handleDeleteConversation = async (convId: number, e: React.MouseEvent) => {

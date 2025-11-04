@@ -134,10 +134,17 @@ export function ChatInterface({
   
   // Track current session ID from URL
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   
   // Load conversation messages when URL changes (detects conversation switch)
   useEffect(() => {
     const loadConversationMessages = async () => {
+      // Prevent concurrent loads
+      if (isLoadingMessages) {
+        console.log('[Chat] Already loading messages, skipping...')
+        return
+      }
+      
       // Get session ID from URL path
       const pathParts = window.location.pathname.split('/')
       const cIndex = pathParts.indexOf('c')
@@ -150,6 +157,7 @@ export function ChatInterface({
       
       console.log('[Chat] Session changed from', currentSessionId, 'to', sessionId)
       setCurrentSessionId(sessionId)
+      setIsLoadingMessages(true)
       
       if (!sessionId) {
         // No conversation selected, show only welcome message
@@ -194,6 +202,8 @@ export function ChatInterface({
         }
       } catch (error) {
         console.error('Failed to load conversation messages:', error)
+      } finally {
+        setIsLoadingMessages(false)
       }
     }
     

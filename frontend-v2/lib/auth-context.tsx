@@ -62,10 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Set user
       setUser(response.user)
-      console.log('[AuthContext] User set, redirecting to /')
+      console.log('[AuthContext] User set, redirecting to /new')
       
-      // Redirect to dashboard
-      router.push('/')
+      // Redirect to fresh conversation (chat-first UX)
+      router.push('/new')
     } catch (error) {
       console.error('[AuthContext] Login failed:', error)
       throw error
