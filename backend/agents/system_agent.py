@@ -48,27 +48,78 @@ class SystemAgent:
         self.user_id = user_id
         self.supabase = supabase
         
-        # Use model's configured AI (NOT hardcoded!)
-        ai_model = model_config.get("default_ai_model", "openai/gpt-4.1-mini")
-        model_params = model_config.get("model_parameters") or {}
+        # Check for GLOBAL chat settings (admin-configured in database)
+        ai_model = None
+        model_params = {}
+        api_key = None
+        global_instructions = ""
         
-        print(f"🤖 Chat using: {ai_model}")
+        try:
+            # Fetch global chat settings from database
+            global_settings = supabase.table("global_chat_settings")\
+                .select("*")\
+                .eq("id", 1)\
+                .execute()
+            
+            if global_settings.data and len(global_settings.data) > 0:
+                settings = global_settings.data[0]
+                ai_model = settings["chat_model"]
+                global_instructions = settings["chat_instructions"] or ""
+                
+                # Use global parameters (stored as JSONB)
+                model_params = settings.get("model_parameters") or {}
+                
+                print(f"🌐 Using GLOBAL chat settings:")
+                print(f"   Model: {ai_model}")
+                print(f"   Temperature: {model_params.get('temperature', 0.3)}")
+                print(f"   Instructions: {len(global_instructions)} chars")
+            else:
+                # Fallback to model's configured AI
+                ai_model = model_config.get("default_ai_model", "openai/gpt-4.1-mini")
+                model_params = model_config.get("model_parameters") or {}
+                print(f"🤖 Using model's AI (no global settings): {ai_model}")
+        except Exception as e:
+            # Fallback to model's configured AI
+            print(f"⚠️  Global settings error: {e}")
+            ai_model = model_config.get("default_ai_model", "openai/gpt-4.1-mini")
+            model_params = model_config.get("model_parameters") or {}
+            print(f"🤖 Using model's AI (fallback): {ai_model}")
         
-        # Initialize with OpenRouter (like trading agent)
+        # Get API key (always from model signature)
+        api_key = supabase.table("models").select("signature").eq("id", model_id).execute().data[0]["signature"]
+        
+        # Initialize with OpenRouter
         params = {
             "model": ai_model,
-            "temperature": model_params.get("temperature", 0.3),  # Lower for analytical
+            "temperature": model_params.get("temperature", 0.3),
             "base_url": "https://openrouter.ai/api/v1",
-            "api_key": supabase.table("models").select("signature").eq("id", model_id).execute().data[0]["signature"]
+            "api_key": api_key
         }
         
-        # Apply other parameters if present
+        # Apply other parameters
         if "top_p" in model_params:
             params["top_p"] = model_params["top_p"]
-        if "max_completion_tokens" in model_params:
-            params["max_tokens"] = model_params["max_completion_tokens"]
+        if "frequency_penalty" in model_params:
+            params["frequency_penalty"] = model_params["frequency_penalty"]
+        if "presence_penalty" in model_params:
+            params["presence_penalty"] = model_params["presence_penalty"]
+        
+        # SMART TOKEN HANDLING: Use correct parameter based on model
+        # New OpenAI models (GPT-5, o3): max_completion_tokens
+        # Old/Non-OpenAI models: max_tokens
+        if ai_model.startswith("openai/gpt-5") or ai_model.startswith("openai/o"):
+            # New reasoning models
+            if "max_completion_tokens" in model_params:
+                params["max_completion_tokens"] = model_params["max_completion_tokens"]
+        else:
+            # Older/non-OpenAI models
+            if "max_tokens" in model_params:
+                params["max_tokens"] = model_params["max_tokens"]
+            elif "max_completion_tokens" in model_params:
+                params["max_tokens"] = model_params["max_completion_tokens"]
         
         self.model = ChatOpenAI(**params)
+        self.global_instructions = global_instructions
         
         # Load analysis tools
         self.tools = self._load_tools()
@@ -101,7 +152,7 @@ class SystemAgent:
         else:
             context_info += " | Analyzing all runs"
         
-        return f"""You are an expert trading strategy analyst and coach.
+        base_prompt = f"""You are an expert trading strategy analyst and coach.
 
 Your role:
 1. Help users understand their trading performance
@@ -138,6 +189,18 @@ When suggesting rules:
 - Explain: why this rule helps, what it prevents
 - Show: how it would have improved past performance (if data available)
 """
+        
+        # Add global instructions if set by admin
+        if self.global_instructions:
+            base_prompt += f"""
+
+🌐 GLOBAL ADMIN INSTRUCTIONS (CRITICAL - FOLLOW STRICTLY):
+{self.global_instructions}
+
+These instructions apply to ALL chat conversations platform-wide.
+"""
+        
+        return base_prompt
     
     async def chat(
         self, 

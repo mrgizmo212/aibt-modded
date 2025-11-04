@@ -465,7 +465,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
             <span className="text-sm font-medium">Create Model</span>
           </button>
 
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a3a3a3] hover:text-white hover:bg-[#141414] transition-colors mt-4">
+          <button 
+            onClick={() => window.location.href = '/admin'}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a3a3a3] hover:text-white hover:bg-[#141414] transition-colors mt-4"
+          >
             <Shield className="w-5 h-5" />
             <span className="text-sm font-medium">Admin</span>
           </button>

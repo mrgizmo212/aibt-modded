@@ -1357,6 +1357,90 @@ async def get_chat_history_endpoint(
         raise HTTPException(403, "Access denied")
 
 
+@app.get("/api/admin/chat-settings")
+async def get_global_chat_settings(current_user: Dict = Depends(require_admin)):
+    """Get global chat AI configuration (admin only)"""
+    try:
+        supabase = services.get_supabase()
+        
+        # Fetch from database (RLS ensures admin-only)
+        result = supabase.table("global_chat_settings")\
+            .select("*")\
+            .eq("id", 1)\
+            .execute()
+        
+        if result.data and len(result.data) > 0:
+            settings = result.data[0]
+            model_params = settings.get("model_parameters") or {}
+            
+            return {
+                "chat_model": settings["chat_model"],
+                "chat_instructions": settings["chat_instructions"] or "",
+                "model_parameters": model_params,
+                "updated_at": settings.get("updated_at"),
+                "updated_by": settings.get("updated_by")
+            }
+        else:
+            # Return defaults
+            return {
+                "chat_model": "openai/gpt-4.1-mini",
+                "chat_instructions": "",
+                "model_parameters": {
+                    "temperature": 0.30,
+                    "top_p": 0.90,
+                    "frequency_penalty": 0.00,
+                    "presence_penalty": 0.00,
+                    "max_prompt_tokens": 800000,
+                    "max_tokens": 32000,
+                    "max_completion_tokens": 32000
+                }
+            }
+    except Exception as e:
+        print(f"Error getting chat settings: {e}")
+        raise HTTPException(500, f"Failed to load settings: {str(e)}")
+
+
+@app.post("/api/admin/chat-settings")
+async def save_global_chat_settings(
+    request: Dict,
+    current_user: Dict = Depends(require_admin)
+):
+    """Save global chat AI configuration (admin only)"""
+    try:
+        supabase = services.get_supabase()
+        
+        # Update database (always id=1, single global config)
+        chat_model = request.get("chat_model", "openai/gpt-4.1-mini")
+        chat_instructions = request.get("chat_instructions", "")
+        model_parameters = request.get("model_parameters", {})
+        
+        update_data = {
+            "chat_model": chat_model,
+            "chat_instructions": chat_instructions,
+            "model_parameters": model_parameters,
+            "updated_by": current_user["id"],
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        supabase.table("global_chat_settings")\
+            .update(update_data)\
+            .eq("id", 1)\
+            .execute()
+        
+        print(f"✅ Admin {current_user.get('email')} updated global chat:")
+        print(f"   Model: {chat_model}")
+        print(f"   Instructions: {len(chat_instructions)} chars")
+        print(f"   Parameters: {model_parameters}")
+        
+        return {
+            "status": "success",
+            "settings": update_data
+        }
+    except Exception as e:
+        print(f"Error saving chat settings: {e}")
+        raise HTTPException(500, f"Failed to save: {str(e)}")
+
+
 @app.get("/api/models/{model_id}/runs/{run_id}/chat-stream")
 async def chat_stream_endpoint(
     model_id: int,
