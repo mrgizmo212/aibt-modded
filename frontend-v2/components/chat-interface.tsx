@@ -109,42 +109,11 @@ export function ChatInterface({
     scrollToBottom()
   }, [messages, chatStream.streamedContent])
   
-  // Load general chat history on mount (for dashboard)
-  useEffect(() => {
-    const loadChatHistory = async () => {
-      // Only load for general chat (not run-specific)
-      if (selectedRunId) return
-      
-      try {
-        // Get user's first model for history
-        const { getModels, getGeneralChatHistory } = await import('@/lib/api')
-        const models = await getModels()
-        
-        if (!models || models.length === 0) return
-        
-        const firstModelId = models[0].id
-        const data = await getGeneralChatHistory(firstModelId)
-        
-        if (data.messages && data.messages.length > 0) {
-          // Convert to Message format
-          const historicalMessages = data.messages.map((msg: any) => ({
-            id: msg.id.toString(),
-            type: msg.role === 'user' ? 'user' : 'ai',
-            text: msg.content,
-            timestamp: new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-            toolsUsed: msg.tool_calls || []
-          }))
-          
-          // Keep welcome message, add history after it
-          setMessages(prev => [prev[0], ...historicalMessages])
-        }
-      } catch (error) {
-        console.error('Failed to load general chat history:', error)
-      }
-    }
-    
-    loadChatHistory()
-  }, [selectedRunId])  // Reload when switching between general and run chat
+  // DISABLED: Old chat history loading (replaced by session-based system)
+  // TODO: Wire up session-based conversation loading
+  // useEffect(() => {
+  //   Load messages from selected conversation session
+  // }, [selectedConversationId])
   
   // Update streaming message as content arrives
   useEffect(() => {

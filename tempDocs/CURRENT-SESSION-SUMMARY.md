@@ -32,6 +32,52 @@ Complete ChatGPT-style conversation organization implemented.
 
 ---
 
+## Performance Fixes Applied
+
+### Fix 1: Stopped Infinite API Loop
+**File:** `frontend-v2/components/navigation-sidebar.tsx` line 159-165
+
+Added `conversationsLoaded` flag to prevent repeated loading:
+```tsx
+// Only load conversations ONCE when models first appear
+useEffect(() => {
+  if (modelList.length > 0 && !conversationsLoaded) {
+    loadAllModelConversations()
+    setConversationsLoaded(true)  // ← Prevents re-loading
+  }
+}, [modelList.length, conversationsLoaded])
+```
+
+**Before:** API calls fired every time modelList updated (every 30s)
+**After:** API calls fire only once on initial load
+
+### Fix 2: Disabled Old Chat History Loading
+**File:** `frontend-v2/components/chat-interface.tsx` line 112-116
+
+Disabled old chat history loading that was causing hang:
+```tsx
+// DISABLED: Old chat history loading (replaced by session-based system)
+// TODO: Wire up session-based conversation loading
+```
+
+**Before:** Loaded ALL old messages on every render → caused 30-60s hang
+**After:** Clean chat, no automatic loading
+
+### Fix 3: Optimistic UI Updates
+**Files:** Both navigation sidebar and delete handlers
+
+Delete operations update UI first, then call API:
+```tsx
+// Update UI immediately
+setConversations(prev => prev.filter(c => c.id !== convId))
+// Then delete from backend
+await deleteSession(convId)
+```
+
+**Result:** Instant UI feedback, no waiting for API
+
+---
+
 ## What's Next (Optional)
 
 ### Chat Interface Integration

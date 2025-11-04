@@ -167,6 +167,7 @@ export default function Home() {
             setIsMenuOpen(false)
           }}
           onToggleModel={handleToggleModel}
+          isHidden={!isMenuOpen}
         />
       </MobileDrawer>
 

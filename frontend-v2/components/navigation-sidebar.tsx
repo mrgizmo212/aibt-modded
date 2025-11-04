@@ -41,9 +41,10 @@ interface NavigationSidebarProps {
   selectedModelId: number | null
   onSelectModel: (id: number) => void
   onToggleModel: (id: number) => void
+  isHidden?: boolean  // ← NEW: Prevent API calls when hidden (mobile drawer)
 }
 
-export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleModel }: NavigationSidebarProps) {
+export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleModel, isHidden = false }: NavigationSidebarProps) {
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
   const [expandedModels, setExpandedModels] = useState<Record<number, boolean>>({})
@@ -68,6 +69,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   // Chat sessions state
   const [generalConversations, setGeneralConversations] = useState<any[]>([])
   const [modelConversations, setModelConversations] = useState<Record<number, any[]>>({})
+  const [conversationsLoaded, setConversationsLoaded] = useState(false)
 
   // Get running model IDs for SSE connections
   const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
@@ -141,8 +143,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     }
   }, [firstRunningId, connected, runningModelIds.length])
 
-  // Load models and trading status on mount
+  // Load models and trading status on mount (ONLY if not hidden)
   useEffect(() => {
+    if (isHidden) return  // ← CRITICAL: Don't load if hidden (mobile drawer)
+    
     loadModels()
     loadTradingStatus()
     loadGeneralConversations()
@@ -153,14 +157,17 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     }, 30000) // Every 30 seconds
     
     return () => clearInterval(interval)
-  }, [])
+  }, [isHidden])
   
-  // Load model conversations when model list changes
+  // Load model conversations ONLY ONCE when models are first loaded
   useEffect(() => {
-    if (modelList.length > 0) {
+    if (isHidden) return  // ← CRITICAL: Don't load if hidden (mobile drawer)
+    
+    if (modelList.length > 0 && !conversationsLoaded) {
       loadAllModelConversations()
+      setConversationsLoaded(true)
     }
-  }, [modelList.length])
+  }, [modelList.length, conversationsLoaded, isHidden])
 
   async function loadModels() {
     try {
@@ -379,10 +386,14 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       const data = await createNewSession()  // No model_id = general
       const newSession = data.session
       
+      // Add message_count property
+      newSession.message_count = 0
+      
       setGeneralConversations(prev => [newSession, ...prev])
       setSelectedConversationId(newSession.id)
       toast.success("Started new conversation")
     } catch (error: any) {
+      console.error('Failed to create general conversation:', error)
       toast.error(error.message || "Failed to create conversation")
     }
   }
@@ -392,6 +403,9 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       const data = await createNewSession(modelId)
       const newSession = data.session
       
+      // Add message_count property
+      newSession.message_count = 0
+      
       setModelConversations(prev => ({
         ...prev,
         [modelId]: [newSession, ...(prev[modelId] || [])]
@@ -400,6 +414,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       onSelectModel(modelId)
       toast.success("Started new conversation for this model")
     } catch (error: any) {
+      console.error('Failed to create model conversation:', error)
       toast.error(error.message || "Failed to create conversation")
     }
   }
@@ -408,15 +423,21 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     e.stopPropagation()
     
     try {
-      await deleteSession(convId)
+      // Optimistically update UI first
       setGeneralConversations(prev => prev.filter(c => c.id !== convId))
       
       if (selectedConversationId === convId) {
         setSelectedConversationId(null)
       }
       
+      // Then delete from backend
+      await deleteSession(convId)
+      
       toast.success("Conversation deleted")
     } catch (error: any) {
+      console.error('Failed to delete conversation:', error)
+      // Reload conversations to recover from error
+      loadGeneralConversations()
       toast.error(error.message || "Failed to delete conversation")
     }
   }
@@ -673,7 +694,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                                         e.stopPropagation()
                                         
                                         try {
-                                          await deleteSession(convo.id)
+                                          // Optimistically update UI first
                                           setModelConversations(prev => ({
                                             ...prev,
                                             [model.id]: prev[model.id].filter(c => c.id !== convo.id)
@@ -683,8 +704,18 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                                             setSelectedConversationId(null)
                                           }
                                           
+                                          // Then delete from backend
+                                          await deleteSession(convo.id)
+                                          
                                           toast.success("Conversation deleted")
                                         } catch (error: any) {
+                                          console.error('Failed to delete model conversation:', error)
+                                          // Reload to recover from error
+                                          const data = await listChatSessions(model.id)
+                                          setModelConversations(prev => ({
+                                            ...prev,
+                                            [model.id]: data.sessions || []
+                                          }))
                                           toast.error(error.message || "Failed to delete conversation")
                                         }
                                       }}

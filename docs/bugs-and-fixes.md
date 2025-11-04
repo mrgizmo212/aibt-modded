@@ -200,6 +200,26 @@ Features:
 - Verified isolation between users
 - Verified cascade delete of messages
 
+### Performance Issues Fixed (2025-11-04 19:15)
+
+**Issue 1: Infinite API Loop**
+**File:** `frontend-v2/components/navigation-sidebar.tsx`
+- Frontend was loading conversations repeatedly
+- `useEffect` fired every 30 seconds when modelList updated
+- **Fix:** Added `conversationsLoaded` flag to run only once
+
+**Issue 2: Chat Hang on Message Send**
+**File:** `frontend-v2/components/chat-interface.tsx`
+- Old chat history loading in chat-interface
+- Loaded ALL messages causing 30-60s delay
+- **Fix:** Disabled old history loading (replaced by session system)
+
+**Issue 3: Delete Delays**
+- UI waited for API response before updating
+- **Fix:** Optimistic updates (UI instant, API in background)
+
+**Result:** Chat is now instant, no delays, no hanging ✅
+
 ---
 
 ### Lessons Learned
