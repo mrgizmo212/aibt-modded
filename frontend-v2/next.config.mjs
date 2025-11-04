@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed 'output: export' to enable dynamic routes and server features
+  output: 'export',  // ✅ Required for Render Static Site (free tier)
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: false,  // Can use optimized images now
+    unoptimized: true,  // ✅ Required for static export
   },
 }
 
