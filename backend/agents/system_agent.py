@@ -13,6 +13,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from typing import List, Dict, Optional
 from supabase import Client
+from config import settings as config_settings
 
 class SystemAgent:
     """
@@ -85,8 +86,8 @@ class SystemAgent:
             model_params = model_config.get("model_parameters") or {}
             print(f"🤖 Using model's AI (fallback): {ai_model}")
         
-        # Get API key (always from model signature)
-        api_key = supabase.table("models").select("signature").eq("id", model_id).execute().data[0]["signature"]
+        # Get API key from environment (global OpenRouter key)
+        api_key = config_settings.OPENAI_API_KEY
         
         # Initialize with OpenRouter
         params = {

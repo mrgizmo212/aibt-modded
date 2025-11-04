@@ -14,12 +14,14 @@ import {
   Check,
   X,
   Loader2,
+  MessageSquare,
+  Trash2,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel } from "@/lib/api"
+import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel, listChatSessions, createNewSession, resumeSession, deleteSession } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { useTradingStream } from "@/hooks/use-trading-stream"
@@ -43,6 +45,8 @@ interface NavigationSidebarProps {
 
 export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleModel }: NavigationSidebarProps) {
   const [modelsExpanded, setModelsExpanded] = useState(true)
+  const [conversationsExpanded, setConversationsExpanded] = useState(true)
+  const [expandedModels, setExpandedModels] = useState<Record<number, boolean>>({})
   const [editingModelId, setEditingModelId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState("")
   const [modelList, setModelList] = useState<Model[]>([])
@@ -52,6 +56,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [togglingModelId, setTogglingModelId] = useState<number | null>(null)
   const [savingModelId, setSavingModelId] = useState<number | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
   
   // Trading form modal state
   const [showTradingForm, setShowTradingForm] = useState(false)
@@ -59,6 +64,10 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   const [tradingFormModelName, setTradingFormModelName] = useState<string>("")
   
   const { user, logout } = useAuth()
+  
+  // Chat sessions state
+  const [generalConversations, setGeneralConversations] = useState<any[]>([])
+  const [modelConversations, setModelConversations] = useState<Record<number, any[]>>({})
 
   // Get running model IDs for SSE connections
   const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
@@ -136,6 +145,7 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
   useEffect(() => {
     loadModels()
     loadTradingStatus()
+    loadGeneralConversations()
     
     // Refresh status periodically for models not using SSE
     const interval = setInterval(() => {
@@ -144,6 +154,13 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     
     return () => clearInterval(interval)
   }, [])
+  
+  // Load model conversations when model list changes
+  useEffect(() => {
+    if (modelList.length > 0) {
+      loadAllModelConversations()
+    }
+  }, [modelList.length])
 
   async function loadModels() {
     try {
@@ -163,6 +180,31 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       toast.error('Failed to load models')
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Load general conversations
+  async function loadGeneralConversations() {
+    try {
+      const data = await listChatSessions()  // No model_id = general conversations
+      setGeneralConversations(data.sessions || [])
+    } catch (error) {
+      console.error('Failed to load general conversations:', error)
+    }
+  }
+  
+  // Load conversations for all models
+  async function loadAllModelConversations() {
+    for (const model of modelList) {
+      try {
+        const data = await listChatSessions(model.id)
+        setModelConversations(prev => ({
+          ...prev,
+          [model.id]: data.sessions || []
+        }))
+      } catch (error) {
+        console.error(`Failed to load conversations for model ${model.id}:`, error)
+      }
     }
   }
 
@@ -300,6 +342,84 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     setEditingModelId(null)
     setEditingName("")
   }
+  
+  // Conversation handlers (mock for now, will wire up API later)
+  const toggleModelExpanded = (modelId: number) => {
+    setExpandedModels(prev => ({
+      ...prev,
+      [modelId]: !prev[modelId]
+    }))
+  }
+  
+  const handleSelectGeneralConversation = async (convId: number) => {
+    try {
+      await resumeSession(convId)
+      setSelectedConversationId(convId)
+      toast.info("Switched to conversation", { duration: 1000 })
+      // TODO: Load messages into chat interface
+    } catch (error: any) {
+      toast.error(error.message || "Failed to switch conversation")
+    }
+  }
+  
+  const handleSelectModelConversation = async (modelId: number, convId: number) => {
+    try {
+      await resumeSession(convId)
+      setSelectedConversationId(convId)
+      onSelectModel(modelId)
+      toast.info("Switched to conversation", { duration: 1000 })
+      // TODO: Load messages into chat interface
+    } catch (error: any) {
+      toast.error(error.message || "Failed to switch conversation")
+    }
+  }
+  
+  const handleNewGeneralChat = async () => {
+    try {
+      const data = await createNewSession()  // No model_id = general
+      const newSession = data.session
+      
+      setGeneralConversations(prev => [newSession, ...prev])
+      setSelectedConversationId(newSession.id)
+      toast.success("Started new conversation")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create conversation")
+    }
+  }
+  
+  const handleNewModelChat = async (modelId: number) => {
+    try {
+      const data = await createNewSession(modelId)
+      const newSession = data.session
+      
+      setModelConversations(prev => ({
+        ...prev,
+        [modelId]: [newSession, ...(prev[modelId] || [])]
+      }))
+      setSelectedConversationId(newSession.id)
+      onSelectModel(modelId)
+      toast.success("Started new conversation for this model")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create conversation")
+    }
+  }
+  
+  const handleDeleteConversation = async (convId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    try {
+      await deleteSession(convId)
+      setGeneralConversations(prev => prev.filter(c => c.id !== convId))
+      
+      if (selectedConversationId === convId) {
+        setSelectedConversationId(null)
+      }
+      
+      toast.success("Conversation deleted")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete conversation")
+    }
+  }
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -344,6 +464,59 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
             <span className="text-sm font-medium">Dashboard</span>
           </button>
 
+          {/* CONVERSATIONS Section (NEW) */}
+          <div className="pt-4">
+            <div className="flex items-center justify-between px-3 py-2">
+              <button
+                onClick={() => setConversationsExpanded(!conversationsExpanded)}
+                className="flex items-center gap-2 text-[#a3a3a3] hover:text-white transition-colors"
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider">Conversations</span>
+                {conversationsExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={handleNewGeneralChat}
+                className="p-1 hover:bg-[#1a1a1a] rounded text-[#a3a3a3] hover:text-white transition-colors"
+                title="New Chat"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {conversationsExpanded && (
+              <div className="mt-1 space-y-1">
+                {generalConversations.length === 0 ? (
+                  <div className="px-3 py-2 text-center text-[#737373] text-xs">
+                    No conversations yet
+                  </div>
+                ) : (
+                  generalConversations.map((convo) => (
+                    <div
+                      key={convo.id}
+                      onClick={() => handleSelectGeneralConversation(convo.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors cursor-pointer group ${
+                        selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
+                      }`}
+                    >
+                      <MessageSquare className="w-4 h-4 text-[#737373] flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{convo.session_title}</p>
+                        <p className="text-xs text-[#737373]">{convo.message_count} messages • {convo.last_message}</p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteConversation(convo.id, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#1a1a1a] rounded text-[#ef4444] transition-opacity"
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
           {/* My Models Section */}
           <div className="pt-4">
             <button
@@ -377,18 +550,33 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                     </div>
                     <div className="space-y-1">
                       {styleModels.map((model) => (
-                        <div
-                          key={model.id}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors cursor-pointer group ${
-                            selectedModelId === model.id ? "bg-[#1a1a1a] border-l-3 border-l-[#3b82f6]" : ""
-                          }`}
-                          onClick={() => onSelectModel(model.id)}
-                        >
-                          <div
-                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              model.status === "running" ? "bg-[#10b981] pulse-dot" : "bg-[#525252]"
-                            }`}
-                          />
+                        <div key={model.id} className="space-y-1">
+                          {/* Model header row */}
+                          <div className="flex items-center gap-1">
+                            {/* Expand/collapse button */}
+                            <button
+                              onClick={() => toggleModelExpanded(model.id)}
+                              className="p-1 hover:bg-[#1a1a1a] rounded transition-colors"
+                            >
+                              {expandedModels[model.id] ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-[#737373]" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-[#737373]" />
+                              )}
+                            </button>
+                            
+                            {/* Model info */}
+                            <div
+                              className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors cursor-pointer group ${
+                                selectedModelId === model.id ? "bg-[#1a1a1a] border-l-3 border-l-[#3b82f6]" : ""
+                              }`}
+                              onClick={() => onSelectModel(model.id)}
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  model.status === "running" ? "bg-[#10b981] pulse-dot" : "bg-[#525252]"
+                                }`}
+                              />
 
                           {editingModelId === model.id ? (
                             <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -449,6 +637,70 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
                                 />
                               )}
                             </>
+                          )}
+                            </div>
+                          </div>
+                          
+                          {/* Model's conversations (when expanded) */}
+                          {expandedModels[model.id] && (
+                            <div className="ml-8 space-y-1">
+                              {/* New Chat button */}
+                              <button
+                                onClick={() => handleNewModelChat(model.id)}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-[#737373] hover:text-white hover:bg-[#1a1a1a] rounded transition-colors"
+                              >
+                                <Plus className="w-3 h-3" />
+                                New Chat
+                              </button>
+                              
+                              {/* Conversations list */}
+                              {modelConversations[model.id]?.length > 0 ? (
+                                modelConversations[model.id].map((convo) => (
+                                  <div
+                                    key={convo.id}
+                                    onClick={() => handleSelectModelConversation(model.id, convo.id)}
+                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#1a1a1a] transition-colors cursor-pointer group ${
+                                      selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
+                                    }`}
+                                  >
+                                    <MessageSquare className="w-3 h-3 text-[#737373] flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-white truncate">{convo.session_title}</p>
+                                      <p className="text-[10px] text-[#737373]">{convo.message_count} msgs</p>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        
+                                        try {
+                                          await deleteSession(convo.id)
+                                          setModelConversations(prev => ({
+                                            ...prev,
+                                            [model.id]: prev[model.id].filter(c => c.id !== convo.id)
+                                          }))
+                                          
+                                          if (selectedConversationId === convo.id) {
+                                            setSelectedConversationId(null)
+                                          }
+                                          
+                                          toast.success("Conversation deleted")
+                                        } catch (error: any) {
+                                          toast.error(error.message || "Failed to delete conversation")
+                                        }
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#262626] rounded text-[#ef4444] transition-opacity"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1 text-[10px] text-[#737373] text-center">
+                                  No conversations yet
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}

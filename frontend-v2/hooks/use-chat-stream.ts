@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { getToken } from '@/lib/auth'
 
 interface StreamMessage {
   type: 'token' | 'tool' | 'done' | 'error'
@@ -27,8 +28,8 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
     console.log('[Chat Stream] startStream called with:', message)
     console.log('[Chat Stream] isGeneral:', isGeneral, 'modelId:', modelId, 'runId:', runId)
     
-    // Get auth token
-    const token = localStorage.getItem('auth_token')
+    // Get auth token using the proper helper function
+    const token = getToken()
     console.log('[Chat Stream] Token exists:', !!token)
     
     if (!token) {

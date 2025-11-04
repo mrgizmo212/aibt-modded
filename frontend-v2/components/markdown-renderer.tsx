@@ -15,11 +15,11 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight, rehypeRaw]}
-      className={`prose prose-invert max-w-none ${className}`}
-      components={{
+    <div className={`prose prose-invert max-w-none ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight, rehypeRaw]}
+        components={{
         // Code blocks with copy button
         code: ({ node, inline, className, children, ...props }: any) => {
           const [copied, setCopied] = useState(false)
@@ -140,9 +140,10 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
           <p className="my-2 leading-relaxed" {...props}>{children}</p>
         ),
       }}
-    >
-      {content}
-    </ReactMarkdown>
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   )
 }
 

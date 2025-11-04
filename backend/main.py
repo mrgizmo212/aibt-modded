@@ -1455,6 +1455,162 @@ async def save_global_chat_settings(
         raise HTTPException(500, f"Failed to save: {str(e)}")
 
 
+# ============================================================================
+# CHAT SESSIONS V2 (Multi-Conversation Support)
+# ============================================================================
+
+@app.get("/api/chat/sessions")
+async def list_chat_sessions_endpoint(
+    model_id: Optional[int] = None,
+    current_user: Dict = Depends(require_auth)
+):
+    """
+    List chat sessions for current user
+    
+    Query params:
+        model_id (optional): Filter by model (omit for general conversations)
+    
+    Returns:
+        List of sessions with message counts
+    """
+    try:
+        from services.chat_service import list_user_sessions
+        
+        sessions = await list_user_sessions(
+            user_id=current_user["id"],
+            model_id=model_id
+        )
+        
+        # Add message count to each session
+        supabase = services.get_supabase()
+        for session in sessions:
+            count_result = supabase.table("chat_messages")\
+                .select("id", count="exact")\
+                .eq("session_id", session["id"])\
+                .execute()
+            
+            session["message_count"] = count_result.count if hasattr(count_result, 'count') else 0
+        
+        return {"sessions": sessions, "total": len(sessions)}
+    
+    except Exception as e:
+        print(f"Error listing sessions: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/chat/sessions/new")
+async def create_new_session_endpoint(
+    request: Dict,
+    current_user: Dict = Depends(require_auth)
+):
+    """
+    Start a new conversation
+    
+    Body:
+        model_id (optional): Model ID for model-specific conversation
+    
+    Returns:
+        New session record
+    """
+    try:
+        from services.chat_service import start_new_conversation
+        
+        model_id = request.get("model_id")
+        
+        session = await start_new_conversation(
+            user_id=current_user["id"],
+            model_id=model_id
+        )
+        
+        return {"session": session}
+    
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except Exception as e:
+        print(f"Error creating session: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/chat/sessions/{session_id}/resume")
+async def resume_session_endpoint(
+    session_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Resume a previous conversation (make it active)"""
+    try:
+        from services.chat_service import resume_conversation
+        
+        session = await resume_conversation(
+            session_id=session_id,
+            user_id=current_user["id"]
+        )
+        
+        return {"session": session}
+    
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except Exception as e:
+        print(f"Error resuming session: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/chat/sessions/{session_id}/messages")
+async def get_session_messages_endpoint(
+    session_id: int,
+    limit: Optional[int] = 50,
+    current_user: Dict = Depends(require_auth)
+):
+    """Get messages for a specific session"""
+    try:
+        from services.chat_service import get_or_create_session_v2
+        
+        # Verify access
+        session = await get_or_create_session_v2(
+            user_id=current_user["id"],
+            session_id=session_id
+        )
+        
+        # Get messages
+        supabase = services.get_supabase()
+        result = supabase.table("chat_messages")\
+            .select("*")\
+            .eq("session_id", session_id)\
+            .order("timestamp", desc=False)\
+            .limit(limit)\
+            .execute()
+        
+        return {"messages": result.data if result.data else [], "session": session}
+    
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except Exception as e:
+        print(f"Error getting session messages: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.delete("/api/chat/sessions/{session_id}")
+async def delete_session_endpoint(
+    session_id: int,
+    current_user: Dict = Depends(require_auth)
+):
+    """Delete a chat session and all its messages"""
+    try:
+        from services.chat_service import delete_session
+        
+        await delete_session(
+            session_id=session_id,
+            user_id=current_user["id"]
+        )
+        
+        return {"status": "success", "message": "Session deleted"}
+    
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except Exception as e:
+        print(f"Error deleting session: {e}")
+        raise HTTPException(500, str(e))
+
+
 @app.get("/api/chat/general-stream")
 async def general_chat_stream_endpoint(
     message: str,
@@ -1494,10 +1650,10 @@ async def general_chat_stream_endpoint(
             
             # Get model and params
             if global_settings.data and len(global_settings.data) > 0:
-                settings = global_settings.data[0]
-                ai_model = settings["chat_model"]
-                model_params = settings.get("model_parameters") or {}
-                instructions = settings.get("chat_instructions") or ""
+                chat_settings = global_settings.data[0]  # Renamed to avoid shadowing
+                ai_model = chat_settings["chat_model"]
+                model_params = chat_settings.get("model_parameters") or {}
+                instructions = chat_settings.get("chat_instructions") or ""
             else:
                 ai_model = "openai/gpt-4.1-mini"
                 model_params = {"temperature": 0.3, "top_p": 0.9}
@@ -1517,7 +1673,8 @@ async def general_chat_stream_endpoint(
                 }
                 return
             
-            api_key = user_models.data[0]["signature"]
+            # Use global OpenRouter API key from config settings (imported at top)
+            api_key = settings.OPENAI_API_KEY
             
             # Create simple ChatOpenAI (no tools for general chat)
             from langchain_openai import ChatOpenAI

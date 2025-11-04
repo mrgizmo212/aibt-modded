@@ -396,6 +396,38 @@ export async function getGeneralChatHistory(modelId: number) {
 }
 
 // ============================================================================
+// CHAT SESSIONS V2 (Multi-Conversation Support)
+// ============================================================================
+
+export async function listChatSessions(modelId?: number) {
+  const params = modelId ? `?model_id=${modelId}` : ''
+  return apiFetch(`/api/chat/sessions${params}`)
+}
+
+export async function createNewSession(modelId?: number) {
+  return apiFetch('/api/chat/sessions/new', {
+    method: 'POST',
+    body: JSON.stringify({ model_id: modelId })
+  })
+}
+
+export async function resumeSession(sessionId: number) {
+  return apiFetch(`/api/chat/sessions/${sessionId}/resume`, {
+    method: 'POST'
+  })
+}
+
+export async function getSessionMessages(sessionId: number, limit: number = 50) {
+  return apiFetch(`/api/chat/sessions/${sessionId}/messages?limit=${limit}`)
+}
+
+export async function deleteSession(sessionId: number) {
+  return apiFetch(`/api/chat/sessions/${sessionId}`, {
+    method: 'DELETE'
+  })
+}
+
+// ============================================================================
 // ADMIN ENDPOINTS
 // ============================================================================
 
