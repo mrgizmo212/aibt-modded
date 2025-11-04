@@ -431,7 +431,7 @@ async def save_chat_message_v2(
             # Generate title using AI
             title = await generate_conversation_title(
                 first_message=content,
-                api_key=settings.OPENROUTER_API_KEY
+                api_key=settings.OPENAI_API_KEY
             )
             
             # Update session title

@@ -78,6 +78,26 @@ await deleteSession(convId)
 
 ---
 
+## Conversation Routing Implemented (2025-11-04 20:00)
+
+**Feature:** ChatGPT-style shareable URLs for conversations
+
+**URL Structure:**
+- General conversation: `/?c=13`
+- Model conversation: `/?m=212&c=14` (model 212, conversation 14)
+
+**How It Works:**
+- Click conversation → URL updates
+- Same page, no reload
+- Browser back/forward works
+- Shareable URLs
+
+**Files Modified:**
+- `frontend-v2/app/page.tsx` - Parse URL params, handle routing
+- `frontend-v2/components/navigation-sidebar.tsx` - Pass modelId with sessionId
+
+---
+
 ## What's Next (Optional)
 
 ### Chat Interface Integration
@@ -89,6 +109,10 @@ The conversations work but selecting one doesn't load messages into chat interfa
 - Clear messages when "New Chat" clicked
 
 **This is a small integration task separate from the main implementation.**
+
+### Performance Issue: 45-Second Delay
+**Reported:** Clicking conversation takes 45 seconds to load
+**Needs Investigation:** Console logs and backend terminal during delay
 
 ---
 

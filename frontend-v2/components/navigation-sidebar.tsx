@@ -39,12 +39,14 @@ interface Model {
 
 interface NavigationSidebarProps {
   selectedModelId: number | null
+  selectedConversationId?: number | null
   onSelectModel: (id: number) => void
   onToggleModel: (id: number) => void
+  onConversationSelect?: (sessionId: number, modelId?: number) => void  // ← Updated: includes modelId
   isHidden?: boolean  // ← NEW: Prevent API calls when hidden (mobile drawer)
 }
 
-export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleModel, isHidden = false }: NavigationSidebarProps) {
+export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onConversationSelect, isHidden = false }: NavigationSidebarProps) {
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
   const [expandedModels, setExpandedModels] = useState<Record<number, boolean>>({})
@@ -362,6 +364,12 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
     try {
       await resumeSession(convId)
       setSelectedConversationId(convId)
+      
+      // Update URL for general conversation (ChatGPT-style: ?c=13)
+      if (onConversationSelect) {
+        onConversationSelect(convId)  // No modelId for general
+      }
+      
       toast.info("Switched to conversation", { duration: 1000 })
       // TODO: Load messages into chat interface
     } catch (error: any) {
@@ -374,6 +382,12 @@ export function NavigationSidebar({ selectedModelId, onSelectModel, onToggleMode
       await resumeSession(convId)
       setSelectedConversationId(convId)
       onSelectModel(modelId)
+      
+      // Update URL for model conversation (ChatGPT-style: ?m=212&c=14)
+      if (onConversationSelect) {
+        onConversationSelect(convId, modelId)  // Include modelId
+      }
+      
       toast.info("Switched to conversation", { duration: 1000 })
       // TODO: Load messages into chat interface
     } catch (error: any) {
