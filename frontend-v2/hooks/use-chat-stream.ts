@@ -24,10 +24,16 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
   const contentRef = useRef('')
 
   const startStream = useCallback(async (message: string) => {
+    console.log('[Chat Stream] startStream called with:', message)
+    console.log('[Chat Stream] isGeneral:', isGeneral, 'modelId:', modelId, 'runId:', runId)
+    
     // Get auth token
     const token = localStorage.getItem('auth_token')
+    console.log('[Chat Stream] Token exists:', !!token)
+    
     if (!token) {
-      onError?.('Not authenticated')
+      console.error('[Chat Stream] No token found')
+      onError?.('Not authenticated - no token')
       return
     }
 
@@ -38,24 +44,37 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
 
     // Create EventSource for SSE
     let url: string
+    let eventSource: EventSource
     
-    if (isGeneral) {
-      // General chat (no run context)
-      url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${token}`
-    } else {
-      // Run-specific chat (with analysis tools)
-      if (!modelId || !runId) {
-        onError?.('No run selected')
-        setIsStreaming(false)
-        return
+    try {
+      if (isGeneral) {
+        // General chat (no run context)
+        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
+        console.log('[Chat Stream] Using GENERAL chat endpoint')
+      } else {
+        // Run-specific chat (with analysis tools)
+        if (!modelId || !runId) {
+          console.error('[Chat Stream] Missing modelId or runId')
+          onError?.('No run selected')
+          setIsStreaming(false)
+          return
+        }
+        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
+        console.log('[Chat Stream] Using RUN-SPECIFIC chat endpoint')
       }
-      url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${token}`
+      
+      console.log('[Chat Stream] Full URL:', url.substring(0, 100) + '...')
+      console.log('[Chat Stream] Creating EventSource...')
+      
+      eventSource = new EventSource(url)
+      eventSourceRef.current = eventSource
+      console.log('[Chat Stream] EventSource created, waiting for connection...')
+    } catch (err) {
+      console.error('[Chat Stream] Failed to create EventSource:', err)
+      setIsStreaming(false)
+      onError?.('Failed to create connection')
+      return
     }
-    
-    console.log('[Chat Stream] Connecting to:', url.replace(token, 'TOKEN_HIDDEN'))
-    
-    const eventSource = new EventSource(url)
-    eventSourceRef.current = eventSource
 
     eventSource.onopen = () => {
       console.log('[Chat Stream] Connected successfully')
