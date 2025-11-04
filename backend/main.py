@@ -1754,15 +1754,29 @@ For detailed trade analysis, ask users to select a specific run first (then you'
             # Add current message
             messages.append({"role": "user", "content": message})
             
+            print(f"🤖 Starting AI stream with model: {ai_model}")
+            print(f"📨 Message count: {len(messages)}")
+            
             # Stream response
             full_response = ""
-            async for chunk in model.astream(messages):
-                if chunk.content:
-                    full_response += chunk.content
-                    yield {
-                        "event": "message",
-                        "data": json.dumps({"type": "token", "content": chunk.content})
-                    }
+            try:
+                async for chunk in model.astream(messages):
+                    if chunk.content:
+                        full_response += chunk.content
+                        yield {
+                            "event": "message",
+                            "data": json.dumps({"type": "token", "content": chunk.content})
+                        }
+                
+                print(f"✅ AI stream completed, response length: {len(full_response)}")
+                
+            except Exception as stream_error:
+                print(f"❌ AI stream error: {stream_error}")
+                yield {
+                    "event": "message",
+                    "data": json.dumps({"type": "error", "error": f"AI model error: {str(stream_error)}"})
+                }
+                return
             
             # Save conversation to database
             # Use user's first model_id for session linking

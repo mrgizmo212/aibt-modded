@@ -269,13 +269,13 @@ export function ChatInterface({
     console.log('[Chat] Calling chatStream.startStream with message:', currentInput)
     try {
       await chatStream.startStream(currentInput)
-      console.log('[Chat] Stream started successfully')
+      console.log('[Chat] Stream connection established')
+      // Note: setIsTyping(false) is called in onComplete callback when stream finishes
     } catch (error) {
       console.error('[Chat] Stream start failed:', error)
       setIsTyping(false)
       onError?.(error instanceof Error ? error.message : 'Stream failed')
     }
-    setIsTyping(false)
     return
     
     // OLD PATTERN MATCHING (no longer used - AI handles everything)

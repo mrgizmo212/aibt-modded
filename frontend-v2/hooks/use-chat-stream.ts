@@ -50,7 +50,7 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
     try {
       if (isGeneral) {
         // General chat (no run context)
-        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
+        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
         console.log('[Chat Stream] Using GENERAL chat endpoint')
       } else {
         // Run-specific chat (with analysis tools)
@@ -60,7 +60,7 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
           setIsStreaming(false)
           return
         }
-        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
+        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/models/${modelId}/runs/${runId}/chat-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
         console.log('[Chat Stream] Using RUN-SPECIFIC chat endpoint')
       }
       
