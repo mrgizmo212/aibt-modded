@@ -180,9 +180,9 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       // Refresh conversation lists to show new conversation
       loadGeneralConversations()
       
-      // If model conversation, refresh that model's conversations
+      // If model conversation, refresh all model conversations
       if (event.detail?.modelId) {
-        loadModelConversations(event.detail.modelId)
+        loadAllModelConversations()
       }
     }
     

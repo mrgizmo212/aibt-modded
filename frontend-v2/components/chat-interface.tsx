@@ -16,6 +16,7 @@ import { PortfolioChart } from "./PortfolioChart"
 import RunData from "./RunData"
 import { MarkdownRenderer } from "./markdown-renderer"
 import { useChatStream } from "@/hooks/use-chat-stream"
+import { toast } from "sonner"
 
 export interface Message {
   id: string
@@ -40,6 +41,11 @@ interface ChatInterfaceProps {
   onShowRunDetails?: (modelId: number, runId: number, runData: any) => void
   selectedModelId?: number
   selectedRunId?: number
+  // NEW: Ephemeral conversation props
+  isEphemeral?: boolean  // Are we on /new or /m/[id]/new?
+  ephemeralModelId?: number  // Model ID for /m/[id]/new
+  selectedConversationId?: number | null  // Existing conversation ID for /c/[id]
+  onConversationCreated?: (sessionId: number, modelId?: number) => void  // Callback after session created
 }
 
 export function ChatInterface({
@@ -50,6 +56,11 @@ export function ChatInterface({
   onShowRunDetails,
   selectedModelId,
   selectedRunId,
+  // NEW: Destructure ephemeral conversation props
+  isEphemeral = false,
+  ephemeralModelId,
+  selectedConversationId,
+  onConversationCreated,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -322,6 +333,140 @@ export function ChatInterface({
     }
   }
 
+  /**
+   * Handle first message in ephemeral conversation
+   * Creates session and streams response in ONE operation
+   */
+  const handleFirstMessage = async (message: string) => {
+    setIsTyping(true)
+    
+    try {
+      const { getToken } = await import('@/lib/auth')
+      const token = getToken()
+      
+      if (!token) {
+        console.error('[Chat] No auth token for first message')
+        setIsTyping(false)
+        toast.error('Not authenticated')
+        return
+      }
+      
+      // Construct URL for create-and-stream endpoint
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const modelParam = ephemeralModelId ? `&model_id=${ephemeralModelId}` : ''
+      const url = `${API_BASE}/api/chat/stream-new?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}${modelParam}`
+      
+      console.log('[Chat] Creating session + streaming first message')
+      console.log('[Chat] Ephemeral mode:', isEphemeral, 'Model:', ephemeralModelId)
+      
+      // Create placeholder AI message for streaming
+      const streamingMsgId = (Date.now() + 1).toString()
+      const streamingMessage: Message = {
+        id: streamingMsgId,
+        type: "ai",
+        text: "",
+        timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        streaming: true
+      }
+      
+      setMessages(prev => [...prev, streamingMessage])
+      setStreamingMessageId(streamingMsgId)
+      streamingMessageIdRef.current = streamingMsgId
+      
+      // Open SSE connection
+      const eventSource = new EventSource(url)
+      let createdSessionId: number | null = null
+      let fullResponse = ''
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('[Chat] SSE event:', data.type || data)
+          
+          // CRITICAL: Session created event (comes first)
+          if (data.type === 'session_created' && data.session_id) {
+            createdSessionId = data.session_id
+            console.log('[Chat] ✅ Session created:', createdSessionId)
+            
+            // Call parent callback to update URL (router.replace)
+            if (onConversationCreated) {
+              onConversationCreated(createdSessionId, ephemeralModelId)
+            }
+            
+            // Dispatch event for sidebar refresh
+            window.dispatchEvent(new CustomEvent('conversation-created', {
+              detail: { sessionId: createdSessionId, modelId: ephemeralModelId }
+            }))
+          }
+          
+          // Token streaming
+          if (data.type === 'token' && data.content) {
+            fullResponse += data.content
+            setMessages(prev => prev.map(m =>
+              m.id === streamingMsgId 
+                ? { ...m, text: fullResponse }
+                : m
+            ))
+          }
+          
+          // Tool usage
+          if (data.type === 'tool' && data.tool) {
+            setMessages(prev => prev.map(m =>
+              m.id === streamingMsgId
+                ? { ...m, toolsUsed: [...(m.toolsUsed || []), data.tool] }
+                : m
+            ))
+          }
+          
+          // Stream complete
+          if (data.type === 'done') {
+            console.log('[Chat] ✅ Stream complete')
+            setMessages(prev => prev.map(m =>
+              m.id === streamingMsgId
+                ? { ...m, streaming: false }
+                : m
+            ))
+            setStreamingMessageId(null)
+            streamingMessageIdRef.current = null
+            setIsTyping(false)
+            eventSource.close()
+          }
+          
+          // Error
+          if (data.type === 'error') {
+            console.error('[Chat] Stream error:', data.error)
+            setMessages(prev => prev.map(m =>
+              m.id === streamingMsgId
+                ? { ...m, streaming: false, text: `Error: ${data.error}` }
+                : m
+            ))
+            setIsTyping(false)
+            eventSource.close()
+          }
+          
+        } catch (err) {
+          console.error('[Chat] Failed to parse SSE event:', err, 'Raw:', event.data)
+        }
+      }
+      
+      eventSource.onerror = (err) => {
+        console.error('[Chat] SSE connection error:', err)
+        setMessages(prev => prev.map(m =>
+          m.id === streamingMsgId
+            ? { ...m, streaming: false, text: 'Connection error. Please try again.' }
+            : m
+        ))
+        setIsTyping(false)
+        eventSource.close()
+      }
+      
+    } catch (error: any) {
+      console.error('[Chat] handleFirstMessage error:', error)
+      toast.error(error.message || 'Failed to create conversation')
+      setIsTyping(false)
+    }
+  }
+
   const handleSend = async () => {
     if (!input.trim()) return
 
@@ -336,6 +481,16 @@ export function ChatInterface({
     const currentInput = input
     setInput("")
     
+    // DECISION POINT: Ephemeral or persistent conversation?
+    if (isEphemeral) {
+      // This is FIRST message in /new or /m/[id]/new
+      // Create session AND stream in one call
+      console.log('[Chat] Ephemeral mode - creating session with first message')
+      await handleFirstMessage(currentInput)
+      return
+    }
+    
+    // Normal flow - existing conversation
     // ALWAYS use STREAMING chat with real AI (general or run-specific)
     setIsTyping(true)
     

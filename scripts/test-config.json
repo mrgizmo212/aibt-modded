@@ -1,0 +1,14 @@
+{
+  "backend_url": "http://localhost:8080",
+  "frontend_url": "http://localhost:3000",
+  "test_user": {
+    "email": "adam@truetradinggroup.com",
+    "password": "env:TEST_PASSWORD"
+  },
+  "test_model_id": 169,
+  "test_timeout": 30000,
+  "database": {
+    "note": "Uses DATABASE_URL from backend/.env"
+  }
+}
+

@@ -1597,18 +1597,304 @@ async def delete_session_endpoint(
     try:
         from services.chat_service import delete_session
         
+        print(f"[delete-session] Attempting to delete session {session_id} for user {current_user['id']}")
+        
         await delete_session(
             session_id=session_id,
             user_id=current_user["id"]
         )
         
+        print(f"[delete-session] ✅ Session {session_id} deleted successfully")
         return {"status": "success", "message": "Session deleted"}
     
     except PermissionError as e:
+        print(f"[delete-session] ❌ Permission denied: {e}")
         raise HTTPException(403, str(e))
     except Exception as e:
-        print(f"Error deleting session: {e}")
+        print(f"[delete-session] ❌ Error deleting session: {e}")
         raise HTTPException(500, str(e))
+
+
+@app.get("/api/chat/stream-new")
+async def stream_new_conversation(
+    message: str,
+    model_id: Optional[int] = None,
+    token: Optional[str] = None
+):
+    """
+    Create new conversation + stream first response atomically
+    
+    This is the ephemeral → persistent transition endpoint.
+    Flow: /new → (first message) → creates session + streams → /c/{id}
+    
+    Query params:
+        message: First user message (required)
+        model_id: Optional model ID for model-specific conversation
+        token: JWT token (EventSource can't send headers, must use query param)
+    
+    Returns:
+        SSE stream with events:
+            - session_created: {type: "session_created", session_id: 123, session_created: true}
+            - token: {type: "token", content: "..."}
+            - tool: {type: "tool", tool: "tool_name"}
+            - done: {type: "done"}
+            - error: {type: "error", error: "message"}
+    """
+    from sse_starlette.sse import EventSourceResponse
+    from services import chat_service
+    from agents.system_agent import SystemAgent
+    
+    # Manual token verification (EventSource can't send Authorization header)
+    current_user = None
+    if token:
+        try:
+            from auth import verify_token_string
+            payload = verify_token_string(token)
+            current_user = {
+                "id": payload.get("sub"),
+                "email": payload.get("email"),
+                "role": payload.get("user_metadata", {}).get("role", "user")
+            }
+        except Exception as e:
+            print(f"🔒 stream-new auth failed: {e}")
+            pass
+    
+    if not current_user:
+        async def error_generator():
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": "Not authenticated"})
+            }
+        return EventSourceResponse(error_generator())
+    
+    async def event_generator():
+        try:
+            # STEP 1: Create session FIRST (makes conversation persistent)
+            session = await chat_service.start_new_conversation(
+                user_id=current_user["id"],
+                model_id=model_id
+            )
+            session_id = session["id"]
+            print(f"[stream-new] ✅ Session created: {session_id}")
+            
+            # STEP 2: Emit session_created event IMMEDIATELY (within 1s)
+            yield {
+                "event": "message",
+                "data": json.dumps({
+                    "type": "session_created",
+                    "session_id": session_id,
+                    "session_created": True
+                })
+            }
+            
+            # Brief pause to ensure frontend receives event
+            await asyncio.sleep(0.1)
+            
+            # STEP 3: Save user message
+            await chat_service.save_chat_message_v2(
+                session_id=session_id,
+                role="user",
+                content=message,
+                user_id=current_user["id"]
+            )
+            print(f"[stream-new] ✅ User message saved")
+            
+            # STEP 4: Get message history (just the one message we saved)
+            supabase = services.get_supabase()
+            messages_result = supabase.table("chat_messages")\
+                .select("*")\
+                .eq("session_id", session_id)\
+                .order("timestamp", desc=False)\
+                .limit(10)\
+                .execute()
+            
+            history = messages_result.data if messages_result.data else []
+            
+            # STEP 5: Initialize AI agent (different logic for general vs model chat)
+            full_response = ""
+            tool_calls_used = []
+            
+            if model_id is None:
+                # GENERAL CHAT: Use ChatOpenAI directly (no SystemAgent, no tools)
+                print(f"[stream-new] General chat mode (no model)")
+                
+                # Get global chat settings
+                supabase = services.get_supabase()
+                global_settings = supabase.table("global_chat_settings")\
+                    .select("*")\
+                    .eq("id", 1)\
+                    .execute()
+                
+                if global_settings.data and len(global_settings.data) > 0:
+                    chat_settings = global_settings.data[0]
+                    ai_model = chat_settings["chat_model"]
+                    model_params = chat_settings.get("model_parameters") or {}
+                else:
+                    ai_model = "openai/gpt-4.1-mini"
+                    model_params = {"temperature": 0.3, "top_p": 0.9}
+                
+                # Use global OpenRouter API key
+                api_key = settings.OPENAI_API_KEY
+                
+                # DEBUG - Show what we're using
+                print(f"🔑 API Key from settings: {api_key[:20] if api_key else 'MISSING'}...")
+                print(f"🔑 API Key length: {len(api_key) if api_key else 0}")
+                print(f"🔑 Model: {ai_model}")
+                print(f"🔑 Temperature: {model_params.get('temperature', 0.3)}")
+                
+                # Create ChatOpenAI
+                from langchain_openai import ChatOpenAI
+                params = {
+                    "model": ai_model,
+                    "temperature": model_params.get("temperature", 0.3),
+                    "base_url": "https://openrouter.ai/api/v1",
+                    "api_key": api_key
+                }
+                print(f"🔑 Params being passed: {list(params.keys())}")
+                if "top_p" in model_params:
+                    params["top_p"] = model_params["top_p"]
+                
+                # Smart token handling (required for OpenRouter)
+                if ai_model.startswith("openai/gpt-5") or ai_model.startswith("openai/o"):
+                    params["max_completion_tokens"] = model_params.get("max_completion_tokens", 4000)
+                else:
+                    params["max_tokens"] = model_params.get("max_tokens", 4000)
+                
+                chat_model = ChatOpenAI(**params)
+                
+                # Build messages array (system prompt + history + current message)
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant for True Trading Group's AI Trading Platform."}
+                ]
+                
+                # Add history
+                for msg in history:
+                    if msg.get("role") in ["user", "assistant"]:
+                        messages.append({"role": msg["role"], "content": msg["content"]})
+                
+                # Add current message
+                messages.append({"role": "user", "content": message})
+                
+                print(f"🤖 Streaming general chat with {len(messages)} messages")
+                
+                # Stream response directly (no tools)
+                try:
+                    async for chunk in chat_model.astream(messages):
+                        token_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                        if token_text:
+                            full_response += token_text
+                            yield {
+                                "event": "message",
+                                "data": json.dumps({"type": "token", "content": token_text})
+                            }
+                except Exception as stream_error:
+                    print(f"[stream-new] Streaming error: {stream_error}")
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"Streaming error: {str(stream_error)}"})
+                    }
+                    return
+                    
+            else:
+                # MODEL CHAT: Use SystemAgent (with tools)
+                print(f"[stream-new] Model chat mode (model_id={model_id})")
+                
+                agent = SystemAgent(
+                    model_id=model_id,
+                    run_id=None,
+                    user_id=current_user["id"],
+                    supabase=services.get_supabase()
+                )
+                
+                # STEP 6: Stream AI response with tools
+                try:
+                    async for chunk in agent.chat_stream(message, history):
+                        if isinstance(chunk, dict):
+                            if chunk.get("type") == "token":
+                                token_text = chunk.get("content", "")
+                                full_response += token_text
+                                yield {
+                                    "event": "message",
+                                    "data": json.dumps({"type": "token", "content": token_text})
+                                }
+                            elif chunk.get("type") == "tool":
+                                tool_name = chunk.get("tool_name")
+                                tool_calls_used.append(tool_name)
+                                yield {
+                                    "event": "message",
+                                    "data": json.dumps({"type": "tool", "tool": tool_name})
+                                }
+                        else:
+                            # Plain string token
+                            full_response += chunk
+                            yield {
+                                "event": "message",
+                                "data": json.dumps({"type": "token", "content": chunk})
+                            }
+                except Exception as stream_error:
+                    print(f"[stream-new] Streaming error: {stream_error}")
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"Streaming error: {str(stream_error)}"})
+                    }
+                    return
+            
+            # STEP 7: Save AI response
+            await chat_service.save_chat_message_v2(
+                session_id=session_id,
+                role="assistant",
+                content=full_response,
+                user_id=current_user["id"],
+                tool_calls=tool_calls_used
+            )
+            print(f"[stream-new] ✅ AI response saved")
+            
+            # STEP 8: Generate title in background (async, don't wait)
+            asyncio.create_task(
+                generate_title_async(session_id, message, current_user["id"])
+            )
+            
+            # STEP 9: Emit done event
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "done"})
+            }
+            
+        except Exception as e:
+            print(f"[stream-new] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": str(e)})
+            }
+    
+    return EventSourceResponse(event_generator())
+
+
+async def generate_title_async(session_id: int, first_message: str, user_id: str):
+    """Background task to generate and update conversation title"""
+    try:
+        from services.title_generation import generate_conversation_title
+        
+        title = await generate_conversation_title(
+            first_message,
+            api_key=settings.OPENAI_API_KEY
+        )
+        
+        # Update session title
+        supabase = services.get_supabase()
+        supabase.table("chat_sessions")\
+            .update({
+                "session_title": title,
+                "updated_at": datetime.now().isoformat()
+            })\
+            .eq("id", session_id)\
+            .execute()
+        
+        print(f"✅ Generated title for session {session_id}: {title}")
+    except Exception as e:
+        print(f"⚠️  Failed to generate title for session {session_id}: {e}")
 
 
 @app.get("/api/chat/general-stream")
