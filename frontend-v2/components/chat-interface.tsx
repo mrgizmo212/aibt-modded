@@ -281,6 +281,8 @@ export function ChatInterface({
     // ALWAYS use STREAMING chat with real AI (general or run-specific)
     setIsTyping(true)
     
+    console.log('[Chat] Starting stream - isGeneral:', isGeneralChat, 'modelId:', selectedModelId, 'runId:', selectedRunId)
+    
     // Create placeholder streaming message
     const streamingMsgId = (Date.now() + 1).toString()
     const streamingMessage: Message = {
@@ -295,7 +297,15 @@ export function ChatInterface({
     setStreamingMessageId(streamingMsgId)
     
     // Start stream
-    await chatStream.startStream(currentInput)
+    console.log('[Chat] Calling chatStream.startStream with message:', currentInput)
+    try {
+      await chatStream.startStream(currentInput)
+      console.log('[Chat] Stream started successfully')
+    } catch (error) {
+      console.error('[Chat] Stream start failed:', error)
+      setIsTyping(false)
+      onError?.(error instanceof Error ? error.message : 'Stream failed')
+    }
     setIsTyping(false)
     return
     

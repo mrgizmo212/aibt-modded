@@ -101,7 +101,7 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
         eventSource.close()
       }
     }
-  }, [modelId, runId, onComplete, onError])
+  }, [modelId, runId, isGeneral, onComplete, onError])
 
   const stopStream = useCallback(() => {
     if (eventSourceRef.current) {
