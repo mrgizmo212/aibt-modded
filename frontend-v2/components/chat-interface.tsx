@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Trash2, Bot } from "lucide-react"
+import { Send, Trash2, Bot, Square, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { StatsGrid } from "./embedded/stats-grid"
 import { ModelCardsGrid } from "./embedded/model-cards-grid"
 import { TradingForm } from "./embedded/trading-form"
@@ -13,6 +14,8 @@ import { ModelCreationStep } from "./embedded/model-creation-step"
 import { PerformanceMetrics } from "./PerformanceMetrics"
 import { PortfolioChart } from "./PortfolioChart"
 import RunData from "./RunData"
+import { MarkdownRenderer } from "./markdown-renderer"
+import { useChatStream } from "@/hooks/use-chat-stream"
 
 export interface Message {
   id: string
@@ -25,6 +28,8 @@ export interface Message {
   }
   suggestedActions?: string[]
   thinking?: boolean
+  streaming?: boolean
+  toolsUsed?: string[]
 }
 
 interface ChatInterfaceProps {
@@ -33,6 +38,8 @@ interface ChatInterfaceProps {
   onModelEdit?: (id: number) => void
   onMobileDetailsClick?: (id: number) => void
   onShowRunDetails?: (modelId: number, runId: number, runData: any) => void
+  selectedModelId?: number
+  selectedRunId?: number
 }
 
 export function ChatInterface({
@@ -41,6 +48,8 @@ export function ChatInterface({
   onModelEdit,
   onMobileDetailsClick,
   onShowRunDetails,
+  selectedModelId,
+  selectedRunId,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -58,6 +67,36 @@ export function ChatInterface({
     "name" | "type" | "strategy" | "risk" | "backtest" | "confirm" | null
   >(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  
+  // Streaming hook (only active when model+run selected)
+  const canStream = selectedModelId && selectedRunId
+  const chatStream = useChatStream({
+    modelId: selectedModelId || 0,
+    runId: selectedRunId || 0,
+    onComplete: (fullResponse) => {
+      // Update streaming message with final content
+      if (streamingMessageId) {
+        setMessages(prev => prev.map(m => 
+          m.id === streamingMessageId 
+            ? { ...m, streaming: false, text: fullResponse }
+            : m
+        ))
+        setStreamingMessageId(null)
+      }
+    },
+    onError: (error) => {
+      console.error('Stream error:', error)
+      if (streamingMessageId) {
+        setMessages(prev => prev.map(m =>
+          m.id === streamingMessageId
+            ? { ...m, streaming: false, text: `Error: ${error}` }
+            : m
+        ))
+        setStreamingMessageId(null)
+      }
+    }
+  })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -65,7 +104,18 @@ export function ChatInterface({
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, chatStream.streamedContent])
+  
+  // Update streaming message as content arrives
+  useEffect(() => {
+    if (streamingMessageId && chatStream.streamedContent) {
+      setMessages(prev => prev.map(m =>
+        m.id === streamingMessageId
+          ? { ...m, text: chatStream.streamedContent, toolsUsed: chatStream.toolsUsed }
+          : m
+      ))
+    }
+  }, [chatStream.streamedContent, chatStream.toolsUsed, streamingMessageId])
   
   // Expose method to add run details to chat
   useEffect(() => {
@@ -185,8 +235,34 @@ export function ChatInterface({
     }
 
     setMessages((prev) => [...prev, userMessage])
-    const userInput = input // Save input before clearing
+    const currentInput = input
     setInput("")
+    
+    // If model+run selected, use STREAMING chat with real AI
+    if (canStream && chatStream) {
+      setIsTyping(true)
+      
+      // Create placeholder streaming message
+      const streamingMsgId = (Date.now() + 1).toString()
+      const streamingMessage: Message = {
+        id: streamingMsgId,
+        type: "ai",
+        text: "",
+        timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        streaming: true
+      }
+      
+      setMessages(prev => [...prev, streamingMessage])
+      setStreamingMessageId(streamingMsgId)
+      
+      // Start stream
+      await chatStream.startStream(currentInput)
+      setIsTyping(false)
+      return
+    }
+    
+    // Fallback to pattern matching for dashboard commands (keep existing functionality)
+    const userInput = currentInput.toLowerCase()
     setIsTyping(true)
 
     setTimeout(async () => {
@@ -325,8 +401,44 @@ export function ChatInterface({
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm lg:text-sm text-white leading-relaxed">{message.text}</p>
-                        <p className="text-xs text-[#737373] mt-2">{message.timestamp}</p>
+                        {message.streaming ? (
+                          <>
+                            <MarkdownRenderer 
+                              content={chatStream.streamedContent} 
+                              className="text-sm text-white"
+                            />
+                            {chatStream.toolsUsed.length > 0 && (
+                              <div className="flex gap-1 mt-2 flex-wrap">
+                                {chatStream.toolsUsed.map((tool, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs bg-purple-500/20 text-purple-300 border-purple-500/30">
+                                    🔧 {tool}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                              <span className="text-xs text-[#737373]">Streaming...</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <MarkdownRenderer 
+                              content={message.text} 
+                              className="text-sm text-white"
+                            />
+                            {message.toolsUsed && message.toolsUsed.length > 0 && (
+                              <div className="flex gap-1 mt-2 flex-wrap">
+                                {message.toolsUsed.map((tool, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs bg-purple-500/20 text-purple-300 border-purple-500/30">
+                                    🔧 {tool}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-xs text-[#737373] mt-2">{message.timestamp}</p>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
@@ -407,21 +519,43 @@ export function ChatInterface({
       </div>
 
       <div className="p-3 lg:p-4 bg-[#0a0a0a] border-t border-[#262626]">
+        {/* Show context when run selected */}
+        {canStream && (
+          <div className="mb-2 text-xs text-[#737373] flex items-center gap-2">
+            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+              Run #{selectedRunId}
+            </Badge>
+            <span>Chatting with AI about this run (uses your model's AI)</span>
+          </div>
+        )}
+        
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask me anything..."
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={canStream ? "Ask about this run..." : "Ask me anything..."}
+            disabled={chatStream.isStreaming}
             className="flex-1 bg-[#1a1a1a] border-[#262626] text-white placeholder:text-[#7373a3] focus-visible:ring-[#3b82f6] h-11 lg:h-10"
           />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isTyping}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white h-11 w-11 lg:h-10 lg:w-10"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+          
+          {chatStream.isStreaming ? (
+            <Button
+              onClick={chatStream.stopStream}
+              className="bg-red-600 hover:bg-red-700 text-white h-11 w-11 lg:h-10 lg:w-10"
+              title="Stop streaming"
+            >
+              <Square className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isTyping}
+              className="bg-[#3b82f6] hover:bg-[#2563eb] text-white h-11 w-11 lg:h-10 lg:w-10"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

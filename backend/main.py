@@ -12,6 +12,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 import asyncio
 import os
+import json
 
 from config import settings
 from auth import (
@@ -1354,6 +1355,95 @@ async def get_chat_history_endpoint(
         return {"messages": messages}
     except PermissionError:
         raise HTTPException(403, "Access denied")
+
+
+@app.get("/api/models/{model_id}/runs/{run_id}/chat-stream")
+async def chat_stream_endpoint(
+    model_id: int,
+    run_id: int,
+    message: str,
+    current_user: Dict = Depends(require_auth)
+):
+    """Stream chat response (SSE)"""
+    from sse_starlette.sse import EventSourceResponse
+    
+    # Verify ownership
+    model = await services.get_model_by_id(model_id, current_user["id"])
+    if not model:
+        raise HTTPException(404, "Model not found")
+    
+    async def event_generator():
+        try:
+            # Create agent
+            from agents.system_agent import create_system_agent
+            
+            agent = create_system_agent(
+                model_id=model_id,
+                run_id=run_id,
+                user_id=current_user["id"],
+                supabase=services.get_supabase()
+            )
+            
+            # Get history
+            from services.chat_service import get_chat_messages
+            chat_history = await get_chat_messages(model_id, run_id, current_user["id"])
+            
+            # Stream response
+            full_response = ""
+            tool_calls = []
+            
+            async for chunk in agent.chat_stream(message, chat_history):
+                if chunk["type"] == "token":
+                    full_response += chunk["content"]
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "token", "content": chunk["content"]})
+                    }
+                elif chunk["type"] == "tool":
+                    tool_calls.append(chunk["tool"])
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "tool", "tool": chunk["tool"]})
+                    }
+                elif chunk["type"] == "done":
+                    # Save messages
+                    from services.chat_service import save_chat_message
+                    
+                    await save_chat_message(
+                        model_id=model_id,
+                        run_id=run_id,
+                        role="user",
+                        content=message,
+                        user_id=current_user["id"]
+                    )
+                    
+                    await save_chat_message(
+                        model_id=model_id,
+                        run_id=run_id,
+                        role="assistant",
+                        content=full_response,
+                        user_id=current_user["id"],
+                        tool_calls=tool_calls if tool_calls else None
+                    )
+                    
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "done"})
+                    }
+                elif chunk["type"] == "error":
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": chunk["error"]})
+                    }
+        
+        except Exception as e:
+            print(f"Stream error: {e}")
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "error", "error": str(e)})
+            }
+    
+    return EventSourceResponse(event_generator())
 
 
 # ============================================================================

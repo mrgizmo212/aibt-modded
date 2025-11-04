@@ -61,6 +61,10 @@ export default function Home() {
   const handleRunClick = async (modelId: number, runId: number) => {
     console.log('Run clicked:', modelId, runId)
     
+    // Set selected run for chat context
+    setSelectedModelId(modelId)
+    setSelectedRunId(runId)
+    
     try {
       // Fetch full run details
       const { getRunDetails } = await import('@/lib/api')
@@ -94,9 +98,8 @@ export default function Home() {
     }
   }
 
-  const handleSaveModel = (updatedModel: any) => {
-    console.log("Saving model:", updatedModel)
-    // In a real app, this would update the model via API
+  const handleSaveModel = () => {
+    console.log("Model saved")
     setIsEditDialogOpen(false)
     setEditingModel(null)
   }
@@ -140,6 +143,8 @@ export default function Home() {
             onModelEdit={handleEditModel}
             onMobileDetailsClick={handleMobileDetailsClick}
             onShowRunDetails={handleRunClick}
+            selectedModelId={selectedModelId || undefined}
+            selectedRunId={selectedRunId || undefined}
           />
         </div>
 

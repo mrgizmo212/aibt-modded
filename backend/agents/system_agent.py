@@ -26,12 +26,18 @@ class SystemAgent:
         user_id: str,
         supabase: Client
     ):
-        # Verify ownership
-        model = supabase.table("models").select("user_id").eq("id", model_id).execute()
-        if not model.data:
+        # Get model config
+        model_data = supabase.table("models")\
+            .select("user_id, default_ai_model, model_parameters")\
+            .eq("id", model_id)\
+            .execute()
+        
+        if not model_data.data:
             raise PermissionError(f"Model {model_id} not found")
         
-        model_owner = model.data[0]["user_id"]
+        model_config = model_data.data[0]
+        model_owner = model_config["user_id"]
+        
         print(f"🔍 Chat auth check: model_owner={model_owner}, requesting_user={user_id}, match={model_owner == user_id}")
         
         if model_owner != user_id:
@@ -42,11 +48,27 @@ class SystemAgent:
         self.user_id = user_id
         self.supabase = supabase
         
-        # Initialize LangChain model
-        self.model = ChatOpenAI(
-            model="gpt-4o",
-            temperature=0.3  # Lower for analytical responses
-        )
+        # Use model's configured AI (NOT hardcoded!)
+        ai_model = model_config.get("default_ai_model", "openai/gpt-4.1-mini")
+        model_params = model_config.get("model_parameters") or {}
+        
+        print(f"🤖 Chat using: {ai_model}")
+        
+        # Initialize with OpenRouter (like trading agent)
+        params = {
+            "model": ai_model,
+            "temperature": model_params.get("temperature", 0.3),  # Lower for analytical
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_key": supabase.table("models").select("signature").eq("id", model_id).execute().data[0]["signature"]
+        }
+        
+        # Apply other parameters if present
+        if "top_p" in model_params:
+            params["top_p"] = model_params["top_p"]
+        if "max_completion_tokens" in model_params:
+            params["max_tokens"] = model_params["max_completion_tokens"]
+        
+        self.model = ChatOpenAI(**params)
         
         # Load analysis tools
         self.tools = self._load_tools()
@@ -123,7 +145,7 @@ When suggesting rules:
         conversation_history: Optional[List[Dict]] = None
     ) -> Dict:
         """
-        Process user message and return response
+        Process user message and return response (non-streaming)
         
         Args:
             user_message: User's question or request
@@ -169,7 +191,7 @@ When suggesting rules:
             return {
                 "response": content,
                 "tool_calls": tool_calls,
-                "suggested_rules": []  # TODO: Parse suggested rules from content
+                "suggested_rules": []
             }
             
         except Exception as e:
@@ -179,6 +201,48 @@ When suggesting rules:
                 "tool_calls": [],
                 "suggested_rules": []
             }
+    
+    async def chat_stream(
+        self,
+        user_message: str,
+        conversation_history: Optional[List[Dict]] = None
+    ):
+        """
+        Stream response tokens as they arrive
+        
+        Yields:
+            {"type": "token", "content": str} - Text chunks
+            {"type": "tool", "tool": str} - Tool usage
+            {"type": "done"} - Completion marker
+        """
+        # Build messages
+        messages = []
+        
+        if conversation_history:
+            for msg in conversation_history[-10:]:
+                if msg["role"] in ["user", "assistant"]:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        messages.append({"role": "user", "content": user_message})
+        
+        try:
+            # Stream response
+            async for chunk in self.agent.astream({"messages": messages}):
+                if "messages" in chunk:
+                    for msg in chunk["messages"]:
+                        if hasattr(msg, "content") and msg.content:
+                            yield {"type": "token", "content": msg.content}
+                        
+                        # Track tool usage
+                        if hasattr(msg, "additional_kwargs") and "tool_calls" in msg.additional_kwargs:
+                            for tool_call in msg.additional_kwargs["tool_calls"]:
+                                yield {"type": "tool", "tool": tool_call.get("function", {}).get("name", "unknown")}
+            
+            yield {"type": "done"}
+            
+        except Exception as e:
+            print(f"Streaming error: {e}")
+            yield {"type": "error", "error": str(e)}
 
 
 def create_system_agent(
