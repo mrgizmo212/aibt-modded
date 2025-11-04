@@ -442,6 +442,12 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       
       if (selectedConversationId === convId) {
         setSelectedConversationId(null)
+        
+        // Clear URL if this conversation was selected
+        if (onConversationSelect) {
+          // Navigate to dashboard (no conversation)
+          window.history.pushState({}, '', '/')
+        }
       }
       
       // Then delete from backend
@@ -716,6 +722,11 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                                           
                                           if (selectedConversationId === convo.id) {
                                             setSelectedConversationId(null)
+                                            
+                                            // Clear URL if this conversation was selected
+                                            if (onConversationSelect) {
+                                              window.history.pushState({}, '', '/')
+                                            }
                                           }
                                           
                                           // Then delete from backend
