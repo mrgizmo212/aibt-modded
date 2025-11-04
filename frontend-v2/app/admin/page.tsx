@@ -35,20 +35,16 @@ export default function AdminPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/admin/chat-settings`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        })
+        // Import apiFetch helper
+        const { getAdminChatSettings } = await import('@/lib/api')
+        const data = await getAdminChatSettings()
         
-        if (response.ok) {
-          const data = await response.json()
-          setChatModel(data.chat_model || "openai/gpt-4.1-mini")
-          setChatInstructions(data.chat_instructions || "")
-          setModelParameters(data.model_parameters || {})
-        }
+        setChatModel(data.chat_model || "openai/gpt-4.1-mini")
+        setChatInstructions(data.chat_instructions || "")
+        setModelParameters(data.model_parameters || {})
       } catch (error) {
         console.error('Failed to load settings:', error)
+        toast.error('Failed to load admin settings')
       } finally {
         setLoadingData(false)
       }
@@ -63,26 +59,12 @@ export default function AdminPage() {
     setSaving(true)
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/admin/chat-settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: JSON.stringify({
-          chat_model: chatModel,
-          chat_instructions: chatInstructions,
-          model_parameters: modelParameters
-        })
-      })
+      // Use apiFetch helper for proper auth
+      const { saveAdminChatSettings } = await import('@/lib/api')
+      await saveAdminChatSettings(chatModel, chatInstructions, modelParameters)
       
-      if (response.ok) {
-        toast.success('Global chat settings saved!')
-        toast.info('All new chat conversations will use these settings')
-      } else {
-        const error = await response.json()
-        toast.error(error.detail || 'Failed to save settings')
-      }
+      toast.success('Global chat settings saved!')
+      toast.info('All new chat conversations will use these settings')
     } catch (error) {
       console.error('Save error:', error)
       toast.error('Failed to save settings')

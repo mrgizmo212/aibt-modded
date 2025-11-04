@@ -392,6 +392,29 @@ export async function getChatHistory(modelId: number, runId: number) {
 }
 
 // ============================================================================
+// ADMIN ENDPOINTS
+// ============================================================================
+
+export async function getAdminChatSettings() {
+  return apiFetch('/api/admin/chat-settings')
+}
+
+export async function saveAdminChatSettings(
+  chatModel: string,
+  chatInstructions: string,
+  modelParameters: any
+) {
+  return apiFetch('/api/admin/chat-settings', {
+    method: 'POST',
+    body: JSON.stringify({
+      chat_model: chatModel,
+      chat_instructions: chatInstructions,
+      model_parameters: modelParameters
+    })
+  })
+}
+
+// ============================================================================
 // ADMIN & SYSTEM
 // ============================================================================
 
