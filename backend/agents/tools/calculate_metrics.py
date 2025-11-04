@@ -16,12 +16,16 @@ def create_calculate_metrics_tool(supabase: Client, model_id: int, run_id: Optio
         raise PermissionError("Access denied")
     
     @tool
-    async def calculate_metrics(metric_type: str = "all") -> str:
+    async def calculate_metrics(
+        metric_type: str = "all",
+        specific_run_id: Optional[int] = None
+    ) -> str:
         """
-        Calculate performance metrics for the run
+        Calculate performance metrics for specific run or ALL runs
         
         Args:
             metric_type: "all" | "return" | "risk" | "win_rate"
+            specific_run_id: Analyze specific run (None = aggregate all runs)
         
         Returns:
             Formatted metrics summary
@@ -30,9 +34,11 @@ def create_calculate_metrics_tool(supabase: Client, model_id: int, run_id: Optio
         from utils.result_tools_db import calculate_all_metrics_db, calculate_intraday_metrics_db
         
         try:
-            # Determine if this is intraday or daily
-            if run_id:
-                run = supabase.table("trading_runs").select("*").eq("id", run_id).execute()
+            # Determine which run to analyze
+            target_run_id = specific_run_id or run_id
+            
+            if target_run_id:
+                run = supabase.table("trading_runs").select("*").eq("id", target_run_id).execute()
                 if run.data:
                     trading_mode = run.data[0]["trading_mode"]
                     

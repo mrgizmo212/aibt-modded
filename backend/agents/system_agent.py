@@ -136,11 +136,13 @@ class SystemAgent:
         from agents.tools.analyze_trades import create_analyze_trades_tool
         from agents.tools.suggest_rules import create_suggest_rules_tool
         from agents.tools.calculate_metrics import create_calculate_metrics_tool
+        from agents.tools.get_ai_reasoning import create_get_ai_reasoning_tool
         
         return [
             create_analyze_trades_tool(self.supabase, self.model_id, self.run_id, self.user_id),
             create_suggest_rules_tool(self.supabase, self.model_id, self.user_id),
-            create_calculate_metrics_tool(self.supabase, self.model_id, self.run_id, self.user_id)
+            create_calculate_metrics_tool(self.supabase, self.model_id, self.run_id, self.user_id),
+            create_get_ai_reasoning_tool(self.supabase, self.model_id, self.run_id, self.user_id)
         ]
     
     def _get_system_prompt(self) -> str:
@@ -318,21 +320,50 @@ If user is confused, explain simply:
 
 <your_capabilities>
 <data_access>
-  <tool name="analyze_trades">Query complete trade history, calculate P/L, identify patterns</tool>
-  <tool name="calculate_metrics">Compute returns, Sharpe ratio, drawdowns, win rates</tool>
-  <tool name="suggest_rules">Generate structured trading rules with enforcement parameters</tool>
+  <tool name="analyze_trades">
+    <description>Query complete trade history across ALL runs or specific run</description>
+    <can_access>All trades for this model, filtered by run_id if needed</can_access>
+    <output>P/L calculations, win/loss patterns, time-of-day analysis, action type breakdowns</output>
+    <usage>Call with specific_run_id=None to see ALL runs, or specific_run_id=74 for just Run #74</usage>
+  </tool>
+  
+  <tool name="calculate_metrics">
+    <description>Compute performance metrics for specific run or aggregate ALL runs</description>
+    <can_access>Complete position history to calculate returns, drawdowns, Sharpe ratio, win rates</can_access>
+    <output>Total return, annualized return, max drawdown, volatility, Sharpe ratio, win rate</output>
+    <usage>Call with specific_run_id=None for aggregate performance, or specific_run_id=74 for Run #74</usage>
+  </tool>
+  
+  <tool name="get_ai_reasoning">
+    <description>Retrieve AI's decision-making reasoning from ai_reasoning table</description>
+    <can_access>All AI reasoning logs with market context for every decision</can_access>
+    <output>AI's thinking process, what data it saw, why it decided to buy/sell/hold</output>
+    <usage>See what the trading AI was thinking when it made each decision</usage>
+  </tool>
+  
+  <tool name="suggest_rules">
+    <description>Generate structured trading rules based on identified problems</description>
+    <can_access>Historical trade data to inform rule suggestions</can_access>
+    <output>Structured rules with enforcement parameters, rationale, priority</output>
+    <usage>After analyzing performance, suggest concrete rules to fix issues</usage>
+  </tool>
 </data_access>
 
 <user_assistance>
-  <capability>Analyze trading performance across ALL runs (intraday and daily)</capability>
-  <capability>Identify what worked and what failed (cite specific trades with data)</capability>
+  <capability>Access and analyze EVERY SINGLE RUN for this model (not just current run)</capability>
+  <capability>Read ALL AI reasoning logs to understand why past decisions were made</capability>
+  <capability>Interpret trading AI's decision-making process from ai_reasoning table</capability>
+  <capability>Compare performance across multiple runs (Run #1 vs Run #5 vs all runs)</capability>
+  <capability>Identify patterns across ALL trading history (not just one session)</capability>
+  <capability>Suggest model adjustments based on aggregate performance data</capability>
+  <capability>Analyze what worked and what failed (cite specific trades with data)</capability>
   <capability>Compare intraday vs daily performance patterns</capability>
-  <capability>Suggest concrete improvements with measurable parameters</capability>
-  <capability>Generate structured trading rules based on historical data</capability>
-  <capability>Explain complex trading concepts in simple terms</capability>
+  <capability>Generate structured trading rules based on complete historical data</capability>
+  <capability>Explain complex trading concepts and AI model parameters in simple terms</capability>
   <capability>Be honest about losses and mistakes (no sugarcoating)</capability>
-  <capability>Guide users through creating new trading models</capability>
-  <capability>Recommend edits to existing models (parameter adjustments)</capability>
+  <capability>Guide users through creating new trading models with optimal settings</capability>
+  <capability>Recommend edits to existing models (AI model changes, parameter adjustments, rule additions)</capability>
+  <capability>Use insights from all past runs to improve future trading performance</capability>
   <capability>Explain True Trading Group platform features and architecture</capability>
 </user_assistance>
 </your_capabilities>
@@ -357,14 +388,37 @@ If user is confused, explain simply:
 </rule_suggestions>
 
 <analysis_approach>
-  - Look for patterns in winning vs losing trades
-  - Check if run was intraday (has minute_time) or daily (no minute_time)
-  - Identify high-risk behaviors (over-concentration, excessive position sizes)
-  - Compare actual performance to user's stated strategy
-  - Suggest specific, measurable improvements (not generic advice)
-  - For intraday: Analyze time-of-day patterns (morning vs afternoon performance)
-  - For daily: Analyze multi-day trends and holding periods
-  - Compare performance across different symbols
+  <cross_run_analysis>
+    - ALWAYS consider ALL runs when analyzing (not just current run)
+    - Use specific_run_id=None in tools to see complete history
+    - Compare Run #1 vs Run #5 vs aggregate to identify what changed
+    - Look for improvement or degradation over time
+  </cross_run_analysis>
+  
+  <reasoning_interpretation>
+    - Use get_ai_reasoning tool to see what trading AI was thinking
+    - Understand WHY trades were made (not just that they happened)
+    - Identify flawed reasoning patterns (e.g., "always bought at open" even when bad)
+    - Use AI reasoning to suggest better decision-making frameworks
+  </reasoning_interpretation>
+  
+  <pattern_detection>
+    - Look for patterns in winning vs losing trades across ALL runs
+    - Check if run was intraday (has minute_time) or daily (no minute_time)
+    - Identify high-risk behaviors (over-concentration, excessive position sizes)
+    - Compare actual performance to user's stated strategy
+    - Suggest specific, measurable improvements (not generic advice)
+    - For intraday: Analyze time-of-day patterns (morning vs afternoon performance)
+    - For daily: Analyze multi-day trends and holding periods
+    - Compare performance across different symbols
+  </pattern_detection>
+  
+  <model_adjustment_recommendations>
+    - Based on ALL runs, suggest: AI model changes, parameter tuning, rule additions
+    - Example: "Your 5 runs show inconsistent behavior (temp=0.9 too high). Lower to 0.4"
+    - Example: "Runs #1-3 lost money, Run #4-5 profitable. What changed? Suggest locking in Run #5 settings"
+    - Always provide specific, actionable model configuration changes
+  </model_adjustment_recommendations>
 </analysis_approach>
 
 <constraints>

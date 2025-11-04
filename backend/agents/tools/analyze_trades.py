@@ -18,14 +18,16 @@ def create_analyze_trades_tool(supabase: Client, model_id: int, run_id: Optional
     @tool
     async def analyze_trades(
         filter_type: str = "all",
-        criteria: Optional[str] = None
+        criteria: Optional[str] = None,
+        specific_run_id: Optional[int] = None
     ) -> str:
         """
-        Analyze trades for patterns and insights
+        Analyze trades for patterns and insights across ALL runs or specific run
         
         Args:
             filter_type: "all" | "winning" | "losing" | "by_time"
             criteria: Optional additional filtering
+            specific_run_id: Analyze specific run (None = all runs for this model)
         
         Returns:
             Analysis summary with statistics and patterns
@@ -34,8 +36,12 @@ def create_analyze_trades_tool(supabase: Client, model_id: int, run_id: Optional
         # Build query (RLS will filter automatically)
         query = supabase.table("positions").select("*").eq("model_id", model_id)
         
-        if run_id:
+        # Filter by run: specific_run_id takes priority, then context run_id, then all runs
+        if specific_run_id:
+            query = query.eq("run_id", specific_run_id)
+        elif run_id:
             query = query.eq("run_id", run_id)
+        # else: Query ALL runs for this model
         
         result = query.order("date").order("minute_time").execute()
         
