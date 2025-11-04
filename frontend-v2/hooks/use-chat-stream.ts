@@ -82,16 +82,23 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
     }
 
     eventSource.onmessage = (event) => {
+      console.log('[Chat Stream] RAW EVENT RECEIVED:', event)
+      console.log('[Chat Stream] Event data:', event.data)
+      
       try {
         const data: StreamMessage = JSON.parse(event.data)
-        console.log('[Chat Stream] Received:', data.type)
+        console.log('[Chat Stream] Parsed data:', data)
+        console.log('[Chat Stream] Data type:', data.type)
 
         if (data.type === 'token' && data.content) {
           contentRef.current += data.content
           setStreamedContent(contentRef.current)
+          console.log('[Chat Stream] Token added, content:', data.content, 'total length:', contentRef.current.length)
         } else if (data.type === 'tool' && data.tool) {
+          console.log('[Chat Stream] Tool used:', data.tool)
           setToolsUsed(prev => [...prev, data.tool!])
         } else if (data.type === 'done') {
+          console.log('[Chat Stream] Stream done, final length:', contentRef.current.length)
           setIsStreaming(false)
           onComplete?.(contentRef.current)
           eventSource.close()
@@ -102,7 +109,7 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
           eventSource.close()
         }
       } catch (err) {
-        console.error('[Chat Stream] Parse error:', err)
+        console.error('[Chat Stream] Parse error:', err, 'Raw data:', event.data)
       }
     }
 

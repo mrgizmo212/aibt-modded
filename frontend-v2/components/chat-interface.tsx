@@ -78,8 +78,11 @@ export function ChatInterface({
     runId: selectedRunId || undefined,
     isGeneral: isGeneralChat,
     onComplete: (fullResponse) => {
+      console.log('[Chat] onComplete fired! Full response length:', fullResponse.length)
+      console.log('[Chat] streamingMessageId:', streamingMessageId)
       // Update streaming message with final content
       if (streamingMessageId) {
+        console.log('[Chat] Marking message as complete, removing streaming flag')
         setMessages(prev => prev.map(m => 
           m.id === streamingMessageId 
             ? { ...m, streaming: false, text: fullResponse }
@@ -87,6 +90,8 @@ export function ChatInterface({
         ))
         setStreamingMessageId(null)
       }
+      setIsTyping(false)
+      console.log('[Chat] onComplete finished')
     },
     onError: (error) => {
       console.error('Stream error:', error)
@@ -118,6 +123,7 @@ export function ChatInterface({
   // Update streaming message as content arrives
   useEffect(() => {
     if (streamingMessageId && chatStream.streamedContent) {
+      console.log('[Chat] Updating streamed content, length:', chatStream.streamedContent.length)
       setMessages(prev => prev.map(m =>
         m.id === streamingMessageId
           ? { ...m, text: chatStream.streamedContent, toolsUsed: chatStream.toolsUsed }
