@@ -117,15 +117,27 @@ export function ChatInterface({
     scrollToBottom()
   }, [messages, chatStream.streamedContent])
   
-  // Load conversation messages when conversation is selected
+  // Track current session ID from URL
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  
+  // Load conversation messages when URL changes (detects conversation switch)
   useEffect(() => {
     const loadConversationMessages = async () => {
       // Get session ID from URL
       const params = new URLSearchParams(window.location.search)
       const sessionId = params.get('c')
       
+      // Check if session actually changed (prevent unnecessary reloads)
+      if (sessionId === currentSessionId) {
+        return  // Same conversation, don't reload
+      }
+      
+      console.log('[Chat] Session changed from', currentSessionId, 'to', sessionId)
+      setCurrentSessionId(sessionId)
+      
       if (!sessionId) {
         // No conversation selected, show only welcome message
+        console.log('[Chat] No session ID, showing welcome message')
         setMessages([{
           id: "1",
           type: "ai",
@@ -137,6 +149,7 @@ export function ChatInterface({
       }
       
       try {
+        console.log('[Chat] Loading messages for session', sessionId)
         const { getSessionMessages } = await import('@/lib/api')
         const data = await getSessionMessages(parseInt(sessionId))
         
@@ -153,50 +166,32 @@ export function ChatInterface({
           // Show conversation history
           setMessages(historicalMessages)
           console.log('[Chat] Loaded', historicalMessages.length, 'messages for conversation', sessionId)
+        } else {
+          // Empty conversation, show welcome
+          setMessages([{
+            id: "1",
+            type: "ai",
+            text: "Good morning! How can I help you with your trading today?",
+            timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+            suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
+          }])
         }
       } catch (error) {
         console.error('Failed to load conversation messages:', error)
       }
     }
     
+    // Load on mount and whenever URL location changes
     loadConversationMessages()
-  }, [])  // Load once on mount, URL params determine which conversation
-  
-  // Reload messages when URL changes (conversation switch)
-  useEffect(() => {
-    const handleUrlChange = () => {
-      const params = new URLSearchParams(window.location.search)
-      const sessionId = params.get('c')
-      
-      if (sessionId) {
-        // Conversation selected, reload messages
-        const loadMessages = async () => {
-          try {
-            const { getSessionMessages } = await import('@/lib/api')
-            const data = await getSessionMessages(parseInt(sessionId))
-            
-            if (data.messages) {
-              const historicalMessages = data.messages.map((msg: any) => ({
-                id: msg.id.toString(),
-                type: msg.role === 'user' ? 'user' : 'ai',
-                text: msg.content,
-                timestamp: new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-                toolsUsed: msg.tool_calls || []
-              }))
-              setMessages(historicalMessages)
-            }
-          } catch (error) {
-            console.error('Failed to load conversation:', error)
-          }
-        }
-        loadMessages()
-      }
+    
+    // Also listen for manual URL changes (browser back/forward)
+    const handlePopState = () => {
+      loadConversationMessages()
     }
     
-    // Listen for URL changes
-    window.addEventListener('popstate', handleUrlChange)
-    return () => window.removeEventListener('popstate', handleUrlChange)
-  }, [])
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  })  // No dependency array = runs on every render, but checks currentSessionId to prevent spam
   
   // Update streaming message as content arrives
   useEffect(() => {

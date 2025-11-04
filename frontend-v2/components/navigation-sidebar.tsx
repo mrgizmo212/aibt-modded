@@ -413,10 +413,8 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       setGeneralConversations(prev => [newSession, ...prev])
       setSelectedConversationId(newSession.id)
       
-      // Immediately update URL
-      if (onConversationSelect) {
-        onConversationSelect(newSession.id)  // This will call router.push('/?c=X')
-      }
+      // Immediately navigate to new conversation (forces reload)
+      window.location.href = `/?c=${newSession.id}`
       
       toast.success("Started new conversation")
     } catch (error: any) {
@@ -440,10 +438,8 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       setSelectedConversationId(newSession.id)
       onSelectModel(modelId)
       
-      // Immediately update URL
-      if (onConversationSelect) {
-        onConversationSelect(newSession.id, modelId)  // This will call router.push('/?m=X&c=Y')
-      }
+      // Immediately navigate to new conversation (forces reload)
+      window.location.href = `/?m=${modelId}&c=${newSession.id}`
       
       toast.success("Started new conversation for this model")
     } catch (error: any) {

@@ -232,7 +232,6 @@ export default function Home() {
           model={editingModel}
           onClose={() => setIsEditDialogOpen(false)}
           onSave={handleSaveModel}
-          onDelete={handleDeleteModel}
         />
       )}
 
