@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',  // ✅ Required for Render Static Site (free tier)
+  // Using Web Service deployment - no 'output: export' needed
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,  // ✅ Required for static export
+    unoptimized: false,  // Image optimization enabled for Web Service
   },
 }
 
