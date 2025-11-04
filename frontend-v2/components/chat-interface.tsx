@@ -268,9 +268,21 @@ export function ChatInterface({
     setTimeout(async () => {
       let aiMessage: Message
 
-      if (
-        userInput.toLowerCase().includes("create") &&
-        (userInput.toLowerCase().includes("model") || userInput.toLowerCase().includes("new"))
+      // Show stats
+      if (userInput.includes("stat") || userInput.includes("overview") || userInput.includes("dashboard")) {
+        aiMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: "Here's your portfolio overview:",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          embeddedComponent: { type: "stats_grid" },
+        }
+        onContextChange("dashboard")
+      } 
+      // Create new model
+      else if (
+        userInput.includes("create") &&
+        (userInput.includes("model") || userInput.includes("new"))
       ) {
         setCurrentCreationStep("name")
         aiMessage = {
@@ -280,7 +292,9 @@ export function ChatInterface({
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           embeddedComponent: { type: "model_creation_step", props: { step: "name", data: {} } },
         }
-      } else if (userInput.toLowerCase().includes("show") && userInput.toLowerCase().includes("model")) {
+      } 
+      // Show all models
+      else if (userInput.includes("show") && userInput.includes("model")) {
         // Fetch actual model count
         const { getModels } = await import('@/lib/api')
         const modelList = await getModels()
@@ -297,7 +311,38 @@ export function ChatInterface({
           suggestedActions: modelCount === 0 ? ["Create new model"] : undefined,
         }
         onContextChange("dashboard")
-      } else if (userInput.toLowerCase().includes("start") && userInput.toLowerCase().includes("claude")) {
+      } 
+      // Analyze performance
+      else if (userInput.includes("analyz") || userInput.includes("performance") || userInput.includes("metric")) {
+        aiMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: "Here's your performance analysis. I can help you understand what worked and what didn't.",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          embeddedComponent: { type: "stats_grid" },
+          suggestedActions: ["Show all models", "View recent runs", "Create new model"],
+        }
+        onContextChange("dashboard")
+      }
+      // View recent runs
+      else if (userInput.includes("run") || userInput.includes("recent") || userInput.includes("history")) {
+        const { getModels } = await import('@/lib/api')
+        const modelList = await getModels()
+        
+        aiMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          text: modelList.length > 0
+            ? "Here are your trading models. Click 'Details' to see runs."
+            : "No models yet. Create one to start trading!",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          embeddedComponent: modelList.length > 0 ? { type: "model_cards" } : undefined,
+          suggestedActions: modelList.length === 0 ? ["Create new model"] : undefined,
+        }
+        onContextChange("dashboard")
+      }
+      // Start trading (legacy)
+      else if (userInput.includes("start") && userInput.includes("claude")) {
         aiMessage = {
           id: (Date.now() + 1).toString(),
           type: "ai",
@@ -307,7 +352,9 @@ export function ChatInterface({
         }
         onContextChange("model")
         onModelSelect(2)
-      } else if (userInput.toLowerCase().includes("why") && userInput.toLowerCase().includes("run")) {
+      } 
+      // Why questions (legacy demo)
+      else if (userInput.includes("why") && userInput.includes("run")) {
         setMessages((prev) => [
           ...prev,
           {
@@ -335,13 +382,15 @@ export function ChatInterface({
           setIsTyping(false)
         }, 2000)
         return
-      } else {
+      } 
+      // Fallback - helpful suggestions
+      else {
         aiMessage = {
           id: (Date.now() + 1).toString(),
           type: "ai",
-          text: "I can help you with that! Try asking me to 'Show all models' or 'Analyze performance'.",
+          text: `I didn't quite understand "${currentInput}". Here's what I can help with:`,
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show all models", "Analyze performance", "Create new model"],
+          suggestedActions: ["Show stats", "Show all models", "Analyze performance", "Create new model", "View recent runs"],
         }
       }
 
