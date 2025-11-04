@@ -225,26 +225,33 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       // Convert array of statuses to map
       const statusMap: Record<number, boolean> = {}
       if (Array.isArray(statuses)) {
-        console.log('[Navigation] Status is array, length:', statuses.length)
         statuses.forEach((status: any) => {
-          console.log('[Navigation] Processing status:', status)
           statusMap[status.model_id] = status.is_running
         })
-      } else {
-        console.log('[Navigation] Status is NOT array:', typeof statuses)
       }
       
-      console.log('[Navigation] Final statusMap:', statusMap)
       setTradingStatusMap(statusMap)
       
-      // Update model list with trading status
+      // Update model list with trading status ONLY if status actually changed
       setModelList(prev => {
-        const updated = prev.map(model => ({
-          ...model,
-          status: (statusMap[model.id] ? "running" : "stopped") as "running" | "stopped"
-        }))
-        console.log('[Navigation] Updated model list:', updated)
-        return updated
+        let hasChanges = false
+        const updated = prev.map(model => {
+          const newStatus = (statusMap[model.id] ? "running" : "stopped") as "running" | "stopped"
+          if (model.status !== newStatus) {
+            hasChanges = true
+          }
+          return {
+            ...model,
+            status: newStatus
+          }
+        })
+        
+        // Only update if something actually changed (prevents infinite loop!)
+        if (hasChanges) {
+          console.log('[Navigation] Status changed, updating model list')
+          return updated
+        }
+        return prev  // Return same reference if no changes
       })
     } catch (error) {
       console.error('Failed to load trading status:', error)
