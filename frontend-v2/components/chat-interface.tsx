@@ -70,12 +70,16 @@ export function ChatInterface({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const streamingMessageIdRef = useRef<string | null>(null)
   
-  // Streaming hook - use general chat if no run, run-specific if run selected
+  // Detect chat type from URL and props
+  // Model ID comes from props (passed from route params)
+  const effectiveModelId = selectedModelId
+  
+  // Streaming hook - use general chat if no model, model-specific if model selected
   const canStream = true  // Always enable streaming!
-  const isGeneralChat = !selectedModelId || !selectedRunId
+  const isGeneralChat = !effectiveModelId || !selectedRunId
   
   const chatStream = useChatStream({
-    modelId: selectedModelId || undefined,
+    modelId: effectiveModelId || undefined,
     runId: selectedRunId || undefined,
     isGeneral: isGeneralChat,
     onComplete: (fullResponse) => {
@@ -123,9 +127,10 @@ export function ChatInterface({
   // Load conversation messages when URL changes (detects conversation switch)
   useEffect(() => {
     const loadConversationMessages = async () => {
-      // Get session ID from URL
-      const params = new URLSearchParams(window.location.search)
-      const sessionId = params.get('c')
+      // Get session ID from URL path
+      const pathParts = window.location.pathname.split('/')
+      const cIndex = pathParts.indexOf('c')
+      const sessionId = cIndex >= 0 && pathParts[cIndex + 1] ? pathParts[cIndex + 1] : null
       
       // Check if session actually changed (prevent unnecessary reloads)
       if (sessionId === currentSessionId) {

@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',  // Required for static site deployment on Render
+  // Removed 'output: export' to enable dynamic routes and server features
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,  // Required for static export
+    unoptimized: false,  // Can use optimized images now
   },
 }
 

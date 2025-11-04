@@ -404,46 +404,38 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   
   const handleNewGeneralChat = async () => {
     try {
+      console.log('[Nav] Creating new general chat...')
       const data = await createNewSession()  // No model_id = general
       const newSession = data.session
+      console.log('[Nav] Session created:', newSession.id)
       
-      // Add message_count property
-      newSession.message_count = 0
+      // Immediately navigate - do this FIRST before any state updates
+      const newUrl = `/c/${newSession.id}`
+      console.log('[Nav] Redirecting to:', newUrl)
+      window.location.href = newUrl
       
-      setGeneralConversations(prev => [newSession, ...prev])
-      setSelectedConversationId(newSession.id)
-      
-      // Immediately navigate to new conversation (forces reload)
-      window.location.href = `/?c=${newSession.id}`
-      
-      toast.success("Started new conversation")
+      // Code below won't execute because page reloads
     } catch (error: any) {
-      console.error('Failed to create general conversation:', error)
+      console.error('[Nav] Failed to create general conversation:', error)
       toast.error(error.message || "Failed to create conversation")
     }
   }
   
   const handleNewModelChat = async (modelId: number) => {
     try {
+      console.log('[Nav] Creating new model chat for model:', modelId)
       const data = await createNewSession(modelId)
       const newSession = data.session
+      console.log('[Nav] Session created:', newSession.id)
       
-      // Add message_count property
-      newSession.message_count = 0
+      // Immediately navigate - do this FIRST before any state updates
+      const newUrl = `/m/${modelId}/c/${newSession.id}`
+      console.log('[Nav] Redirecting to:', newUrl)
+      window.location.href = newUrl
       
-      setModelConversations(prev => ({
-        ...prev,
-        [modelId]: [newSession, ...(prev[modelId] || [])]
-      }))
-      setSelectedConversationId(newSession.id)
-      onSelectModel(modelId)
-      
-      // Immediately navigate to new conversation (forces reload)
-      window.location.href = `/?m=${modelId}&c=${newSession.id}`
-      
-      toast.success("Started new conversation for this model")
+      // Code below won't execute because page reloads
     } catch (error: any) {
-      console.error('Failed to create model conversation:', error)
+      console.error('[Nav] Failed to create model conversation:', error)
       toast.error(error.message || "Failed to create conversation")
     }
   }

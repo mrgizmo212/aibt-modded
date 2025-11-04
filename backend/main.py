@@ -1614,9 +1614,10 @@ async def delete_session_endpoint(
 @app.get("/api/chat/general-stream")
 async def general_chat_stream_endpoint(
     message: str,
-    token: Optional[str] = None
+    token: Optional[str] = None,
+    model_id: Optional[int] = None  # ← NEW: Optional model context
 ):
-    """General chat without run context (dashboard chat)"""
+    """General chat - can be with or without model context"""
     from sse_starlette.sse import EventSourceResponse
     
     # Manual token verification (EventSource can't send Authorization header)
@@ -1730,16 +1731,47 @@ async def general_chat_stream_endpoint(
                 print(f"⚠️ Failed to load general conversation history: {e}")
                 pass  # No history yet
             
+            # Build system prompt with optional model context
+            model_context = ""
+            if model_id:
+                # Get model details for context
+                try:
+                    model_data = supabase.table("models")\
+                        .select("*")\
+                        .eq("id", model_id)\
+                        .execute()
+                    
+                    if model_data.data:
+                        model = model_data.data[0]
+                        model_context = f"""
+
+<model_context>
+You are discussing MODEL {model_id}: "{model.get('name', f'Model {model_id}')}"
+
+Model Configuration:
+- AI Model: {model.get('default_ai_model', 'Not set')}
+- Trading Mode: {model.get('trading_mode', 'Not set')}
+- Signature: {model.get('signature', 'Not set')}
+
+You can see this model's information and should answer questions about it specifically.
+</model_context>"""
+                        print(f"📋 Added model context for MODEL {model_id}")
+                except Exception as e:
+                    print(f"⚠️ Failed to load model context: {e}")
+            
             # Simple system prompt
             system_prompt = f"""You are a helpful assistant for True Trading Group's AI Trading Platform.
 
 {instructions}
+
+{model_context}
 
 You can help users:
 - Understand the platform
 - Explain trading concepts
 - Answer questions about features
 - Guide them to use specific tools
+- Discuss specific models and their configurations
 
 For detailed trade analysis, ask users to select a specific run first (then you'll have access to analysis tools)."""
             

@@ -14,35 +14,20 @@ import { ModelEditDialog } from "@/components/model-edit-dialog"
 import { SystemStatusDrawer } from "@/components/system-status-drawer"
 import { SystemStatusTrigger } from "@/components/system-status-trigger"
 
-export default function Home() {
+export default function Home({ 
+  conversationId,
+  initialModelId 
+}: { 
+  conversationId?: string
+  initialModelId?: number 
+} = {}) {
   const router = useRouter()
   const { user, loading } = useAuth()
   
-  // Get conversation ID and model ID from URL query parameters (ChatGPT-style)
-  // ?c=13 (general conversation)
-  // ?m=212&c=14 (model 212, conversation 14)
-  const [urlConversationId, setUrlConversationId] = useState<number | null>(null)
-  const [urlModelId, setUrlModelId] = useState<number | null>(null)
-  
-  useEffect(() => {
-    // Parse ?c=13 and ?m=212 from URL
-    const params = new URLSearchParams(window.location.search)
-    const cParam = params.get('c')
-    const mParam = params.get('m')
-    
-    if (cParam) {
-      setUrlConversationId(parseInt(cParam))
-    }
-    if (mParam) {
-      setUrlModelId(parseInt(mParam))
-      setSelectedModelId(parseInt(mParam))
-    }
-  }, [])
-  
   // State declarations
-  const [selectedModelId, setSelectedModelId] = useState<number | null>(urlModelId)
+  const [selectedModelId, setSelectedModelId] = useState<number | null>(initialModelId || null)
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
-  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(urlConversationId)
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(conversationId ? parseInt(conversationId) : null)
   const [context, setContext] = useState<"dashboard" | "model" | "run">("dashboard")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isContextOpen, setIsContextOpen] = useState(false)
@@ -158,11 +143,11 @@ export default function Home() {
             onConversationSelect={(sessionId, modelId) => {
               setSelectedConversationId(sessionId)
               if (modelId) {
-                // Model conversation: ?m=212&c=14
-                router.push(`/?m=${modelId}&c=${sessionId}`)
+                // Model conversation: /m/212/c/14
+                router.push(`/m/${modelId}/c/${sessionId}`)
               } else {
-                // General conversation: ?c=13
-                router.push(`/?c=${sessionId}`)
+                // General conversation: /c/13
+                router.push(`/c/${sessionId}`)
               }
             }}
           />
@@ -204,11 +189,11 @@ export default function Home() {
           onConversationSelect={(sessionId, modelId) => {
             setSelectedConversationId(sessionId)
             if (modelId) {
-              // Model conversation: ?m=212&c=14
-              router.push(`/?m=${modelId}&c=${sessionId}`)
+              // Model conversation: /m/212/c/14
+              router.push(`/m/${modelId}/c/${sessionId}`)
             } else {
-              // General conversation: ?c=13  
-              router.push(`/?c=${sessionId}`)
+              // General conversation: /c/13
+              router.push(`/c/${sessionId}`)
             }
             setIsMenuOpen(false)
           }}

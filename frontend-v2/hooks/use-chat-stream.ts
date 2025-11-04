@@ -49,9 +49,18 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
     
     try {
       if (isGeneral) {
-        // General chat (no run context)
-        url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
-        console.log('[Chat Stream] Using GENERAL chat endpoint')
+        // General chat (may have model context)
+        let baseUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/chat/general-stream?message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`
+        
+        // Add model_id if present (for model-specific conversations without run)
+        if (modelId) {
+          baseUrl += `&model_id=${modelId}`
+          console.log('[Chat Stream] Using GENERAL chat endpoint WITH model context:', modelId)
+        } else {
+          console.log('[Chat Stream] Using GENERAL chat endpoint (no model)')
+        }
+        
+        url = baseUrl
       } else {
         // Run-specific chat (with analysis tools)
         if (!modelId || !runId) {
