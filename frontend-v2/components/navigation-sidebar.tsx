@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel, listChatSessions, createNewSession, resumeSession, deleteSession } from "@/lib/api"
+import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel, listChatSessions, resumeSession, deleteSession } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { useTradingStream } from "@/hooks/use-trading-stream"
@@ -44,9 +44,10 @@ interface NavigationSidebarProps {
   onToggleModel: (id: number) => void
   onConversationSelect?: (sessionId: number, modelId?: number) => void  // ← Updated: includes modelId
   isHidden?: boolean  // ← NEW: Prevent API calls when hidden (mobile drawer)
+  isEphemeralActive?: boolean  // NEW: Indicates we're on /new or /m/[id]/new
 }
 
-export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onConversationSelect, isHidden = false }: NavigationSidebarProps) {
+export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
   const [expandedModels, setExpandedModels] = useState<Record<number, boolean>>({})
@@ -170,6 +171,27 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       setConversationsLoaded(true)
     }
   }, [modelList.length, conversationsLoaded, isHidden])
+  
+  // Listen for conversation-created events (from chat-interface after first message)
+  useEffect(() => {
+    const handleConversationCreated = (event: any) => {
+      console.log('[Nav] Conversation created event received:', event.detail)
+      
+      // Refresh conversation lists to show new conversation
+      loadGeneralConversations()
+      
+      // If model conversation, refresh that model's conversations
+      if (event.detail?.modelId) {
+        loadModelConversations(event.detail.modelId)
+      }
+    }
+    
+    window.addEventListener('conversation-created', handleConversationCreated as EventListener)
+    
+    return () => {
+      window.removeEventListener('conversation-created', handleConversationCreated as EventListener)
+    }
+  }, [])  // Empty deps - setup once
 
   async function loadModels() {
     try {
@@ -402,42 +424,16 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     }
   }
   
-  const handleNewGeneralChat = async () => {
-    try {
-      console.log('[Nav] Creating new general chat...')
-      const data = await createNewSession()  // No model_id = general
-      const newSession = data.session
-      console.log('[Nav] Session created:', newSession.id)
-      
-      // Immediately navigate - do this FIRST before any state updates
-      const newUrl = `/c/${newSession.id}`
-      console.log('[Nav] Redirecting to:', newUrl)
-      window.location.href = newUrl
-      
-      // Code below won't execute because page reloads
-    } catch (error: any) {
-      console.error('[Nav] Failed to create general conversation:', error)
-      toast.error(error.message || "Failed to create conversation")
-    }
+  const handleNewGeneralChat = () => {
+    // Navigate to ephemeral route - NO API call, NO database record
+    console.log('[Nav] Navigating to /new (ephemeral general chat)')
+    window.location.href = '/new'
   }
   
-  const handleNewModelChat = async (modelId: number) => {
-    try {
-      console.log('[Nav] Creating new model chat for model:', modelId)
-      const data = await createNewSession(modelId)
-      const newSession = data.session
-      console.log('[Nav] Session created:', newSession.id)
-      
-      // Immediately navigate - do this FIRST before any state updates
-      const newUrl = `/m/${modelId}/c/${newSession.id}`
-      console.log('[Nav] Redirecting to:', newUrl)
-      window.location.href = newUrl
-      
-      // Code below won't execute because page reloads
-    } catch (error: any) {
-      console.error('[Nav] Failed to create model conversation:', error)
-      toast.error(error.message || "Failed to create conversation")
-    }
+  const handleNewModelChat = (modelId: number) => {
+    // Navigate to ephemeral route - NO API call, NO database record
+    console.log('[Nav] Navigating to /m/' + modelId + '/new (ephemeral model chat)')
+    window.location.href = `/m/${modelId}/new`
   }
   
   const handleDeleteConversation = async (convId: number, e: React.MouseEvent) => {
