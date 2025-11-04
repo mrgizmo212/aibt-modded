@@ -1467,9 +1467,11 @@ async def general_chat_stream_endpoint(
     current_user = None
     if token:
         try:
-            from auth import verify_token
-            current_user = verify_token(token)
-        except:
+            from auth import verify_token_string
+            payload = verify_token_string(token)
+            current_user = {"id": payload.get("sub"), "email": payload.get("email"), "role": payload.get("user_metadata", {}).get("role", "user")}
+        except Exception as e:
+            print(f"🔒 General chat auth failed: {e}")
             pass
     
     if not current_user:
@@ -1691,9 +1693,11 @@ async def chat_stream_endpoint(
     current_user = None
     if token:
         try:
-            from auth import verify_token
-            current_user = verify_token(token)
-        except:
+            from auth import verify_token_string
+            payload = verify_token_string(token)
+            current_user = {"id": payload.get("sub"), "email": payload.get("email"), "role": payload.get("user_metadata", {}).get("role", "user")}
+        except Exception as e:
+            print(f"🔒 Auth failed: {e}")
             pass
     
     if not current_user:
