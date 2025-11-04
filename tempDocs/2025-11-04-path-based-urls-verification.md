@@ -300,3 +300,105 @@ The commit message overstates what was accomplished. The infrastructure for path
 - Examined code logic and data flows
 - Traced navigation paths
 - Verified backend endpoint implementation
+
+---
+
+## Additional Question: Will Missing Routes Cause Build Failure?
+
+### Answer: NO - Build Should Succeed ✅
+
+**Analysis:**
+
+### 1. No Static Imports of Missing Routes
+**Evidence:** Searched codebase for imports from `[sessionId]` or `[modelId]` - **0 results**
+```
+grep -r "import.*from.*\[sessionId\]" - No matches
+grep -r "import.*from.*\[modelId\]" - No matches
+```
+
+### 2. Next.js Build-Time vs Runtime Behavior
+
+**Build Time:**
+- ✅ Next.js compiles all pages in `/app` directory
+- ✅ Validates TypeScript (but `ignoreBuildErrors: true` is set)
+- ✅ Checks imports and module resolution
+- ✅ Does NOT validate `router.push()` URLs
+
+**Runtime:**
+- ❌ Missing routes cause 404 errors (user experience breaks)
+- ❌ Navigation fails but app doesn't crash
+- ❌ No error boundaries triggered by missing routes
+
+### 3. What DOES Cause Build Failures
+
+**These would fail the build:**
+```typescript
+// ❌ Missing module import
+import Something from './does-not-exist'
+
+// ❌ TypeScript errors (if ignoreBuildErrors: false)
+const x: string = 123
+
+// ❌ Syntax errors
+const broken = {
+```
+
+**These do NOT fail the build:**
+```typescript
+// ✅ Dynamic navigation to non-existent routes
+router.push('/c/123')  // Runtime 404, not build error
+
+// ✅ Template strings with dynamic values
+window.location.href = `/m/${modelId}/c/${sessionId}`
+
+// ✅ Hardcoded URLs in strings
+<a href="/c/123">Link</a>  // No build-time validation
+```
+
+### 4. Current Configuration
+
+**File:** `frontend-v2/next.config.mjs`
+```typescript
+const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,  // ← Build even with TS errors
+  },
+  images: {
+    unoptimized: false,
+  },
+}
+```
+
+### 5. What Actually Happens
+
+**Build Process:**
+1. ✅ Next.js scans `/app` directory
+2. ✅ Finds: `page.tsx`, `admin/page.tsx`, `login/page.tsx`, `signup/page.tsx`
+3. ✅ Does NOT find: `c/[sessionId]/page.tsx`, `m/[modelId]/c/[sessionId]/page.tsx`
+4. ✅ Builds successfully with available routes
+5. ✅ Creates production bundle
+
+**Runtime Behavior:**
+1. User navigates to `/c/123`
+2. Next.js looks for route handler
+3. No handler found
+4. Returns 404 page
+5. User sees "Page Not Found"
+
+### Conclusion
+
+**The build WILL SUCCEED** despite missing routes because:
+- No static imports reference missing files
+- `router.push()` URLs aren't validated at build time
+- TypeScript errors are ignored
+- Next.js only builds routes that exist
+
+**However, the application is BROKEN at runtime:**
+- All conversation navigation results in 404 errors
+- Feature is completely non-functional
+- Database has conversations but UI can't display them
+
+### Build Status: ✅ Will Build Successfully
+### Runtime Status: ❌ Feature Completely Broken
+
+**The missing routes are a runtime issue, not a build-time issue.**
