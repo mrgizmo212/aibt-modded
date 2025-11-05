@@ -38,6 +38,13 @@ export function useChatStream({ modelId, runId, isGeneral = false, onComplete, o
       return
     }
 
+    // CRITICAL: Close existing EventSource before creating new one
+    if (eventSourceRef.current) {
+      console.log('[Chat Stream] Closing existing EventSource before creating new')
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
+    
     setIsStreaming(true)
     setStreamedContent('')
     setToolsUsed([])

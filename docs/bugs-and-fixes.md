@@ -50,6 +50,400 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-007: SSE Chat Authentication Failure (OpenRouter Headers Missing)
+**Date Discovered:** 2025-11-05 10:54  
+**Date Fixed:** 2025-11-05 11:05  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- All chat messages fail with 401 error
+- Console error: "Error code: 401 - {'error': {'message': 'No cookie auth credentials found', 'code': 401}}"
+- User sends message → "Streaming..." indicator shows → No AI response ever arrives
+- Chat completely non-functional
+
+**Root Cause:**
+OpenRouter API requires `HTTP-Referer` and `X-Title` headers for authentication. Trading agents (`trading/base_agent.py`) had these headers configured, but chat streaming endpoints (`backend/main.py`) did NOT include them when creating ChatOpenAI instances.
+
+**Affected Files:**
+- `backend/main.py` - Lines ~1747, ~1970 (chat streaming endpoints)
+
+**Final Solution:**
+Add `default_headers` with required OpenRouter headers to all ChatOpenAI initializations in SSE endpoints.
+
+**Code Changes:**
+
+[BEFORE - file: `backend/main.py`]
+```python
+params = {
+    "model": ai_model,
+    "temperature": model_params.get("temperature", 0.3),
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": api_key
+}
+```
+
+[AFTER - file: `backend/main.py`]
+```python
+params = {
+    "model": ai_model,
+    "temperature": model_params.get("temperature", 0.3),
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": api_key,
+    "default_headers": {
+        "HTTP-Referer": "https://aibt.truetradinggroup.com",
+        "X-Title": "AIBT AI Trading Platform"
+    }
+}
+```
+
+**Test Script Created:**
+- Script: `frontend-v2/scripts/verify-bug-chat-rerender-storm.js` - Manual testing showed bug
+- Script: `frontend-v2/scripts/prove-fix-sse-auth.js` - Proves fix works (run: `npm run prove:sse-auth`)
+
+**Lessons Learned:**
+- OpenRouter requires HTTP-Referer and X-Title headers for all API requests
+- Always check if third-party APIs have header requirements
+- Copy working patterns (trading agents had headers, chat should too)
+- Test with actual API calls, not just mocks
+
+**Prevention Strategy:**
+- Create reusable ChatOpenAI factory function with standard headers
+- Document all third-party API requirements in one place
+- Include header configuration in all API client initializations
+
+---
+
+### BUG-003: API Polling Storm
+**Date Discovered:** 2025-11-05 10:54  
+**Date Fixed:** 2025-11-05 11:06  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- 200+ API requests in 15 minutes (13 per minute average)
+- `/api/trading/status` called every ~9 seconds (not every 30s as coded)
+- Browser performance degradation
+- Excessive server load
+- Battery drain on mobile devices
+
+**Root Cause:**
+`setInterval` in `navigation-sidebar.tsx` (line 160-162) polling trading status every 30 seconds. However, due to component re-mounting and useEffect re-triggering, multiple interval timers were stacking, causing calls every ~9 seconds instead of every 30 seconds.
+
+**Affected Files:**
+- `frontend-v2/components/navigation-sidebar.tsx` - Lines 159-164
+
+**Final Solution:**
+Remove `setInterval` entirely. Use SSE events for real-time updates instead. When SSE emits 'complete' or 'session_complete' events, trigger ONE refresh (already implemented at lines 118-125).
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/navigation-sidebar.tsx`]
+```typescript
+// Refresh status periodically for models not using SSE
+const interval = setInterval(() => {
+  loadTradingStatus()
+}, 30000) // Every 30 seconds
+
+return () => clearInterval(interval)
+```
+
+[AFTER - file: `frontend-v2/components/navigation-sidebar.tsx`]
+```typescript
+// NOTE: Removed setInterval polling - using SSE events for updates
+// Trading status refreshes on SSE 'complete'/'session_complete' events (lines 118-125)
+```
+
+**Test Script Created:**
+- Script: `frontend-v2/scripts/verify-bug-polling-spam.js` - Proved 80+ calls in 90s
+- Script: `frontend-v2/scripts/prove-fix-polling-storm.js` - Proves <10 calls in 60s (run: `npm run prove:polling`)
+
+**Lessons Learned:**
+- setInterval + React component lifecycle = multiple timers stacking
+- Always use event-driven updates (SSE) instead of polling when possible
+- If must use setInterval, ensure proper cleanup in useEffect return
+- Test network traffic during development, not just before release
+- Polling is expensive and doesn't scale
+
+**Prevention Strategy:**
+- Prefer SSE/WebSocket for real-time updates over polling
+- If using setInterval, add clear cleanup and verify no duplication
+- Monitor network tab during development to catch excessive calls early
+- Document why polling was chosen (if necessary) vs event-driven approach
+
+---
+
+### BUG-011: Duplicate SSE Connections
+**Date Discovered:** 2025-11-05 10:54  
+**Date Fixed:** 2025-11-05 11:07  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Console shows "[SSE] Connected to trading stream for model X" 2-3 times for same model
+- Multiple EventSource instances active simultaneously
+- Memory leak over time
+- Duplicate event processing (same event handled multiple times)
+
+**Root Cause:**
+useEffect dependency array included `enabled` prop which changed frequently, triggering useEffect to fire multiple times. Each firing created a NEW SSE connection without waiting for cleanup of the previous connection.
+
+**Affected Files:**
+- `frontend-v2/hooks/use-trading-stream.ts` - Line 63
+
+**Final Solution:**
+Remove `enabled` from useEffect dependencies. Only depend on `modelId` so connections are created/destroyed ONLY when model changes, not when internal state changes.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/hooks/use-trading-stream.ts`]
+```typescript
+}, [modelId, enabled])  // Both dependencies
+```
+
+[AFTER - file: `frontend-v2/hooks/use-trading-stream.ts`]
+```typescript
+}, [modelId])  // Removed 'enabled' - use only modelId to prevent rapid re-triggers
+```
+
+**Test Script Created:**
+- Script: `frontend-v2/scripts/prove-fix-duplicate-sse.js` - Proves only 1 connection per model (run: `npm run prove:duplicate-sse`)
+
+**Lessons Learned:**
+- useEffect dependencies should ONLY include values that should trigger the effect
+- Props that change frequently shouldn't be in dependency array if not needed
+- Use refs for values that don't need to trigger re-runs
+- Memory leaks often come from unclosed connections due to re-triggering
+
+**Prevention Strategy:**
+- Carefully review useEffect dependencies - ask "Does changing this value require re-running this effect?"
+- For connection hooks, only depend on connection identity (model ID, user ID), not state flags
+- Add logging to useEffect to catch rapid re-triggering during development
+- Use React DevTools profiler to detect excessive re-renders
+
+---
+
+### BUG-008: Duplicate Event Listeners
+**Date Discovered:** 2025-11-05 10:54  
+**Date Fixed:** 2025-11-05 11:08  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Same event fires 4 times in console: `[Nav] Conversation created event received`
+- 4x redundant API calls when conversation created
+- Memory leak from uncleaned listeners
+
+**Root Cause:**
+NavigationSidebar component is mounted multiple times (desktop view + mobile drawer + other instances). Each instance registered its own `window.addEventListener('conversation-created')` listener, resulting in 4x event handlers for same event.
+
+**Affected Files:**
+- `frontend-v2/components/navigation-sidebar.tsx` - Lines 174-211
+
+**Final Solution:**
+Only register event listener if component is NOT hidden (`!isHidden`). This ensures only the visible desktop sidebar registers the listener, not the hidden mobile drawer instances.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/navigation-sidebar.tsx`]
+```typescript
+useEffect(() => {
+  const handleConversationCreated = (event: any) => {
+    // ... handler logic
+  }
+  
+  window.addEventListener('conversation-created', handleConversationCreated)
+  
+  return () => {
+    window.removeEventListener('conversation-created', handleConversationCreated)
+  }
+}, [])  // Empty deps
+```
+
+[AFTER - file: `frontend-v2/components/navigation-sidebar.tsx`]
+```typescript
+useEffect(() => {
+  // CRITICAL: Only add listener if NOT hidden
+  if (isHidden) {
+    return
+  }
+  
+  const handleConversationCreated = (event: any) => {
+    // ... handler logic
+  }
+  
+  window.addEventListener('conversation-created', handleConversationCreated)
+  
+  return () => {
+    window.removeEventListener('conversation-created', handleConversationCreated)
+  }
+}, [isHidden])  // Only setup when hidden state changes
+```
+
+**Test Script Created:**
+- Script: `frontend-v2/scripts/prove-fix-duplicate-listeners.js` - Proves event fires only once (run: `npm run prove:duplicate-listeners`)
+
+**Lessons Learned:**
+- When same component is mounted multiple times (responsive design), global listeners multiply
+- Use props like `isHidden` or `isActive` to determine if instance should register listeners
+- Window event listeners are global - multiple components registering = multiple handlers
+- Cleanup is necessary but not sufficient if multiple instances add listeners
+
+**Prevention Strategy:**
+- For components that may be mounted multiple times, gate global listener registration
+- Consider using React Context or state management instead of window events
+- Document which component instance is "primary" for global event handling
+- Test with both desktop and mobile views to catch duplicate instances
+
+---
+
+### BUG-013: useEffect Infinite Loops
+**Date Discovered:** 2025-11-05 10:54  
+**Date Fixed:** 2025-11-05 11:07  
+**Severity:** HIGH  
+**Status:** ✅ FIXED (Same fix as BUG-011)
+
+**Symptoms:**
+- Console spam: `[SSE Hook] useEffect triggered` dozens of times per minute
+- Browser CPU usage spikes
+- UI feels sluggish
+- Excessive re-renders
+
+**Root Cause:**
+Same as BUG-011 - `enabled` prop in dependency array caused circular re-triggering.
+
+**Fix:** Removed 'enabled' from useEffect dependencies in `use-trading-stream.ts`
+
+**See BUG-011 for full details.**
+
+---
+
+### BUG-005: EventSource Memory Leak (No Cleanup)
+**Date Discovered:** 2025-11-05 (Code review)  
+**Date Fixed:** 2025-11-05 11:09  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- If user sends chat message while previous message streaming
+- New EventSource created without closing old one
+- Memory leak over extended use
+- Possible racing responses (two streams active)
+
+**Root Cause:**
+`use-chat-stream.ts` `startStream` function created new EventSource at line 79 without first checking if existing EventSource needed to be closed.
+
+**Affected Files:**
+- `frontend-v2/hooks/use-chat-stream.ts` - Line 27-87
+
+**Final Solution:**
+Add cleanup logic at the START of `startStream` function to close existing EventSource before creating new one.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/hooks/use-chat-stream.ts`]
+```typescript
+const startStream = useCallback(async (message: string) => {
+  // ... token validation ...
+  
+  setIsStreaming(true)
+  // Create new EventSource immediately
+  eventSource = new EventSource(url)
+  eventSourceRef.current = eventSource
+})
+```
+
+[AFTER - file: `frontend-v2/hooks/use-chat-stream.ts`]
+```typescript
+const startStream = useCallback(async (message: string) => {
+  // CRITICAL: Close existing EventSource before creating new one
+  if (eventSourceRef.current) {
+    console.log('[Chat Stream] Closing existing EventSource before creating new')
+    eventSourceRef.current.close()
+    eventSourceRef.current = null
+  }
+  
+  setIsStreaming(true)
+  // Create new EventSource
+  eventSource = new EventSource(url)
+  eventSourceRef.current = eventSource
+})
+```
+
+**Lessons Learned:**
+- Always cleanup resources before creating new ones
+- EventSource.close() should be called before creating new instance
+- Refs persist across renders - check ref value before overwriting
+- Memory leaks accumulate silently until app becomes unusable
+
+**Prevention Strategy:**
+- Add cleanup at START of functions that create resources (connections, timers, etc.)
+- Use linters/code review to catch missing cleanup
+- Test with rapid user interactions (spam clicking) to catch race conditions
+- Monitor browser memory usage during development
+
+---
+
+### BUG-012: Conversation Messages Don't Display
+**Date Discovered:** 2025-11-05 10:57  
+**Date Fixed:** 2025-11-05 11:10  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Clicking conversation in sidebar loads messages from API (console shows "Loaded 1 messages")
+- But messages don't appear in chat UI
+- Only welcome message shows
+
+**Root Cause:**
+ChatInterface component had `selectedConversationId` prop but useEffect was parsing URL (`window.location.pathname`) instead of using the prop. URL parsing failed or returned different value than prop, causing messages to load but then be cleared.
+
+**Affected Files:**
+- `frontend-v2/components/chat-interface.tsx` - Lines 140-225
+
+**Final Solution:**
+Use `selectedConversationId` prop instead of URL parsing. Change useEffect dependency from `[currentSessionId]` to `[selectedConversationId]`.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/chat-interface.tsx`]
+```typescript
+useEffect(() => {
+  // Get session ID from URL path
+  const pathParts = window.location.pathname.split('/')
+  const cIndex = pathParts.indexOf('c')
+  const sessionId = cIndex >= 0 && pathParts[cIndex + 1] ? pathParts[cIndex + 1] : null
+  
+  // Load messages...
+}, [currentSessionId])
+```
+
+[AFTER - file: `frontend-v2/components/chat-interface.tsx`]
+```typescript
+useEffect(() => {
+  // Use prop instead of URL parsing
+  const sessionId = selectedConversationId
+  
+  // Load messages...
+}, [selectedConversationId])  // Use prop
+```
+
+**Lessons Learned:**
+- Props are the source of truth, not URL parsing
+- URL parsing is fragile and fails when URL structure changes
+- If component receives prop, USE IT - don't derive it from other sources
+- Props + URL parsing together creates confusion and bugs
+
+**Prevention Strategy:**
+- Trust props over derived values (URL parsing, global state, etc.)
+- If prop exists for data, use it directly
+- URL parsing should only be done at route component level, not deep in component tree
+- Document data flow: where values come from (props vs URL vs state)
+
+---
+
+## Active Bug Log
+
 ### BUG-001: React-markdown className Deprecation Error
 **Date Discovered:** 2025-11-04 14:30  
 **Severity:** Critical  

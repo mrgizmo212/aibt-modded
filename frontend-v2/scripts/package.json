@@ -1,0 +1,23 @@
+{
+  "name": "frontend-v2-test-scripts",
+  "version": "1.0.0",
+  "description": "Test scripts to prove frontend bugs exist",
+  "scripts": {
+    "check": "node check-services.js",
+    "verify:rerender-storm": "node verify-bug-chat-rerender-storm.js",
+    "verify:eventsource-leak": "node verify-bug-eventsource-leak.js",
+    "verify:polling-spam": "node verify-bug-polling-spam.js",
+    "verify:all": "npm run check && npm run verify:rerender-storm && npm run verify:eventsource-leak && npm run verify:polling-spam",
+    "prove:sse-auth": "node prove-fix-sse-auth.js",
+    "prove:polling": "node prove-fix-polling-storm.js",
+    "prove:duplicate-sse": "node prove-fix-duplicate-sse.js",
+    "prove:duplicate-listeners": "node prove-fix-duplicate-listeners.js",
+    "prove:useeffect-loops": "node prove-fix-useeffect-loops.js",
+    "prove:all": "npm run check && npm run prove:sse-auth && npm run prove:polling && npm run prove:duplicate-sse && npm run prove:duplicate-listeners && npm run prove:useeffect-loops"
+  },
+  "dependencies": {
+    "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {}
+}
+

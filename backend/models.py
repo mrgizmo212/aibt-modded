@@ -48,6 +48,13 @@ class ModelInfo(BaseModel):
     signature: str
     description: Optional[str] = None
     is_active: Optional[bool] = True
+    trading_style: Optional[str] = 'day-trading'
+    instrument: Optional[str] = 'stocks'
+    allow_shorting: Optional[bool] = False
+    allow_options_strategies: Optional[bool] = False
+    allow_hedging: Optional[bool] = False
+    allowed_order_types: Optional[List[str]] = ['market', 'limit']
+    initial_cash: Optional[float] = 10000.0
     allowed_tickers: Optional[List[str]] = None
     default_ai_model: Optional[str] = None
     model_parameters: Optional[Dict[str, Any]] = None
@@ -60,6 +67,12 @@ class ModelInfo(BaseModel):
 class ModelCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    trading_style: Optional[str] = 'day-trading'
+    instrument: Optional[str] = 'stocks'
+    allow_shorting: Optional[bool] = False
+    allow_options_strategies: Optional[bool] = False
+    allow_hedging: Optional[bool] = False
+    allowed_order_types: Optional[List[str]] = ['market', 'limit']
     initial_cash: float = 10000.0
     allowed_tickers: Optional[List[str]] = None
     default_ai_model: Optional[str] = None

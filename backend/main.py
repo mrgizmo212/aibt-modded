@@ -437,6 +437,12 @@ async def create_my_model(model_data: ModelCreate, current_user: Dict = Depends(
         user_id=current_user["id"],
         name=model_data.name,
         description=model_data.description,
+        trading_style=model_data.trading_style,
+        instrument=model_data.instrument,
+        allow_shorting=model_data.allow_shorting,
+        allow_options_strategies=model_data.allow_options_strategies,
+        allow_hedging=model_data.allow_hedging,
+        allowed_order_types=model_data.allowed_order_types,
         initial_cash=model_data.initial_cash,
         allowed_tickers=model_data.allowed_tickers,
         default_ai_model=model_data.default_ai_model,
@@ -471,6 +477,12 @@ async def update_my_model(model_id: int, model_data: ModelCreate, current_user: 
         user_id=current_user["id"],
         name=model_data.name,
         description=model_data.description,
+        trading_style=model_data.trading_style,
+        instrument=model_data.instrument,
+        allow_shorting=model_data.allow_shorting,
+        allow_options_strategies=model_data.allow_options_strategies,
+        allow_hedging=model_data.allow_hedging,
+        allowed_order_types=model_data.allowed_order_types,
         allowed_tickers=model_data.allowed_tickers,
         default_ai_model=model_data.default_ai_model,
         model_parameters=model_data.model_parameters,
@@ -1748,7 +1760,11 @@ async def stream_new_conversation(
                     "model": ai_model,
                     "temperature": model_params.get("temperature", 0.3),
                     "base_url": "https://openrouter.ai/api/v1",
-                    "api_key": api_key
+                    "api_key": api_key,
+                    "default_headers": {
+                        "HTTP-Referer": "https://aibt.truetradinggroup.com",
+                        "X-Title": "AIBT AI Trading Platform"
+                    }
                 }
                 print(f"🔑 Params being passed: {list(params.keys())}")
                 if "top_p" in model_params:
@@ -1970,7 +1986,11 @@ async def general_chat_stream_endpoint(
                 "model": ai_model,
                 "temperature": model_params.get("temperature", 0.3),
                 "base_url": "https://openrouter.ai/api/v1",
-                "api_key": api_key
+                "api_key": api_key,
+                "default_headers": {
+                    "HTTP-Referer": "https://aibt.truetradinggroup.com",
+                    "X-Title": "AIBT AI Trading Platform"
+                }
             }
             
             if "top_p" in model_params:

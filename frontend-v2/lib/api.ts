@@ -98,15 +98,19 @@ export async function getModelById(id: number) {
 
 export async function createModel(data: {
   name: string
-  default_ai_model: string
-  system_prompt?: string
-  temperature?: number
-  max_tokens?: number
-  trading_mode?: 'paper' | 'live'
-  starting_capital?: number
-  max_position_size?: number
-  max_daily_loss?: number
-  allowed_symbols?: string[]
+  description?: string
+  trading_style?: string
+  instrument?: string
+  allow_shorting?: boolean
+  allow_options_strategies?: boolean
+  allow_hedging?: boolean
+  allowed_order_types?: string[]
+  initial_cash?: number
+  allowed_tickers?: string[]
+  default_ai_model?: string
+  model_parameters?: Record<string, any>
+  custom_rules?: string
+  custom_instructions?: string
 }) {
   return apiFetch('/api/models', {
     method: 'POST',
@@ -116,15 +120,19 @@ export async function createModel(data: {
 
 export async function updateModel(id: number, data: Partial<{
   name: string
+  description: string
+  trading_style: string
+  instrument: string
+  allow_shorting: boolean
+  allow_options_strategies: boolean
+  allow_hedging: boolean
+  allowed_order_types: string[]
+  initial_cash: number
+  allowed_tickers: string[]
   default_ai_model: string
-  system_prompt: string
-  temperature: number
-  max_tokens: number
-  trading_mode: 'paper' | 'live'
-  starting_capital: number
-  max_position_size: number
-  max_daily_loss: number
-  allowed_symbols: string[]
+  model_parameters: Record<string, any>
+  custom_rules: string
+  custom_instructions: string
 }>) {
   return apiFetch(`/api/models/${id}`, {
     method: 'PUT',

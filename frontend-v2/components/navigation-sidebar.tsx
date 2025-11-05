@@ -33,7 +33,7 @@ interface Model {
   id: number
   name: string
   status: "running" | "stopped"
-  tradingStyle: "day-trading" | "swing-trading" | "scalping" | "long-term"
+  tradingStyle: "scalping" | "day-trading" | "swing-trading" | "investing"
   default_ai_model?: string
   model_parameters?: Record<string, any>
 }
@@ -43,12 +43,13 @@ interface NavigationSidebarProps {
   selectedConversationId?: number | null
   onSelectModel: (id: number) => void
   onToggleModel: (id: number) => void
+  onModelEdit?: (id: number) => void  // NEW: Open full edit dialog
   onConversationSelect?: (sessionId: number, modelId?: number) => void  // ← Updated: includes modelId
   isHidden?: boolean  // ← NEW: Prevent API calls when hidden (mobile drawer)
   isEphemeralActive?: boolean  // NEW: Indicates we're on /new or /m/[id]/new
 }
 
-export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
+export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onModelEdit, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
   const router = useRouter()
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
@@ -156,12 +157,8 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     loadTradingStatus()
     loadGeneralConversations()
     
-    // Refresh status periodically for models not using SSE
-    const interval = setInterval(() => {
-      loadTradingStatus()
-    }, 30000) // Every 30 seconds
-    
-    return () => clearInterval(interval)
+    // NOTE: Removed setInterval polling - using SSE events for updates
+    // Trading status refreshes on SSE 'complete'/'session_complete' events (lines 118-125)
   }, [isHidden])
   
   // Load model conversations ONLY ONCE when models are first loaded
@@ -176,6 +173,13 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   
   // Listen for conversation-created events (from chat-interface after first message)
   useEffect(() => {
+    // CRITICAL: Only add listener if NOT hidden
+    // Prevents duplicate listeners when component mounted multiple times (desktop + mobile drawer)
+    if (isHidden) {
+      console.log('[Nav] Skipping event listener setup (component hidden)')
+      return
+    }
+    
     let refreshTimeout: NodeJS.Timeout | null = null
     
     const handleConversationCreated = (event: any) => {
@@ -205,7 +209,7 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
         clearTimeout(refreshTimeout)
       }
     }
-  }, [])  // Empty deps - setup once
+  }, [isHidden])  // Only setup when hidden state changes
 
   async function loadModels() {
     try {
@@ -215,9 +219,9 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
         id: model.id,
         name: model.name,
         status: "stopped" as const, // Will be updated by loadTradingStatus
-        tradingStyle: "day-trading" as const, // Default, could be derived from model settings
-        default_ai_model: model.default_ai_model,  // ← KEEP this from DB!
-        model_parameters: model.model_parameters   // ← KEEP this too!
+        tradingStyle: (model.trading_style || "day-trading") as "scalping" | "day-trading" | "swing-trading" | "investing",
+        default_ai_model: model.default_ai_model,
+        model_parameters: model.model_parameters
       }))
       setModelList(mappedModels)
     } catch (error) {
@@ -362,16 +366,23 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   )
 
   const tradingStyleLabels: Record<string, string> = {
+    "scalping": "Scalping",
     "day-trading": "Day Trading",
     "swing-trading": "Swing Trading",
-    scalping: "Scalping",
-    "long-term": "Long-term",
+    "investing": "Investing",
   }
 
   const handleStartEdit = (model: Model, e: React.MouseEvent) => {
     e.stopPropagation()
-    setEditingModelId(model.id)
-    setEditingName(model.name)
+    
+    // If onModelEdit callback is provided, open full dialog instead of inline edit
+    if (onModelEdit) {
+      onModelEdit(model.id)
+    } else {
+      // Fallback to inline edit if no dialog handler
+      setEditingModelId(model.id)
+      setEditingName(model.name)
+    }
   }
 
   const handleSaveEdit = async (modelId: number) => {
@@ -413,7 +424,7 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
         onConversationSelect(convId)  // No modelId for general
       }
       
-      toast.info("Switched to conversation", { duration: 1000 })
+      toast.info("Switched conversations", { duration: 1000 })
       // TODO: Load messages into chat interface
     } catch (error: any) {
       toast.error(error.message || "Failed to switch conversation")
@@ -431,7 +442,7 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
         onConversationSelect(convId, modelId)  // Include modelId
       }
       
-      toast.info("Switched to conversation", { duration: 1000 })
+      toast.info("Switched conversations", { duration: 1000 })
       // TODO: Load messages into chat interface
     } catch (error: any) {
       toast.error(error.message || "Failed to switch conversation")
@@ -441,6 +452,10 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   const handleNewGeneralChat = () => {
     // Navigate to ephemeral route - NO API call, NO database record, NO page reload
     console.log('[Nav] Navigating to /new (ephemeral general chat)')
+    
+    // Dispatch event to reset chat state
+    window.dispatchEvent(new CustomEvent('new-chat-requested'))
+    
     router.push('/new')
   }
   
@@ -455,20 +470,31 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     
     try {
       // Optimistically update UI first
-      setGeneralConversations(prev => prev.filter(c => c.id !== convId))
+      const newConversations = generalConversations.filter(c => c.id !== convId)
+      setGeneralConversations(newConversations)
       
-      if (selectedConversationId === convId) {
+      // Check if we're deleting the currently viewed conversation OR if this leaves us with no conversations
+      const isCurrentConvo = selectedConversationId === convId || window.location.pathname.includes(`/c/${convId}`)
+      const noConversationsLeft = newConversations.length === 0
+      
+      if (isCurrentConvo || noConversationsLeft) {
         setSelectedConversationId(null)
         
-        // Clear URL - go back to root
-        window.history.pushState({}, '', '/')
+        // ChatGPT-style: Update URL to /new without page reload
+        window.history.pushState({}, '', '/new')
+        console.log('[Nav] Deleted conversation, URL updated to /new (isCurrentConvo:', isCurrentConvo, 'noConversationsLeft:', noConversationsLeft, ')')
         
-        // Reload page to reset chat to dashboard
-        window.location.href = '/'
+        // Trigger New Chat event to reset state
+        window.dispatchEvent(new CustomEvent('new-chat-requested'))
       }
       
       // Then delete from backend
       await deleteSession(convId)
+      
+      // Notify chat interface to reset if viewing this conversation
+      window.dispatchEvent(new CustomEvent('conversation-deleted', {
+        detail: { conversationId: convId }
+      }))
       
       toast.success("Conversation deleted")
     } catch (error: any) {
@@ -732,23 +758,34 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                                         
                                         try {
                                           // Optimistically update UI first
+                                          const newModelConvos = (modelConversations[model.id] || []).filter(c => c.id !== convo.id)
                                           setModelConversations(prev => ({
                                             ...prev,
-                                            [model.id]: prev[model.id].filter(c => c.id !== convo.id)
+                                            [model.id]: newModelConvos
                                           }))
                                           
-                                          if (selectedConversationId === convo.id) {
+                                          // Check if we're deleting the currently viewed conversation OR if this leaves model with no conversations
+                                          const isCurrentConvo = selectedConversationId === convo.id || window.location.pathname.includes(`/c/${convo.id}`)
+                                          const noConversationsLeft = newModelConvos.length === 0
+                                          
+                                          if (isCurrentConvo || noConversationsLeft) {
                                             setSelectedConversationId(null)
                                             
-                                            // Clear URL - go back to root
-                                            window.history.pushState({}, '', '/')
+                                            // ChatGPT-style: Update URL to /new without page reload
+                                            window.history.pushState({}, '', '/new')
+                                            console.log('[Nav] Deleted model conversation, URL updated to /new (isCurrentConvo:', isCurrentConvo, 'noConversationsLeft:', noConversationsLeft, ')')
                                             
-                                            // Reload page to reset to dashboard
-                                            window.location.href = '/'
+                                            // Trigger New Chat event to reset state
+                                            window.dispatchEvent(new CustomEvent('new-chat-requested'))
                                           }
                                           
                                           // Then delete from backend
                                           await deleteSession(convo.id)
+                                          
+                                          // Notify chat interface to reset if viewing this conversation
+                                          window.dispatchEvent(new CustomEvent('conversation-deleted', {
+                                            detail: { conversationId: convo.id }
+                                          }))
                                           
                                           toast.success("Conversation deleted")
                                         } catch (error: any) {

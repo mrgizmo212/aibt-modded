@@ -27,6 +27,7 @@ export default function NewConversationPage() {
   // State declarations
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
   const [context, setContext] = useState<"dashboard" | "model" | "run">("dashboard")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isContextOpen, setIsContextOpen] = useState(false)
@@ -41,6 +42,47 @@ export default function NewConversationPage() {
       router.push('/login')
     }
   }, [user, loading, router])
+
+  // Reset conversation state when navigating to /new
+  useEffect(() => {
+    const handleRouteChange = () => {
+      // If we navigated to /new, reset conversation state
+      if (window.location.pathname === '/new') {
+        console.log('[NewPage] Route is /new, resetting conversation state')
+        setSelectedConversationId(null)
+      }
+    }
+    
+    const handleNewChatRequested = () => {
+      console.log('[NewPage] New chat requested, resetting conversation state')
+      setSelectedConversationId(null)
+    }
+    
+    const handleConversationSwitched = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const { sessionId, modelId } = customEvent.detail
+      console.log('[NewPage] Conversation switched event:', sessionId)
+      setSelectedConversationId(sessionId)
+    }
+    
+    // Check on mount and when pathname changes
+    handleRouteChange()
+    
+    // Listen for popstate (browser back/forward)
+    window.addEventListener('popstate', handleRouteChange)
+    
+    // Listen for explicit "New Chat" button clicks
+    window.addEventListener('new-chat-requested', handleNewChatRequested)
+    
+    // Listen for conversation switches (ChatGPT-style instant switching)
+    window.addEventListener('conversation-switched', handleConversationSwitched)
+    
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange)
+      window.removeEventListener('new-chat-requested', handleNewChatRequested)
+      window.removeEventListener('conversation-switched', handleConversationSwitched)
+    }
+  }, [])
 
   // Show loading state while checking auth
   if (loading) {
@@ -134,12 +176,20 @@ export default function NewConversationPage() {
             isEphemeralActive={true}
             onSelectModel={handleModelSelect}
             onToggleModel={handleToggleModel}
+            onModelEdit={handleEditModel}
             onConversationSelect={(sessionId, modelId) => {
-              if (modelId) {
-                router.push(`/m/${modelId}/c/${sessionId}`)
-              } else {
-                router.push(`/c/${sessionId}`)
-              }
+              // ChatGPT-style: Update URL without page reload
+              const newUrl = modelId ? `/m/${modelId}/c/${sessionId}` : `/c/${sessionId}`
+              window.history.pushState({}, '', newUrl)
+              console.log('[NewPage] Switched to conversation:', sessionId, 'URL:', newUrl)
+              
+              // Update local state
+              setSelectedConversationId(sessionId)
+              
+              // Dispatch event for other components
+              window.dispatchEvent(new CustomEvent('conversation-switched', {
+                detail: { sessionId, modelId }
+              }))
             }}
           />
         </div>
@@ -147,11 +197,17 @@ export default function NewConversationPage() {
         {/* Middle Column - Chat (Full width on mobile) */}
         <div className="w-full lg:w-[50%] flex-shrink-0 lg:mt-0 mt-[56px] lg:mb-0 mb-[72px]">
           <ChatInterface
-            isEphemeral={true}
+            isEphemeral={selectedConversationId === null}
+            selectedConversationId={selectedConversationId}
             onConversationCreated={(sessionId, modelId) => {
               console.log('[NewPage] Conversation created:', sessionId, 'model:', modelId)
-              // Transition from /new → /c/{id} WITHOUT page reload
-              router.replace(`/c/${sessionId}`)
+              
+              // Update state to transition from ephemeral to persistent
+              setSelectedConversationId(sessionId)
+              
+              // Update URL without navigation (just change browser history)
+              window.history.replaceState({}, '', `/c/${sessionId}`)
+              console.log('[NewPage] URL updated to /c/' + sessionId + ' without page reload')
               
               // Notify sidebar to refresh
               window.dispatchEvent(new CustomEvent('conversation-created', {
@@ -189,6 +245,7 @@ export default function NewConversationPage() {
             setIsMenuOpen(false)
           }}
           onToggleModel={handleToggleModel}
+          onModelEdit={handleEditModel}
           onConversationSelect={(sessionId, modelId) => {
             if (modelId) {
               router.push(`/m/${modelId}/c/${sessionId}`)

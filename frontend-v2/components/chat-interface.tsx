@@ -136,27 +136,25 @@ export function ChatInterface({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   
-  // Load conversation messages when URL changes (detects conversation switch)
+  // Load conversation messages when selectedConversationId prop changes
   useEffect(() => {
     const loadConversationMessages = async () => {
-      // Prevent concurrent loads
-      if (isLoadingMessages) {
-        console.log('[Chat] Already loading messages, skipping...')
-        return
-      }
-      
-      // Get session ID from URL path
-      const pathParts = window.location.pathname.split('/')
-      const cIndex = pathParts.indexOf('c')
-      const sessionId = cIndex >= 0 && pathParts[cIndex + 1] ? pathParts[cIndex + 1] : null
+      // Use prop instead of URL parsing
+      const sessionId = selectedConversationId
       
       // Check if session actually changed (prevent unnecessary reloads)
       if (sessionId === currentSessionId) {
         return  // Same conversation, don't reload
       }
       
+      // Prevent concurrent loads
+      if (isLoadingMessages) {
+        console.log('[Chat] Already loading messages, skipping...')
+        return
+      }
+      
       console.log('[Chat] Session changed from', currentSessionId, 'to', sessionId)
-      setCurrentSessionId(sessionId)
+      setCurrentSessionId(sessionId ? sessionId.toString() : null)
       setIsLoadingMessages(true)
       
       if (!sessionId) {
@@ -169,13 +167,14 @@ export function ChatInterface({
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
         }])
+        setIsLoadingMessages(false)
         return
       }
       
       try {
         console.log('[Chat] Loading messages for session', sessionId)
         const { getSessionMessages } = await import('@/lib/api')
-        const data = await getSessionMessages(parseInt(sessionId))
+        const data = await getSessionMessages(sessionId)
         
         if (data.messages && data.messages.length > 0) {
           // Convert to Message format
@@ -208,21 +207,49 @@ export function ChatInterface({
     }
     
     loadConversationMessages()
-    
-    // Listen for manual URL changes (browser back/forward)
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search)
-      const newSessionId = params.get('c')
+  }, [selectedConversationId])  // Use prop instead of parsing URL
+  
+  // Listen for conversation deletion events
+  useEffect(() => {
+    const handleConversationDeleted = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const { conversationId } = customEvent.detail
       
-      // Manually trigger reload by setting currentSessionId to force change detection
-      if (newSessionId !== currentSessionId) {
-        setCurrentSessionId(null)  // Force reload on next check
+      // If we're viewing the deleted conversation (or any conversation on /new)
+      // reset to welcome message
+      if (currentSessionId === conversationId?.toString() || 
+          (isEphemeral && currentSessionId)) {
+        console.log('[Chat] Conversation deleted, resetting to welcome message')
+        setCurrentSessionId(null)
+        setMessages([{
+          id: "1",
+          type: "ai",
+          text: "Good morning! How can I help you with your trading today?",
+          timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
+        }])
       }
     }
     
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [currentSessionId])  // Only run when currentSessionId changes
+    const handleNewChatRequested = () => {
+      console.log('[Chat] New chat requested, resetting to fresh ephemeral state')
+      setCurrentSessionId(null)
+      setMessages([{
+        id: "1",
+        type: "ai",
+        text: "Good morning! How can I help you with your trading today?",
+        timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
+      }])
+    }
+    
+    window.addEventListener('conversation-deleted', handleConversationDeleted)
+    window.addEventListener('new-chat-requested', handleNewChatRequested)
+    return () => {
+      window.removeEventListener('conversation-deleted', handleConversationDeleted)
+      window.removeEventListener('new-chat-requested', handleNewChatRequested)
+    }
+  }, [currentSessionId, isEphemeral])
   
   // Update streaming message as content arrives
   useEffect(() => {
@@ -398,12 +425,10 @@ export function ChatInterface({
             createdSessionId = data.session_id
             console.log('[Chat] ✅ Session created:', createdSessionId)
             
-            // Call parent callback to update URL (router.replace)
-            if (onConversationCreated) {
-              onConversationCreated(createdSessionId, ephemeralModelId)
-            }
+            // NOTE: Do NOT navigate yet - wait for streaming to complete
+            // Will call onConversationCreated in 'done' event
             
-            // Dispatch event for sidebar refresh
+            // Dispatch event for sidebar refresh (this is safe)
             window.dispatchEvent(new CustomEvent('conversation-created', {
               detail: { sessionId: createdSessionId, modelId: ephemeralModelId }
             }))
@@ -440,6 +465,12 @@ export function ChatInterface({
             streamingMessageIdRef.current = null
             setIsTyping(false)
             eventSource.close()
+            
+            // NOW safe to navigate (streaming complete, message displayed)
+            if (createdSessionId && onConversationCreated) {
+              console.log('[Chat] Navigating to conversation:', createdSessionId)
+              onConversationCreated(createdSessionId, ephemeralModelId)
+            }
           }
           
           // Error

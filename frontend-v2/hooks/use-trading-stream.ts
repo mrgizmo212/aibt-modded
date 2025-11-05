@@ -60,7 +60,7 @@ export function useTradingStream(
       console.log('[SSE Hook] Cleanup - disconnecting')
       disconnectFromStream()
     }
-  }, [modelId, enabled])
+  }, [modelId])  // Removed 'enabled' from deps - use only modelId to prevent rapid re-triggers
 
   function connectToStream() {
     // Clean up any existing connection

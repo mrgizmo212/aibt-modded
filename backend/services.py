@@ -182,7 +182,13 @@ def generate_signature(name: str, user_id: str) -> str:
 async def create_model(
     user_id: str, 
     name: str, 
-    description: Optional[str] = None, 
+    description: Optional[str] = None,
+    trading_style: Optional[str] = 'day-trading',
+    instrument: Optional[str] = 'stocks',
+    allow_shorting: Optional[bool] = False,
+    allow_options_strategies: Optional[bool] = False,
+    allow_hedging: Optional[bool] = False,
+    allowed_order_types: Optional[List[str]] = None,
     initial_cash: float = 10000.0, 
     allowed_tickers: Optional[List[str]] = None,
     default_ai_model: Optional[str] = None,
@@ -218,6 +224,12 @@ async def create_model(
         "name": name,
         "signature": signature,
         "description": description,
+        "trading_style": trading_style,
+        "instrument": instrument,
+        "allow_shorting": allow_shorting,
+        "allow_options_strategies": allow_options_strategies,
+        "allow_hedging": allow_hedging,
+        "allowed_order_types": allowed_order_types or ['market', 'limit'],
         "initial_cash": initial_cash,
         "is_active": True
     }
@@ -249,7 +261,13 @@ async def update_model(
     model_id: int, 
     user_id: str, 
     name: str, 
-    description: Optional[str] = None, 
+    description: Optional[str] = None,
+    trading_style: Optional[str] = None,
+    instrument: Optional[str] = None,
+    allow_shorting: Optional[bool] = None,
+    allow_options_strategies: Optional[bool] = None,
+    allow_hedging: Optional[bool] = None,
+    allowed_order_types: Optional[List[str]] = None,
     allowed_tickers: Optional[List[str]] = None,
     default_ai_model: Optional[str] = None,
     model_parameters: Optional[Dict] = None,
@@ -287,6 +305,24 @@ async def update_model(
     }
     
     # Add optional fields if provided
+    if trading_style is not None:
+        update_data["trading_style"] = trading_style
+    
+    if instrument is not None:
+        update_data["instrument"] = instrument
+    
+    if allow_shorting is not None:
+        update_data["allow_shorting"] = allow_shorting
+    
+    if allow_options_strategies is not None:
+        update_data["allow_options_strategies"] = allow_options_strategies
+    
+    if allow_hedging is not None:
+        update_data["allow_hedging"] = allow_hedging
+    
+    if allowed_order_types is not None:
+        update_data["allowed_order_types"] = allowed_order_types
+    
     if allowed_tickers is not None:
         update_data["allowed_tickers"] = allowed_tickers
     
