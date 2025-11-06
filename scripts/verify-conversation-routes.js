@@ -76,8 +76,8 @@ if (fs.existsSync(modelConvPath)) {
     return modelConvContent.includes('params.conversationId');
   });
   
-  test('Model conversation page passes conversationId to ChatInterface', () => {
-    return modelConvContent.includes('conversationId={conversationId');
+  test('Model conversation page passes selectedConversationId to ChatInterface', () => {
+    return modelConvContent.includes('selectedConversationId={conversationId');
   });
   
   test('Model conversation page sets isEphemeral={false}', () => {
@@ -101,8 +101,8 @@ if (fs.existsSync(generalConvPath)) {
     return generalConvContent.includes('params.conversationId');
   });
   
-  test('General conversation page passes conversationId to ChatInterface', () => {
-    return generalConvContent.includes('conversationId={conversationId');
+  test('General conversation page passes selectedConversationId to ChatInterface', () => {
+    return generalConvContent.includes('selectedConversationId={conversationId');
   });
   
   test('General conversation page sets isEphemeral={false}', () => {
