@@ -1,7 +1,8 @@
-# BUG-015: 404 Fix ACTUALLY Completed
+# BUG-015: 404 Fix ACTUALLY Completed + GitIgnore Fix
 
 **Date:** 2025-11-06 17:00  
-**Status:** ✅ COMPLETE
+**Updated:** 2025-11-06 17:15  
+**Status:** ✅ COMPLETE + GitIgnore issue resolved
 
 ---
 
@@ -143,6 +144,32 @@ Result: Tests would fail because files didn't exist, making the bug obvious when
 
 ---
 
+## CRITICAL ISSUE DISCOVERED AND FIXED
+
+### GitIgnore Was Blocking Files From Being Committed
+
+**Problem:**
+- Line 211 in `.gitignore` had malformed pattern: "c o n t e x t - o n l y 2 /" (with spaces)
+- Git interpreted this as pattern starting with "c"
+- **This blocked ALL directories named "c" from being tracked**
+- Our conversation routes `/app/c/` and `/app/m/[modelId]/c/` were ignored!
+
+**Fix Applied:**
+- Removed malformed line 211
+- Replaced with proper pattern: `docs/projects-for-context-only/context-only2/`
+- Files now visible to git: ✅
+  - `frontend-v2/app/c/[conversationId]/page.tsx`
+  - `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`
+
+**Git Status After Fix:**
+```
+Untracked files:
+	frontend-v2/app/c/
+	frontend-v2/app/m/[modelId]/c/
+```
+
+---
+
 **Fix Complete!** ✅
 
-The actual route pages now exist and all verification tests pass.
+The actual route pages now exist, all verification tests pass, and files are now trackable by git.

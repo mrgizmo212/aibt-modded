@@ -147,6 +147,14 @@ AFTER:
 - Script: `scripts/verify-conversation-routes.js` - Verifies both route files exist and are properly configured
 - Results: 13/13 tests passed ✅
 
+**CRITICAL DISCOVERY: GitIgnore Was Blocking Files (2025-11-06 17:15)**
+After creating the route files, discovered they weren't being tracked by git:
+- **Problem:** Line 211 in `.gitignore` had malformed pattern: "c o n t e x t - o n l y 2 /" (with spaces)
+- Git interpreted this as pattern starting with "c", blocking ALL directories named "c"
+- **Impact:** Conversation routes in `/app/c/` and `/app/m/[modelId]/c/` were ignored by git
+- **Fix:** Removed malformed line, replaced with proper pattern: `docs/projects-for-context-only/context-only2/`
+- **Result:** Files now trackable by git ✅
+
 **Test Results:**
 ```
 ✅ Model conversation route page exists
@@ -170,6 +178,9 @@ AFTER:
 - **Navigation code doesn't validate routes:** `router.push()` will attempt to navigate even if the route doesn't exist
 - **404s can be silent in development:** The error was only visible to the user, not in console logs
 - **Missing routes break user flow:** Even when backend/API works perfectly, missing frontend routes break the entire feature
+- **🔴 CRITICAL: Always verify .gitignore isn't blocking files:** Malformed .gitignore patterns can silently prevent commits
+- **Single-letter patterns in .gitignore are dangerous:** Patterns like "c" or "d" match too broadly and block legitimate directories
+- **When git says "nothing to commit" but files exist, check .gitignore first:** Use `git check-ignore -v <path>` to debug
 
 **Prevention Strategy:**
 1. **When creating navigation logic:** Verify destination route pages exist BEFORE implementing navigation
