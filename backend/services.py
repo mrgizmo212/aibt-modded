@@ -186,6 +186,7 @@ async def create_model(
     trading_style: Optional[str] = 'day-trading',
     instrument: Optional[str] = 'stocks',
     allow_shorting: Optional[bool] = False,
+    margin_account: Optional[bool] = False,
     allow_options_strategies: Optional[bool] = False,
     allow_hedging: Optional[bool] = False,
     allowed_order_types: Optional[List[str]] = None,
@@ -227,6 +228,7 @@ async def create_model(
         "trading_style": trading_style,
         "instrument": instrument,
         "allow_shorting": allow_shorting,
+        "margin_account": margin_account,
         "allow_options_strategies": allow_options_strategies,
         "allow_hedging": allow_hedging,
         "allowed_order_types": allowed_order_types or ['market', 'limit'],
@@ -265,6 +267,7 @@ async def update_model(
     trading_style: Optional[str] = None,
     instrument: Optional[str] = None,
     allow_shorting: Optional[bool] = None,
+    margin_account: Optional[bool] = None,
     allow_options_strategies: Optional[bool] = None,
     allow_hedging: Optional[bool] = None,
     allowed_order_types: Optional[List[str]] = None,
@@ -313,6 +316,9 @@ async def update_model(
     
     if allow_shorting is not None:
         update_data["allow_shorting"] = allow_shorting
+    
+    if margin_account is not None:
+        update_data["margin_account"] = margin_account
     
     if allow_options_strategies is not None:
         update_data["allow_options_strategies"] = allow_options_strategies
@@ -574,6 +580,25 @@ async def calculate_and_cache_performance(model_id: int, model_signature: str) -
     
     supabase = get_supabase()
     
+    # Fetch model configuration for context
+    model_result = supabase.table("models").select("trading_style, margin_account").eq("id", model_id).execute()
+    
+    if model_result.data and len(model_result.data) > 0:
+        trading_style = model_result.data[0].get("trading_style", "day-trading")
+        margin_account = model_result.data[0].get("margin_account", False)
+        
+        # Calculate leverage used
+        if not margin_account:
+            leverage_used = 1.0
+        elif trading_style in ['scalping', 'day-trading']:
+            leverage_used = 4.0  # Day trading margin
+        else:
+            leverage_used = 2.0  # Standard margin
+    else:
+        trading_style = "day-trading"
+        margin_account = False
+        leverage_used = 1.0
+    
     # Helper function to convert empty strings to None for date fields
     def clean_date(value):
         """Convert empty strings to None for PostgreSQL date columns"""
@@ -595,7 +620,11 @@ async def calculate_and_cache_performance(model_id: int, model_signature: str) -
         "win_rate": metrics.get("win_rate", 0.0),
         "profit_loss_ratio": metrics.get("profit_loss_ratio", 0.0),
         "initial_value": metrics.get("initial_value", 10000.0),
-        "final_value": metrics.get("final_value", 10000.0)
+        "final_value": metrics.get("final_value", 10000.0),
+        # NEW: Add context for proper comparison
+        "trading_style": trading_style,
+        "margin_account": margin_account,
+        "leverage_used": leverage_used
     }
     
     # Upsert (insert or update if exists)

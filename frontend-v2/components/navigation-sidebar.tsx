@@ -43,13 +43,14 @@ interface NavigationSidebarProps {
   selectedConversationId?: number | null
   onSelectModel: (id: number) => void
   onToggleModel: (id: number) => void
-  onModelEdit?: (id: number) => void  // NEW: Open full edit dialog
+  onModelEdit?: (id: number) => void  // Open full edit dialog
+  onCreateModel?: () => void  // NEW: Open dialog in create mode
   onConversationSelect?: (sessionId: number, modelId?: number) => void  // ← Updated: includes modelId
   isHidden?: boolean  // ← NEW: Prevent API calls when hidden (mobile drawer)
   isEphemeralActive?: boolean  // NEW: Indicates we're on /new or /m/[id]/new
 }
 
-export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onModelEdit, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
+export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onModelEdit, onCreateModel, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
   const router = useRouter()
   const [modelsExpanded, setModelsExpanded] = useState(true)
   const [conversationsExpanded, setConversationsExpanded] = useState(true)
@@ -823,7 +824,10 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
             )}
           </div>
 
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-[#262626] text-[#a3a3a3] hover:text-white hover:border-[#404040] transition-colors mt-2">
+          <button 
+            onClick={() => onCreateModel?.()}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-[#262626] text-[#a3a3a3] hover:text-white hover:border-[#404040] transition-colors mt-2"
+          >
             <Plus className="w-5 h-5" />
             <span className="text-sm font-medium">Create Model</span>
           </button>

@@ -80,23 +80,46 @@ class AgentManager:
         
         model_data = result.data[0] if result.data and len(result.data) > 0 else {}
         
-        # Get custom rules/instructions from model (if any)
-        custom_rules = model_data.get("custom_rules")
-        custom_instructions = model_data.get("custom_instructions")
+        # Extract FULL configuration
+        config = {
+            "trading_style": model_data.get("trading_style", "day-trading"),
+            "instrument": model_data.get("instrument", "stocks"),
+            "allow_shorting": model_data.get("allow_shorting", False),
+            "allow_options_strategies": model_data.get("allow_options_strategies", False),
+            "allow_hedging": model_data.get("allow_hedging", False),
+            "allowed_order_types": model_data.get("allowed_order_types", ["market", "limit"]),
+            "margin_account": model_data.get("margin_account", False),
+            "custom_rules": model_data.get("custom_rules"),
+            "custom_instructions": model_data.get("custom_instructions")
+        }
         
-        # Create agent instance
+        print(f"📋 Model Configuration Loaded:")
+        print(f"   Style: {config['trading_style']}")
+        print(f"   Margin Account: {'✅' if config['margin_account'] else '🚫'}")
+        print(f"   Shorting: {'✅' if config['allow_shorting'] else '🚫'}")
+        print(f"   Order Types: {config['allowed_order_types']}")
+        
+        # Create agent instance with FULL configuration
         agent = BaseAgent(
             signature=model_signature,
             basemodel=basemodel,
             stock_symbols=all_nasdaq_100_symbols,
-            log_path="./data/agent_data",  # Will write to DB instead
+            log_path="./data/agent_data",
             max_steps=max_steps,
             initial_cash=initial_cash,
             init_date=start_date,
-            model_id=model_id,  # Pass model_id for streaming
-            custom_rules=custom_rules,
-            custom_instructions=custom_instructions,
-            model_parameters=model_parameters  # ← NEW: Pass model parameters!
+            model_id=model_id,
+            custom_rules=config["custom_rules"],
+            custom_instructions=config["custom_instructions"],
+            model_parameters=model_parameters,
+            # NEW CONFIGURATION:
+            trading_style=config["trading_style"],
+            instrument=config["instrument"],
+            allow_shorting=config["allow_shorting"],
+            allow_options_strategies=config["allow_options_strategies"],
+            allow_hedging=config["allow_hedging"],
+            allowed_order_types=config["allowed_order_types"],
+            margin_account=config["margin_account"]
         )
         
         # Store agent info

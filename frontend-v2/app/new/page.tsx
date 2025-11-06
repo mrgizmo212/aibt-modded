@@ -141,6 +141,12 @@ export default function NewConversationPage() {
     }
   }
 
+  const handleCreateModel = () => {
+    console.log('[NewPage] Opening create model dialog')
+    setEditingModel(null)  // null = create mode
+    setIsEditDialogOpen(true)
+  }
+
   const handleSaveModel = () => {
     console.log("Model saved")
     setIsEditDialogOpen(false)
@@ -177,6 +183,7 @@ export default function NewConversationPage() {
             onSelectModel={handleModelSelect}
             onToggleModel={handleToggleModel}
             onModelEdit={handleEditModel}
+            onCreateModel={handleCreateModel}
             onConversationSelect={(sessionId, modelId) => {
               // ChatGPT-style: Update URL without page reload
               const newUrl = modelId ? `/m/${modelId}/c/${sessionId}` : `/c/${sessionId}`
@@ -246,6 +253,7 @@ export default function NewConversationPage() {
           }}
           onToggleModel={handleToggleModel}
           onModelEdit={handleEditModel}
+          onCreateModel={handleCreateModel}
           onConversationSelect={(sessionId, modelId) => {
             if (modelId) {
               router.push(`/m/${modelId}/c/${sessionId}`)
@@ -269,7 +277,7 @@ export default function NewConversationPage() {
 
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {isEditDialogOpen && editingModel && (
+      {isEditDialogOpen && (
         <ModelEditDialog
           model={editingModel}
           onClose={() => setIsEditDialogOpen(false)}

@@ -73,6 +73,14 @@ class BaseAgent:
         custom_rules: Optional[str] = None,
         custom_instructions: Optional[str] = None,
         model_parameters: Optional[Dict[str, Any]] = None,
+        # NEW CONFIGURATION PARAMETERS:
+        trading_style: str = "day-trading",
+        instrument: str = "stocks",
+        allow_shorting: bool = False,
+        allow_options_strategies: bool = False,
+        allow_hedging: bool = False,
+        allowed_order_types: Optional[List[str]] = None,
+        margin_account: bool = False,
         trading_service: Optional[Any] = None
     ):
         """
@@ -105,6 +113,30 @@ class BaseAgent:
         self.custom_rules = custom_rules
         self.custom_instructions = custom_instructions
         self.model_parameters = model_parameters or {}
+        
+        # NEW: Trading configuration
+        self.trading_style = trading_style
+        self.instrument = instrument
+        self.allow_shorting = allow_shorting
+        self.allow_options_strategies = allow_options_strategies
+        self.allow_hedging = allow_hedging
+        self.allowed_order_types = allowed_order_types or ["market", "limit"]
+        self.margin_account = margin_account
+        
+        # Calculate buying power multiplier based on margin and style
+        if not margin_account:
+            self.buying_power_multiplier = 1.0  # Cash account
+        elif trading_style in ['scalping', 'day-trading']:
+            self.buying_power_multiplier = 4.0  # Day trading margin
+        else:
+            self.buying_power_multiplier = 2.0  # Standard margin
+        
+        print(f"🤖 Agent Configuration:")
+        print(f"   Style: {self.trading_style}")
+        print(f"   Margin: {'Yes' if self.margin_account else 'No'}")
+        print(f"   Buying Power: {self.buying_power_multiplier}x")
+        print(f"   Shorting: {'Allowed' if self.allow_shorting else 'Disabled'}")
+        print(f"   Order Types: {', '.join(self.allowed_order_types)}")
         
         # TradingService for trade execution (replaces MCP trade subprocess)
         self.trading_service = trading_service
@@ -427,7 +459,15 @@ class BaseAgent:
                 today_date, 
                 self.signature,
                 custom_rules=self.custom_rules,
-                custom_instructions=self.custom_instructions
+                custom_instructions=self.custom_instructions,
+                # NEW: Pass configuration to prompt
+                trading_style=self.trading_style,
+                instrument=self.instrument,
+                allow_shorting=self.allow_shorting,
+                margin_account=self.margin_account,
+                allow_options_strategies=self.allow_options_strategies,
+                allow_hedging=self.allow_hedging,
+                allowed_order_types=self.allowed_order_types
             ),
         )
         

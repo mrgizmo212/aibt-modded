@@ -102,6 +102,7 @@ export async function createModel(data: {
   trading_style?: string
   instrument?: string
   allow_shorting?: boolean
+  margin_account?: boolean
   allow_options_strategies?: boolean
   allow_hedging?: boolean
   allowed_order_types?: string[]
@@ -124,6 +125,7 @@ export async function updateModel(id: number, data: Partial<{
   trading_style: string
   instrument: string
   allow_shorting: boolean
+  margin_account: boolean
   allow_options_strategies: boolean
   allow_hedging: boolean
   allowed_order_types: string[]

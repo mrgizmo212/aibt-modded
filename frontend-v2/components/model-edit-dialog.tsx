@@ -13,6 +13,34 @@ import { toast } from "sonner"
 import { AVAILABLE_MODELS } from "@/lib/constants"
 import { ModelSettings } from "@/components/ModelSettings"
 
+// Style-specific smart defaults
+const STYLE_DEFAULTS = {
+  scalping: {
+    execution_mode: "intraday",
+    instructions: "Focus on 1-5 min trades. Exit within 5 minutes. Tight stop losses 0.5-1%. High frequency trading. Quick entries and exits.",
+    order_types: ["market", "limit"],
+    capabilities: { shorting: false, options: false, hedging: false }
+  },
+  "day-trading": {
+    execution_mode: "intraday",
+    instructions: "Hold intraday only. Close all positions by 3:55 PM EST. Focus on momentum and volume. No overnight risk.",
+    order_types: ["market", "limit", "stop"],
+    capabilities: { shorting: false, options: false, hedging: false }
+  },
+  "swing-trading": {
+    execution_mode: "daily",
+    instructions: "Hold 2-7 days. Focus on trend continuation. Wider 3-5% stops. Use technical analysis and market sentiment. Multi-day momentum.",
+    order_types: ["market", "limit", "stop-limit", "trailing-stop"],
+    capabilities: { shorting: true, options: false, hedging: true }
+  },
+  investing: {
+    execution_mode: "daily",
+    instructions: "Long-term growth focus. Fundamental analysis. Study company valuations, earnings, competitive advantages. Hold weeks to months. Buy quality and hold.",
+    order_types: ["market", "limit"],
+    capabilities: { shorting: false, options: false, hedging: false }
+  }
+} as const
+
 interface ModelEditDialogProps {
   model?: {
     id?: number
@@ -40,6 +68,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
     trading_style: (model as any)?.trading_style || "day-trading",
     instrument: (model as any)?.instrument || "stocks",
     allow_shorting: (model as any)?.allow_shorting || false,
+    margin_account: (model as any)?.margin_account || false,
     allow_options_strategies: (model as any)?.allow_options_strategies || false,
     allow_hedging: (model as any)?.allow_hedging || false,
     allowed_order_types: (model as any)?.allowed_order_types || ["market", "limit"],
@@ -56,6 +85,35 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const isEditMode = !!model?.id
 
+  // Handler for trading style change with smart defaults
+  const handleStyleChange = (newStyle: string) => {
+    const defaults = STYLE_DEFAULTS[newStyle as keyof typeof STYLE_DEFAULTS]
+    
+    if (defaults) {
+      // Auto-populate defaults (user can override after)
+      setFormData({
+        ...formData,
+        trading_style: newStyle,
+        // Only auto-fill instructions if empty or still has old default
+        custom_instructions: !formData.custom_instructions || 
+          Object.values(STYLE_DEFAULTS).some(d => d.instructions === formData.custom_instructions)
+          ? defaults.instructions
+          : formData.custom_instructions,
+        // Auto-update order types
+        allowed_order_types: defaults.order_types,
+        // Auto-update capabilities
+        allow_shorting: defaults.capabilities.shorting,
+        allow_options_strategies: defaults.capabilities.options,
+        allow_hedging: defaults.capabilities.hedging
+      })
+      
+      console.log(`[ModelEdit] Style changed to ${newStyle}, applied defaults:`, defaults)
+    } else {
+      // Fallback: just change style
+      setFormData({ ...formData, trading_style: newStyle })
+    }
+  }
+
   // Sync form data when model prop changes
   useEffect(() => {
     if (model) {
@@ -65,6 +123,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         trading_style: (model as any)?.trading_style || "day-trading",
         instrument: (model as any)?.instrument || "stocks",
         allow_shorting: (model as any)?.allow_shorting || false,
+        margin_account: (model as any)?.margin_account || false,
         allow_options_strategies: (model as any)?.allow_options_strategies || false,
         allow_hedging: (model as any)?.allow_hedging || false,
         allowed_order_types: (model as any)?.allowed_order_types || ["market", "limit"],
@@ -98,6 +157,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         trading_style: formData.trading_style,
         instrument: formData.instrument,
         allow_shorting: formData.allow_shorting,
+        margin_account: formData.margin_account,
         allow_options_strategies: formData.allow_options_strategies,
         allow_hedging: formData.allow_hedging,
         allowed_order_types: formData.allowed_order_types,
@@ -181,7 +241,7 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
             </Label>
             <Select
               value={formData.trading_style}
-              onValueChange={(value) => setFormData({ ...formData, trading_style: value })}
+              onValueChange={handleStyleChange}
               disabled={loading}
             >
               <SelectTrigger className="bg-[#1a1a1a] border-[#262626] text-white">
@@ -390,6 +450,25 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
                   disabled={loading}
                 />
               </div>
+
+              {/* Margin Account (shown when shorting enabled) */}
+              {formData.allow_shorting && (
+                <div className="flex items-center justify-between p-3 bg-[#0a0a0a] border border-[#404040] rounded-lg ml-6">
+                  <div className="flex-1">
+                    <div className="text-sm text-white font-medium">Enable Margin Account</div>
+                    <div className="text-xs text-[#737373]">
+                      2-4x buying power • Required for shorting • Pattern Day Trader rules apply
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.margin_account}
+                    onChange={(e) => setFormData({ ...formData, margin_account: e.target.checked })}
+                    className="w-4 h-4"
+                    disabled={loading}
+                  />
+                </div>
+              )}
 
               {/* Allow Options Strategies */}
               <div className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-[#262626] rounded-lg">

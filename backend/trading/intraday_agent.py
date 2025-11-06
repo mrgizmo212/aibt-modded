@@ -353,6 +353,47 @@ async def run_intraday_session(
                 'initial_value': agent.initial_cash
             }
             
+            # NEW: Configuration Validator (order types, shorting, etc.)
+            from trading.config_validator import validate_trade_config, log_config_rejection
+            
+            config_valid_result = validate_trade_config(
+                trade={
+                    "action": "buy",
+                    "symbol": symbol,
+                    "quantity": amount,
+                    "order_type": decision.get("order_type", "market"),
+                    "price": current_price,
+                    "current_cash": available_cash,
+                    "instrument": "stocks"
+                },
+                agent=agent
+            )
+            
+            if not config_valid_result["valid"]:
+                print(f"    ❌ CONFIG VIOLATION: {config_valid_result['error']}")
+                trades_rejected_config = trades_rejected_config + 1 if 'trades_rejected_config' in locals() else 1
+                
+                # Log to database
+                await log_config_rejection(config_valid_result, agent.model_id, minute, run_id)
+                
+                # Track rejection for AI learning
+                recent_rejections.append({
+                    'minute': minute,
+                    'action': 'BUY',
+                    'amount': amount,
+                    'reason': config_valid_result['error']
+                })
+                if len(recent_rejections) > 10:
+                    recent_rejections.pop(0)
+                
+                # Update decision log
+                decision_log['result'] = f"CONFIG REJECTED: {config_valid_result['error'][:50]}"
+                conversation_history.append(decision_log)
+                if len(conversation_history) > 20:
+                    conversation_history.pop(0)
+                
+                continue
+            
             # NEW: Risk Gates (hard-coded safety)
             gates_passed, gate_reason = risk_gates.validate_all(
                 action="buy",
@@ -482,6 +523,46 @@ async def run_intraday_session(
         elif action == "sell":
             amount = decision.get("amount", 0)
             current_shares = current_position.get(symbol, 0)
+            
+            # NEW: Configuration Validator (order types, etc.)
+            from trading.config_validator import validate_trade_config, log_config_rejection
+            
+            config_valid_result = validate_trade_config(
+                trade={
+                    "action": "sell",
+                    "symbol": symbol,
+                    "quantity": amount,
+                    "order_type": decision.get("order_type", "market"),
+                    "price": current_price,
+                    "current_cash": available_cash,
+                    "instrument": "stocks"
+                },
+                agent=agent
+            )
+            
+            if not config_valid_result["valid"]:
+                print(f"    ❌ CONFIG VIOLATION: {config_valid_result['error']}")
+                trades_rejected_config = trades_rejected_config + 1 if 'trades_rejected_config' in locals() else 1
+                
+                # Log to database
+                await log_config_rejection(config_valid_result, agent.model_id, minute, run_id)
+                
+                # Track rejection
+                recent_rejections.append({
+                    'minute': minute,
+                    'action': 'SELL',
+                    'amount': amount,
+                    'reason': config_valid_result['error']
+                })
+                if len(recent_rejections) > 10:
+                    recent_rejections.pop(0)
+                
+                decision_log['result'] = f"CONFIG REJECTED: {config_valid_result['error'][:50]}"
+                conversation_history.append(decision_log)
+                if len(conversation_history) > 20:
+                    conversation_history.pop(0)
+                
+                continue
             
             # CRITICAL: Validate sufficient shares
             if amount > current_shares:
@@ -683,7 +764,12 @@ async def _ai_decide_intraday(
         bar=bar,
         position=current_position,
         custom_rules=agent.custom_rules,
-        custom_instructions=agent.custom_instructions
+        custom_instructions=agent.custom_instructions,
+        # NEW: Pass configuration
+        trading_style=agent.trading_style,
+        allow_shorting=agent.allow_shorting,
+        margin_account=agent.margin_account,
+        allowed_order_types=agent.allowed_order_types
     )
     
     # NEW: Add conversation context so AI builds strategy over time

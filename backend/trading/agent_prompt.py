@@ -103,7 +103,15 @@ def get_agent_system_prompt(
     today_date: str, 
     signature: str, 
     custom_rules: Optional[str] = None,
-    custom_instructions: Optional[str] = None
+    custom_instructions: Optional[str] = None,
+    # NEW CONFIGURATION PARAMETERS:
+    trading_style: str = "day-trading",
+    instrument: str = "stocks",
+    allow_shorting: bool = False,
+    margin_account: bool = False,
+    allow_options_strategies: bool = False,
+    allow_hedging: bool = False,
+    allowed_order_types: Optional[List[str]] = None
 ) -> str:
     """
     Generate system prompt with optional custom rules/instructions
@@ -113,6 +121,13 @@ def get_agent_system_prompt(
         signature: Model signature
         custom_rules: Optional custom trading rules (overrides default behavior)
         custom_instructions: Optional strategy instructions (guides AI behavior)
+        trading_style: Trading style (scalping, day-trading, swing-trading, investing)
+        instrument: Allowed instrument (stocks, options, futures, etc.)
+        allow_shorting: Whether shorting is allowed
+        margin_account: Whether model has margin account
+        allow_options_strategies: Whether multi-leg options allowed
+        allow_hedging: Whether hedging allowed
+        allowed_order_types: List of allowed order types
     
     Returns:
         Complete system prompt
@@ -135,6 +150,92 @@ def get_agent_system_prompt(
         today_buy_price=today_buy_price,
         yesterday_profit=yesterday_profit
     )
+    
+    # Add configuration section (BEFORE custom rules/instructions)
+    style_descriptions = {
+        "scalping": "⏱️ SCALPING (1-5 minute holds)\n- EXIT all positions within 5 minutes maximum\n- Focus on quick price movements and high volume\n- Tight stop losses (0.5-1%)\n- High frequency, small gains per trade",
+        "day-trading": "📅 DAY TRADING (Intraday only)\n- CLOSE all positions by 3:55 PM EST\n- No overnight risk\n- Focus on intraday momentum and volume",
+        "swing-trading": "📈 SWING TRADING (2-7 days)\n- Hold positions for 2-7 days\n- Multi-day trends and momentum continuation\n- Wider stop losses (3-5%)\n- Fewer trades, larger positions",
+        "investing": "💼 INVESTING (Long-term)\n- Hold weeks to months\n- Fundamental analysis: valuations, earnings, growth\n- Long-term perspective"
+    }
+    
+    config_section = f"""
+
+{'='*80}
+⚙️ MODEL CONFIGURATION - MANDATORY CONSTRAINTS
+{'='*80}
+
+🎯 TRADING STYLE: {trading_style.upper().replace('-', ' ')}
+{style_descriptions.get(trading_style, '')}
+
+🎯 ACCOUNT TYPE: {'Margin Account' if margin_account else 'Cash Account'}
+"""
+    
+    if margin_account:
+        if trading_style in ['scalping', 'day-trading']:
+            config_section += "- Buying Power: 4x cash (day trading margin)\n"
+        else:
+            config_section += "- Buying Power: 2x cash (standard margin)\n"
+    else:
+        config_section += "- Buying Power: 1x cash (no leverage)\n"
+    
+    config_section += f"""
+
+🎯 ALLOWED INSTRUMENTS: {instrument.capitalize()} ONLY
+- You can ONLY trade {instrument}
+- Do NOT attempt other asset types
+
+🎯 TRADING CAPABILITIES:
+"""
+    
+    # Shorting
+    if allow_shorting and margin_account:
+        config_section += "✅ SHORT SELLING: ENABLED\n"
+        config_section += "   - You CAN short stocks\n"
+        config_section += "   - Margin requirement: 50% of short value\n"
+    elif allow_shorting and not margin_account:
+        config_section += "⚠️ SHORT SELLING: ENABLED BUT NO MARGIN\n"
+        config_section += "   - Short orders will be REJECTED (no margin account)\n"
+    else:
+        config_section += "🚫 SHORT SELLING: DISABLED\n"
+        config_section += "   - You can ONLY go long (BUY shares)\n"
+        config_section += "   - All SELL orders must close existing long positions\n"
+    
+    # Options
+    if allow_options_strategies:
+        config_section += "✅ MULTI-LEG OPTIONS: ENABLED\n"
+        config_section += "   - You can create spreads, straddles, iron condors\n"
+    else:
+        config_section += "🚫 MULTI-LEG OPTIONS: DISABLED\n"
+        config_section += "   - Single-leg positions only\n"
+    
+    # Hedging
+    if allow_hedging:
+        config_section += "✅ HEDGING: ENABLED\n"
+        config_section += "   - You can open offsetting positions to hedge risk\n"
+    else:
+        config_section += "🚫 HEDGING: DISABLED\n"
+        config_section += "   - Each position is directional only\n"
+    
+    order_types_list = allowed_order_types or ["market", "limit"]
+    config_section += f"""
+
+🎯 ALLOWED ORDER TYPES: {', '.join(order_types_list)}
+- ONLY use these order types when placing trades
+- Any other order type will be REJECTED
+
+⚠️ RULE VIOLATIONS = AUTOMATIC REJECTION:
+- Wrong instrument → REJECTED + logged
+- Short when disabled/no margin → REJECTED + logged
+- Wrong order type → REJECTED + logged
+- Insufficient margin → REJECTED + logged
+
+All rejections are logged and you'll see them in your next decision context.
+
+{'='*80}
+"""
+    
+    base_prompt += config_section
     
     # Append custom rules/instructions if provided
     additions = []
@@ -175,8 +276,13 @@ def get_intraday_system_prompt(
     symbol: str, 
     bar: dict, 
     position: dict,
-    custom_rules: Optional[str] = None,  # ← NEW
-    custom_instructions: Optional[str] = None  # ← NEW
+    custom_rules: Optional[str] = None,
+    custom_instructions: Optional[str] = None,
+    # NEW CONFIGURATION PARAMETERS:
+    trading_style: str = "day-trading",
+    allow_shorting: bool = False,
+    margin_account: bool = False,
+    allowed_order_types: Optional[List[str]] = None
 ) -> str:
     """
     Generate intraday-specific trading prompt
@@ -186,6 +292,12 @@ def get_intraday_system_prompt(
         symbol: Stock symbol
         bar: Current minute's OHLCV data
         position: Current portfolio
+        custom_rules: Optional custom rules
+        custom_instructions: Optional custom instructions
+        trading_style: Trading style
+        allow_shorting: Whether shorting allowed
+        margin_account: Whether margin account enabled
+        allowed_order_types: List of allowed order types
     
     Returns:
         Prompt string for AI
@@ -238,6 +350,27 @@ Consider:
 - Volume (market activity)
 
 Make your decision NOW (action + brief reasoning):"""
+    
+    # Add configuration constraints
+    order_types_list = allowed_order_types or ["market", "limit"]
+    prompt += f"""
+
+{'='*60}
+⚙️ CONSTRAINTS (ENFORCED):
+{'='*60}
+"""
+    
+    # Shorting constraint
+    if allow_shorting and margin_account:
+        prompt += "✅ Shorting: Allowed (margin account active)\n"
+    elif allow_shorting and not margin_account:
+        prompt += "⚠️ Shorting: Configured but NO MARGIN - shorts will be rejected\n"
+    else:
+        prompt += "🚫 Shorting: DISABLED - Only BUY/SELL (close positions)\n"
+    
+    # Order types
+    prompt += f"🎯 Order Types: {', '.join(order_types_list)} only\n"
+    prompt += f"{'='*60}\n"
     
     # NEW: Append custom rules/instructions (same pattern as daily trading)
     if custom_rules:

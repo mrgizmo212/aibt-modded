@@ -51,6 +51,7 @@ class ModelInfo(BaseModel):
     trading_style: Optional[str] = 'day-trading'
     instrument: Optional[str] = 'stocks'
     allow_shorting: Optional[bool] = False
+    margin_account: Optional[bool] = False
     allow_options_strategies: Optional[bool] = False
     allow_hedging: Optional[bool] = False
     allowed_order_types: Optional[List[str]] = ['market', 'limit']
@@ -70,6 +71,7 @@ class ModelCreate(BaseModel):
     trading_style: Optional[str] = 'day-trading'
     instrument: Optional[str] = 'stocks'
     allow_shorting: Optional[bool] = False
+    margin_account: Optional[bool] = False
     allow_options_strategies: Optional[bool] = False
     allow_hedging: Optional[bool] = False
     allowed_order_types: Optional[List[str]] = ['market', 'limit']
@@ -184,6 +186,10 @@ class PerformanceMetrics(BaseModel):
     total_trading_days: int
     initial_value: float
     final_value: float
+    # NEW: Context for proper comparison
+    trading_style: Optional[str] = None
+    margin_account: Optional[bool] = None
+    leverage_used: Optional[float] = None
 
 
 class PerformanceResponse(BaseModel):
