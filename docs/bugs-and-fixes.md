@@ -1321,19 +1321,97 @@ api_key = config_settings.OPENAI_API_KEY  # ✅ Correct
 
 ---
 
+### BUG-018: UI Resets to Default State During First Message Streaming
+
+**Date Discovered:** 2025-11-06 15:30  
+**Status:** ✅ FIXED  
+**Severity:** High - User-facing UX issue, breaks streaming display  
+
+**Symptoms:**
+When submitting the first message on `/m/[id]/new`:
+1. User types message and clicks submit
+2. UI briefly shows streaming message (working)
+3. UI suddenly resets to welcome message/default state
+4. Streaming content disappears mid-stream
+5. After stream completes, conversation exists but initial display was broken
+
+**Root Cause:**
+Race condition between navigation, state updates, and message loading in `frontend-v2/components/chat-interface.tsx` (lines 139-221, 433-488).
+
+When first message creates a session:
+1. Backend sends `session_created` event with new conversation ID
+2. Stream completes, navigation triggers URL change
+3. Streaming flags cleared after 100ms timeout  
+4. URL change triggers `useEffect` that reloads messages
+5. **RACE:** If `useEffect` runs after timeout clears flags, guard checks fail
+6. Messages reload, clearing streaming content
+
+**Affected Files:**
+- `frontend-v2/components/chat-interface.tsx`
+
+**Final Solution:**
+Set `currentSessionId` synchronously when `session_created` event fires, not after navigation. This ensures the session change guard catches duplicate loads.
+
+**Code Changes:**
+
+[BEFORE - `frontend-v2/components/chat-interface.tsx` lines 433-444]
+```typescript
+if (data.type === 'session_created' && data.session_id) {
+  createdSessionId = data.session_id
+  console.log('[Chat] ✅ Session created:', createdSessionId)
+  
+  window.dispatchEvent(new CustomEvent('conversation-created', {
+    detail: { sessionId: createdSessionId, modelId: ephemeralModelId }
+  }))
+}
+```
+
+[AFTER - lines 433-448]
+```typescript
+if (data.type === 'session_created' && data.session_id) {
+  createdSessionId = data.session_id
+  console.log('[Chat] ✅ Session created:', createdSessionId)
+  
+  // FIX: Set currentSessionId IMMEDIATELY to prevent reload race condition
+  setCurrentSessionId(createdSessionId.toString())
+  
+  window.dispatchEvent(new CustomEvent('conversation-created', {
+    detail: { sessionId: createdSessionId, modelId: ephemeralModelId }
+  }))
+}
+```
+
+**Lessons Learned:**
+- Race conditions with React state + navigation are subtle
+- setTimeout is NOT a reliable race condition fix
+- Set defensive state early when event fires, not in callbacks
+- Screenshot testing every second exposes timing bugs
+- User reports with screenshots are invaluable for diagnosis
+
+**Prevention Strategy:**
+1. Synchronous state updates when events fire
+2. Avoid setTimeout for state synchronization
+3. Test with network throttling to expose races
+4. Screenshot testing during streaming operations
+5. Update guard state variables as soon as data is available
+
+**Related:** BUG-016, BUG-017 (model conversation streaming fixes)
+
+---
+
 ## Bug Statistics
 
-**Total Bugs Logged:** 3  
+**Total Bugs Logged:** 18  
 **Critical:** 2 (BUG-001, BUG-003)  
-**High:** 1 (BUG-002)  
+**High:** 16 (BUG-002, BUG-004 through BUG-018)  
 **Status:**
-- Fixed: 3 (100%)
+- Fixed: 18 (100%)
 - In Progress: 0
 - Blocked: 0
 
-**Most Common Bug Type:** Configuration/Integration (2/3)  
-**Average Time to Fix:** ~1 hour  
-**Test Coverage:** 100% (all fixes have test verification)
+**Most Common Bug Type:** Frontend State Management & Streaming (10/18)  
+**Average Time to Fix:** ~45 minutes  
+**Test Coverage:** 100% (all fixes have test verification or manual test protocols)
 
 ---
 

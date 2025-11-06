@@ -149,7 +149,14 @@ export function ChatInterface({
       
       // Check if session actually changed (prevent unnecessary reloads)
       if (sessionId === currentSessionId) {
+        console.log('[Chat] Session unchanged, skipping reload')
         return  // Same conversation, don't reload
+      }
+      
+      // Additional guard: If we just loaded this session, don't reload immediately
+      if (sessionId && currentSessionId === null && isLoadingMessages) {
+        console.log('[Chat] Already loading this session, skipping duplicate')
+        return
       }
       
       // Prevent concurrent loads
@@ -426,6 +433,10 @@ export function ChatInterface({
           if (data.type === 'session_created' && data.session_id) {
             createdSessionId = data.session_id
             console.log('[Chat] ✅ Session created:', createdSessionId)
+            
+            // FIX: Set currentSessionId IMMEDIATELY to prevent reload race condition
+            // This ensures the useEffect guard at line 151 catches it when navigation happens
+            setCurrentSessionId(data.session_id.toString())
             
             // NOTE: Do NOT navigate yet - wait for streaming to complete
             // Will call onConversationCreated in 'done' event

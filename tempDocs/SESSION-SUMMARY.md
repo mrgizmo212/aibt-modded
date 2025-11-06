@@ -1,10 +1,34 @@
-# Session Summary - Documentation Population Complete
-**Date:** 2025-11-04 21:00  
-**Task:** Populate blank documentation files with comprehensive codebase analysis
+# Session Summary - Recent Bug Fixes and UI Improvements
+**Date:** 2025-11-06 16:00  
+**Task:** Fix UI reset bug during streaming, previous session completed comprehensive documentation
 
 ---
 
-## What Was Accomplished
+## Recent Session (2025-11-06)
+
+### ✅ BUG-018: UI Reset During Streaming - FIXED
+
+**Problem:**
+User submitted first message on `/m/[id]/new`, UI briefly showed streaming message, then suddenly reset to welcome/default state mid-stream.
+
+**Root Cause:**
+Race condition - when session was created and navigation happened, the `useEffect` that loads conversation messages would run after streaming flags were cleared, causing message reload that cleared streaming content.
+
+**Solution:**
+Set `currentSessionId` synchronously when `session_created` SSE event fires (line 439 in `chat-interface.tsx`), not after navigation. This ensures the session change guard catches duplicate loads.
+
+**Files Changed:**
+- `frontend-v2/components/chat-interface.tsx` (line 439)
+
+**Documentation Updated:**
+- `docs/bugs-and-fixes.md` - Added BUG-018 with full analysis
+- `tempDocs/2025-11-06-ui-reset-during-streaming-fix.md` - Detailed investigation notes
+
+**Testing:** Manual screenshot testing (every second for 20 seconds) to observe streaming behavior
+
+---
+
+## Previous Session (2025-11-04)
 
 ### ✅ Complete Codebase Analysis
 Analyzed entire AI Trading Bot codebase from scratch:

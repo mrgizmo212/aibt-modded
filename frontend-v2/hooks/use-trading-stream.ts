@@ -42,6 +42,7 @@ export function useTradingStream(
 
   const eventSourceRef = useRef<EventSource | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isConnectingRef = useRef<boolean>(false)
 
   useEffect(() => {
     console.log('[SSE Hook] useEffect triggered - modelId:', modelId, 'enabled:', enabled)
@@ -63,11 +64,20 @@ export function useTradingStream(
   }, [modelId])  // Removed 'enabled' from deps - use only modelId to prevent rapid re-triggers
 
   function connectToStream() {
-    // Check if already connected or connecting (prevent duplicates from React Strict Mode)
+    // Guard #1: Check if already connecting (prevents React Strict Mode double-mount)
+    if (isConnectingRef.current) {
+      console.log('[SSE Hook] Already connecting, skipping duplicate attempt')
+      return
+    }
+    
+    // Guard #2: Check if already connected or connecting
     if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
       console.log('[SSE Hook] Connection already active (readyState:', eventSourceRef.current.readyState, '), skipping')
       return
     }
+    
+    // Set connecting flag
+    isConnectingRef.current = true
     
     // Clean up any existing connection
     disconnectFromStream()
@@ -83,12 +93,16 @@ export function useTradingStream(
       // EventSource can't send custom headers, so token must be in URL
       const url = `${API_BASE}/api/trading/stream/${modelId}?token=${token}`
       const eventSource = new EventSource(url)
+      
+      // CRITICAL: Set ref immediately to prevent duplicate connections in React Strict Mode
+      eventSourceRef.current = eventSource
 
       eventSource.onopen = () => {
         console.log(`[SSE] Connected to trading stream for model ${modelId}`)
         setConnected(true)
         setError(null)
         setReconnectAttempts(0)
+        isConnectingRef.current = false  // Clear connecting flag on success
       }
 
       eventSource.onmessage = (event) => {
@@ -116,6 +130,7 @@ export function useTradingStream(
         console.error('[SSE] Connection error:', err)
         setConnected(false)
         setError('Connection lost')
+        isConnectingRef.current = false  // Clear connecting flag on error
         
         // Close current connection
         eventSource.close()
@@ -135,11 +150,11 @@ export function useTradingStream(
         }
       }
 
-      eventSourceRef.current = eventSource
-
     } catch (e) {
       console.error('[SSE] Failed to create EventSource:', e)
       setError('Failed to connect')
+      eventSourceRef.current = null  // Clear ref on failure
+      isConnectingRef.current = false  // Clear connecting flag on exception
     }
   }
 
@@ -152,9 +167,17 @@ export function useTradingStream(
 
     // Close EventSource
     if (eventSourceRef.current) {
+      const wasConnected = connected  // Capture state before closing
       eventSourceRef.current.close()
       eventSourceRef.current = null
       console.log(`[SSE] Disconnected from trading stream for model ${modelId}`)
+      
+      // Only reset connecting flag if we were actually connected
+      // This allows reconnection after real disconnects, but prevents
+      // React Strict Mode double-mount from resetting the guard
+      if (wasConnected) {
+        isConnectingRef.current = false
+      }
     }
 
     setConnected(false)
