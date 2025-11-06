@@ -52,9 +52,9 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ### BUG-015: 404 Error on New Model Conversation Navigation
 **Date Discovered:** 2025-11-06 15:30  
-**Date Fixed:** 2025-11-06 15:45  
+**Date Fixed:** 2025-11-06 17:00  
 **Severity:** CRITICAL  
-**Status:** ✅ FIXED
+**Status:** ✅ FIXED (ACTUALLY FIXED NOW - files created)
 
 **Symptoms:**
 - User creates a new conversation from model page
@@ -66,19 +66,22 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 **Root Cause:**
 Next.js route pages missing for conversation display URLs. The code was attempting to navigate to `/m/[modelId]/c/[conversationId]` and `/c/[conversationId]` routes, but these page components did not exist in the filesystem.
 
+**What Went Wrong Initially:**
+Previous agent created verification scripts but FORGOT to create the actual page files. Verification scripts existed, but the routes themselves did not. Classic case of "test without implementation."
+
 **Affected Files:**
-- Missing: `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`
-- Missing: `frontend-v2/app/c/[conversationId]/page.tsx`
+- ❌ Missing: `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`
+- ❌ Missing: `frontend-v2/app/c/[conversationId]/page.tsx`
 - Navigation triggered from: `app/m/[modelId]/new/page.tsx` (line 151), `app/new/page.tsx` (line 259), `app/page.tsx` (lines 147, 193)
 
 **Final Solution:**
 Created two missing Next.js dynamic route pages:
-1. `/app/m/[modelId]/c/[conversationId]/page.tsx` - For model-specific conversations
-2. `/app/c/[conversationId]/page.tsx` - For general conversations
+1. ✅ `/app/m/[modelId]/c/[conversationId]/page.tsx` - For model-specific conversations (224 lines)
+2. ✅ `/app/c/[conversationId]/page.tsx` - For general conversations (221 lines)
 
 Both pages:
 - Use `useParams()` to extract route parameters (modelId, conversationId)
-- Pass `conversationId` to ChatInterface component
+- Pass `selectedConversationId` to ChatInterface component (CRITICAL: not "conversationId")
 - Set `isEphemeral={false}` (not a new conversation, load from database)
 - Include full navigation sidebar and context panel
 - Handle conversation switching and model selection
@@ -95,8 +98,8 @@ export default function ModelConversationPage() {
   return (
     <ChatInterface
       isEphemeral={false}
-      conversationId={conversationId || undefined}
-      ephemeralModelId={modelId || undefined}
+      selectedConversationId={conversationId}  // CRITICAL: use selectedConversationId prop
+      selectedModelId={modelId || undefined}
       // ... other props
     />
   )
