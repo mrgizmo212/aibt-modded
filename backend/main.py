@@ -2051,6 +2051,17 @@ async def general_chat_stream_endpoint(
                     
                     if model_data.data:
                         model = model_data.data[0]
+                        
+                        # Calculate buying power based on margin and trading style
+                        margin = model.get('margin_account', False)
+                        trading_style = model.get('trading_style', 'day-trading')
+                        if margin and trading_style in ['scalping', 'day-trading']:
+                            buying_power = '4x (day trading margin)'
+                        elif margin:
+                            buying_power = '2x (standard margin)'
+                        else:
+                            buying_power = '1x (cash account)'
+                        
                         model_context = f"""
 
 <model_context>
@@ -2059,11 +2070,24 @@ You are discussing MODEL {model_id}: "{model.get('name', f'Model {model_id}')}"
 Model Configuration:
 - AI Model: {model.get('default_ai_model', 'Not set')}
 - Trading Mode: {model.get('trading_mode', 'Not set')}
-- Signature: {model.get('signature', 'Not set')}
+- Trading Style: {model.get('trading_style', 'Not set')}
+- Instrument: {model.get('instrument', 'stocks')}
+- Account Type: {'Margin Account' if margin else 'Cash Account'}
+- Buying Power: {buying_power}
+- Shorting: {'✅ Allowed' if model.get('allow_shorting') else '🚫 Disabled'}
+- Options Strategies: {'✅ Allowed' if model.get('allow_options_strategies') else '🚫 Disabled'}
+- Hedging: {'✅ Allowed' if model.get('allow_hedging') else '🚫 Disabled'}
+- Allowed Order Types: {', '.join(model.get('allowed_order_types', ['market', 'limit']))}
 
-You can see this model's information and should answer questions about it specifically.
+Custom Rules: {model.get('custom_rules') or 'None'}
+
+Custom Instructions:
+{model.get('custom_instructions') or 'None'}
+
+You can see this model's complete configuration and should answer questions about it specifically.
+When discussing trades or performance, consider how the configuration affects the AI's behavior.
 </model_context>"""
-                        print(f"📋 Added model context for MODEL {model_id}")
+                        print(f"📋 Added full model configuration context for MODEL {model_id}")
                 except Exception as e:
                     print(f"⚠️ Failed to load model context: {e}")
             

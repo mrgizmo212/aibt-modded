@@ -149,6 +149,52 @@ class SystemAgent:
     def _get_system_prompt(self) -> str:
         """System prompt for strategy analyst agent"""
         
+        # Fetch model configuration from database
+        model_config = ""
+        try:
+            model_result = self.supabase.table("models").select("*").eq("id", self.model_id).execute()
+            if model_result.data:
+                model = model_result.data[0]
+                
+                # Calculate buying power
+                margin = model.get('margin_account', False)
+                trading_style = model.get('trading_style', 'day-trading')
+                if margin and trading_style in ['scalping', 'day-trading']:
+                    buying_power = '4x (day trading margin)'
+                elif margin:
+                    buying_power = '2x (standard margin)'
+                else:
+                    buying_power = '1x (cash account)'
+                
+                model_config = f"""
+
+<model_configuration>
+Model: {model.get('name', f'Model {self.model_id}')}
+
+Trading Configuration:
+- Trading Style: {model.get('trading_style', 'Not set')}
+- Instrument: {model.get('instrument', 'stocks')}
+- Account Type: {'Margin Account' if margin else 'Cash Account'}
+- Buying Power: {buying_power}
+- Shorting: {'✅ Allowed' if model.get('allow_shorting') else '🚫 Disabled'}
+- Options Strategies: {'✅ Allowed' if model.get('allow_options_strategies') else '🚫 Disabled'}
+- Hedging: {'✅ Allowed' if model.get('allow_hedging') else '🚫 Disabled'}
+- Allowed Order Types: {', '.join(model.get('allowed_order_types', ['market', 'limit']))}
+- AI Model: {model.get('default_ai_model', 'Not set')}
+- Trading Mode: {model.get('trading_mode', 'Not set')}
+
+Custom Rules:
+{model.get('custom_rules') or 'None'}
+
+Custom Instructions:
+{model.get('custom_instructions') or 'None'}
+
+When analyzing trades and suggesting improvements, ALWAYS consider how these configuration constraints affect the AI's behavior.
+For example: A cash account (1x buying power) limits position sizes compared to margin accounts (2-4x).
+</model_configuration>"""
+        except Exception as e:
+            print(f"⚠️ Failed to load model configuration for chat context: {e}")
+        
         context_info = f"Model ID: {self.model_id}"
         if self.run_id:
             context_info += f" | Analyzing Run #{self.run_id}"
@@ -166,6 +212,8 @@ You are an expert trading strategy analyst and coach for True Trading Group's AI
 <future_capability>Will integrate with MARI's memory system for cross-platform insights</future_capability>
 <current_limitation>No access to MARI memories yet</current_limitation>
 </platform_context>
+
+{model_config}
 
 <trading_modes>
 <mode name="intraday">
