@@ -29,6 +29,7 @@ export default function NewModelConversationPage() {
   const modelId = params.modelId ? parseInt(params.modelId as string) : null
   
   // State declarations
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [context, setContext] = useState<"dashboard" | "model" | "run">("model")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -143,12 +144,18 @@ export default function NewModelConversationPage() {
         {/* Middle Column - Chat (Full width on mobile) */}
         <div className="w-full lg:w-[50%] flex-shrink-0 lg:mt-0 mt-[56px] lg:mb-0 mb-[72px]">
           <ChatInterface
-            isEphemeral={true}
+            isEphemeral={selectedConversationId === null}
             ephemeralModelId={modelId || undefined}
+            selectedConversationId={selectedConversationId}
             onConversationCreated={(sessionId, createdModelId) => {
               console.log('[NewModelPage] Conversation created:', sessionId, 'model:', createdModelId)
-              // Transition from /m/212/new → /m/212/c/{id} WITHOUT page reload
-              router.replace(`/m/${modelId}/c/${sessionId}`)
+              
+              // Update state to transition from ephemeral to persistent
+              setSelectedConversationId(sessionId)
+              
+              // Update URL without navigation (ChatGPT-style - just change browser history)
+              window.history.replaceState({}, '', `/m/${modelId}/c/${sessionId}`)
+              console.log('[NewModelPage] URL updated to /m/' + modelId + '/c/' + sessionId + ' without page reload')
               
               // Notify sidebar to refresh
               window.dispatchEvent(new CustomEvent('conversation-created', {

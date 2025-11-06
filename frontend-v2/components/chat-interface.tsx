@@ -434,10 +434,6 @@ export function ChatInterface({
             createdSessionId = data.session_id
             console.log('[Chat] ✅ Session created:', createdSessionId)
             
-            // FIX: Set currentSessionId IMMEDIATELY to prevent reload race condition
-            // This ensures the useEffect guard at line 151 catches it when navigation happens
-            setCurrentSessionId(data.session_id.toString())
-            
             // NOTE: Do NOT navigate yet - wait for streaming to complete
             // Will call onConversationCreated in 'done' event
             
@@ -476,20 +472,16 @@ export function ChatInterface({
             ))
             eventSource.close()
             
-            // Navigate FIRST (while streaming flags still set to prevent race)
+            // Clear streaming state
+            setStreamingMessageId(null)
+            streamingMessageIdRef.current = null
+            setIsTyping(false)
+            
+            // Navigate to the new conversation (after clearing state)
             if (createdSessionId && onConversationCreated) {
               console.log('[Chat] Navigating to conversation:', createdSessionId)
               onConversationCreated(createdSessionId, ephemeralModelId)
             }
-            
-            // THEN clear streaming state after navigation completes
-            // Delay to ensure URL change and guard check happen while flags still set
-            setTimeout(() => {
-              setStreamingMessageId(null)
-              streamingMessageIdRef.current = null
-              setIsTyping(false)
-              console.log('[Chat] Cleared streaming state after navigation')
-            }, 100)
           }
           
           // Error
