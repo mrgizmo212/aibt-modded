@@ -50,6 +50,138 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-015: 404 Error on New Model Conversation Navigation
+**Date Discovered:** 2025-11-06 15:30  
+**Date Fixed:** 2025-11-06 15:45  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User creates a new conversation from model page
+- Browser navigates to `/m/184/c/79` (model ID 184, conversation ID 79)
+- Page shows 404 error - "Page Not Found"
+- User cannot access newly created conversation
+- Chat appears to create conversation but then fails to display it
+
+**Root Cause:**
+Next.js route pages missing for conversation display URLs. The code was attempting to navigate to `/m/[modelId]/c/[conversationId]` and `/c/[conversationId]` routes, but these page components did not exist in the filesystem.
+
+**Affected Files:**
+- Missing: `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`
+- Missing: `frontend-v2/app/c/[conversationId]/page.tsx`
+- Navigation triggered from: `app/m/[modelId]/new/page.tsx` (line 151), `app/new/page.tsx` (line 259), `app/page.tsx` (lines 147, 193)
+
+**Final Solution:**
+Created two missing Next.js dynamic route pages:
+1. `/app/m/[modelId]/c/[conversationId]/page.tsx` - For model-specific conversations
+2. `/app/c/[conversationId]/page.tsx` - For general conversations
+
+Both pages:
+- Use `useParams()` to extract route parameters (modelId, conversationId)
+- Pass `conversationId` to ChatInterface component
+- Set `isEphemeral={false}` (not a new conversation, load from database)
+- Include full navigation sidebar and context panel
+- Handle conversation switching and model selection
+
+**Code Changes:**
+
+[CREATED - file: `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`]
+```typescript
+export default function ModelConversationPage() {
+  const params = useParams()
+  const modelId = params.modelId ? parseInt(params.modelId as string) : null
+  const conversationId = params.conversationId ? parseInt(params.conversationId as string) : null
+  
+  return (
+    <ChatInterface
+      isEphemeral={false}
+      conversationId={conversationId || undefined}
+      ephemeralModelId={modelId || undefined}
+      // ... other props
+    />
+  )
+}
+```
+
+[CREATED - file: `frontend-v2/app/c/[conversationId]/page.tsx`]
+```typescript
+export default function GeneralConversationPage() {
+  const params = useParams()
+  const conversationId = params.conversationId ? parseInt(params.conversationId as string) : null
+  
+  return (
+    <ChatInterface
+      isEphemeral={false}
+      conversationId={conversationId || undefined}
+      // ... other props
+    />
+  )
+}
+```
+
+**Route Structure (Before vs After):**
+
+BEFORE:
+```
+/app
+├── page.tsx                     ← Root dashboard
+├── new/page.tsx                 ← New general conversation
+└── m/[modelId]/new/page.tsx     ← New model conversation
+```
+
+AFTER:
+```
+/app
+├── page.tsx                     ← Root dashboard
+├── new/page.tsx                 ← New general conversation
+├── c/[conversationId]/page.tsx  ← General conversation view ✅ NEW
+└── m/[modelId]/
+    ├── new/page.tsx             ← New model conversation
+    └── c/[conversationId]/page.tsx  ← Model conversation view ✅ NEW
+```
+
+**Test Script Created:**
+- Script: `scripts/verify-conversation-routes.js` - Verifies both route files exist and are properly configured
+- Results: 13/13 tests passed ✅
+
+**Test Results:**
+```
+✅ Model conversation route page exists
+✅ General conversation route page exists
+✅ Model conversation page exports default function
+✅ Model conversation page uses useParams
+✅ Model conversation page extracts modelId param
+✅ Model conversation page extracts conversationId param
+✅ Model conversation page passes conversationId to ChatInterface
+✅ Model conversation page sets isEphemeral={false}
+✅ General conversation page exports default function
+✅ General conversation page uses useParams
+✅ General conversation page extracts conversationId param
+✅ General conversation page passes conversationId to ChatInterface
+✅ General conversation page sets isEphemeral={false}
+```
+
+**Lessons Learned:**
+- **Route pages must exist for every URL pattern:** Next.js requires a page.tsx file for every route path, including dynamic segments
+- **Dynamic routes need proper file structure:** `/m/[modelId]/c/[conversationId]` requires nested folders with proper naming
+- **Navigation code doesn't validate routes:** `router.push()` will attempt to navigate even if the route doesn't exist
+- **404s can be silent in development:** The error was only visible to the user, not in console logs
+- **Missing routes break user flow:** Even when backend/API works perfectly, missing frontend routes break the entire feature
+
+**Prevention Strategy:**
+1. **When creating navigation logic:** Verify destination route pages exist BEFORE implementing navigation
+2. **When using router.push():** Check that target path has corresponding page.tsx file
+3. **Route planning:** Map out ALL required routes (including dynamic segments) during feature design phase
+4. **Testing coverage:** Include route navigation in test scripts, not just API calls
+5. **Documentation:** Update route structure diagrams when adding new navigation patterns
+
+**Related Issues:**
+- This bug was introduced during the two-level conversation system implementation
+- Previous sessions (2025-11-05) focused on API/SSE bugs but didn't test route navigation
+- The backend conversation creation API worked perfectly - only frontend routing was broken
+
+---
+
 ### BUG-007: SSE Chat Authentication Failure (OpenRouter Headers Missing)
 **Date Discovered:** 2025-11-05 10:54  
 **Date Fixed:** 2025-11-05 11:05  
