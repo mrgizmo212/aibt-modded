@@ -50,6 +50,82 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-017: Variable Name Collision - 'dict' object has no attribute 'astream'
+**Date Discovered:** 2025-11-06 19:30  
+**Date Fixed:** 2025-11-06 19:45  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- After BUG-016 fix, user could send messages to model conversations
+- BUT AI still didn't respond - stuck on "streaming..."
+- Console error: `AI model error: 'dict' object has no attribute 'astream'`
+
+**Root Cause:**
+Variable name collision in `backend/main.py` `/api/chat/general-stream` endpoint. Line 2009 creates a `ChatOpenAI` object and stores it in variable `model`. Later, line 2053 loads model configuration from database and **overwrites** the same `model` variable with a dictionary. When line 2135 tries to call `model.astream()`, it fails because dictionaries don't have an `.astream()` method.
+
+**Affected Files:**
+- `backend/main.py` - Lines 2053, 2056-2085 (variable naming)
+
+**Code Flow of Bug:**
+```python
+# Line 2009: Create LangChain AI model
+model = ChatOpenAI(**params)  # ✅ model is ChatOpenAI object
+
+# Line 2053: Load model config from database
+model = model_data.data[0]  # ❌ OVERWRITES - model is now dict!
+
+# Lines 2056-2082: Use model config
+margin = model.get('margin_account', False)  # Works - dicts have .get()
+
+# Line 2135: Try to stream
+async for chunk in model.astream(messages):  # ❌ FAILS - dicts don't have .astream()
+```
+
+**Final Solution:**
+Renamed variable on line 2053 from `model` to `model_config` to avoid overwriting the ChatOpenAI object.
+
+**Code Changes:**
+
+[BEFORE - file: `backend/main.py` line 2053]
+```python
+model = model_data.data[0]  # Overwrites ChatOpenAI object
+```
+
+[AFTER - file: `backend/main.py` line 2053]
+```python
+model_config = model_data.data[0]  # Uses different variable name
+```
+
+**All references updated (lines 2056-2085):**
+- `model.get('margin_account', False)` → `model_config.get('margin_account', False)`
+- `model.get('name', ...)` → `model_config.get('name', ...)`
+- `model.get('default_ai_model', ...)` → `model_config.get('default_ai_model', ...)`
+- (Total: 13 references updated)
+
+**Test Script Created:**
+- Script: `scripts/verify-bug-astream-dict.py`
+- Verifies line 2009 creates ChatOpenAI ✅
+- Verifies line 2053 doesn't overwrite with dict ✅
+- Verifies line 2135 can call model.astream() ✅
+- Before fix: **FAILED** (bug confirmed)
+- After fix: **100% SUCCESS**
+
+**Lessons Learned:**
+- **Generic variable names are dangerous** - "model" could mean AI model OR database record
+- **Long functions increase collision risk** - 500+ line endpoint is hard to track
+- **Type hints would have caught this** - `model: ChatOpenAI` would error on line 2053
+- **One fix reveals another** - BUG-016 fix enabled model_id code path, revealing this bug
+- **Test scripts are essential** - Proved bug and verified fix in seconds
+
+**Prevention Strategy:**
+1. Use specific variable names: `chat_model`, `model_config`, `model_data` (not "model")
+2. Consider refactoring long endpoints into smaller functions
+3. Add type hints to critical variables
+4. Test complete flow after every fix, not just the immediate change
+
+---
+
 ### BUG-016: Model Conversation Streaming Not Working
 **Date Discovered:** 2025-11-06 18:30  
 **Date Fixed:** 2025-11-06 18:45  
