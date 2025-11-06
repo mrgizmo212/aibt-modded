@@ -8,6 +8,7 @@ import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, 
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { ActivityFeed } from "@/components/activity-feed"
+import { TradingTerminal } from "@/components/trading-terminal"
 import { AVAILABLE_MODELS } from "@/lib/constants"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
@@ -335,117 +336,126 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             </div>
           )}
 
-          {/* Live Updates - Terminal Style (ALWAYS SHOW) */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-white">Live Updates</h2>
-              <div className="flex items-center gap-2">
-                {connected ? (
-                  <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
-                    <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
-                    Streaming
-                  </Badge>
-                ) : (
-                  <Badge className="bg-[#737373]/10 text-[#737373] border-[#737373]/20">
-                    Disconnected
-                  </Badge>
-                )}
-                {recentEvents.length > 0 && (
-                  <button
-                    onClick={() => {
-                      clearEvents()
-                      setRecentEvents([])
-                      toast.success('Terminal cleared')
-                    }}
-                    className="text-[#737373] hover:text-white hover:bg-[#1a1a1a] p-1.5 rounded transition-colors"
-                    title="Clear terminal"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+          {/* Trading Terminal - Full Screen for Running Models */}
+          {context === "model" && selectedModelId && connected && (
+            <div>
+              <TradingTerminal modelId={selectedModelId} modelName={modelData?.name} />
+            </div>
+          )}
+
+          {/* Fallback Live Updates - For non-running models or dashboard */}
+          {(!connected || context !== "model") && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-white">Live Updates</h2>
+                <div className="flex items-center gap-2">
+                  {connected ? (
+                    <Badge className="bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20">
+                      <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot mr-1.5" />
+                      Streaming
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-[#737373]/10 text-[#737373] border-[#737373]/20">
+                      Disconnected
+                    </Badge>
+                  )}
+                  {recentEvents.length > 0 && (
+                    <button
+                      onClick={() => {
+                        clearEvents()
+                        setRecentEvents([])
+                        toast.success('Terminal cleared')
+                      }}
+                      className="text-[#737373] hover:text-white hover:bg-[#1a1a1a] p-1.5 rounded transition-colors"
+                      title="Clear terminal"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
+                <div 
+                  ref={liveUpdatesRef}
+                  className="h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
+                >
+                  {recentEvents.length > 0 ? (
+                    recentEvents.map((event, index) => {
+                      const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
+                      
+                      // Show terminal events (console output)
+                      if (event.type === 'terminal') {
+                        const message = event.data?.message || ''
+                        return (
+                          <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                            <div className="text-[#525252]" suppressHydrationWarning>
+                              {timestamp}
+                            </div>
+                            <div className="text-[#10b981] whitespace-pre-wrap">
+                              {message}
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // Show trade events (buy/sell)
+                      if (event.type === 'trade') {
+                        const { action, symbol, amount, price } = event.data
+                        const color = action === 'buy' ? 'text-green-400' : 'text-red-400'
+                        return (
+                          <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                            <div className="text-[#525252]" suppressHydrationWarning>
+                              {timestamp}
+                            </div>
+                            <div className={color}>
+                              {action?.toUpperCase()} {amount} {symbol} @ ${price}
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // Show progress events (trading updates)
+                      if (event.type === 'progress') {
+                        const message = event.data?.message || ''
+                        return (
+                          <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                            <div className="text-[#525252]" suppressHydrationWarning>
+                              {timestamp}
+                            </div>
+                            <div className="text-[#3b82f6]">
+                              {message}
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // Show status events
+                      if (event.type === 'status') {
+                        const message = event.data?.message || ''
+                        return (
+                          <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                            <div className="text-[#525252]" suppressHydrationWarning>
+                              {timestamp}
+                            </div>
+                            <div className="text-[#fbbf24]">
+                              {message}
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // Show other events
+                      return null
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-[#737373]">
+                      Waiting for trading activity...
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg">
-              <div 
-                ref={liveUpdatesRef}
-                className="h-[400px] overflow-y-auto scrollbar-thin p-3 space-y-1"
-              >
-                {recentEvents.length > 0 ? (
-                  recentEvents.map((event, index) => {
-                    const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Just now'
-                    
-                    // Show terminal events (console output)
-                    if (event.type === 'terminal') {
-                      const message = event.data?.message || ''
-                      return (
-                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
-                          <div className="text-[#525252]" suppressHydrationWarning>
-                            {timestamp}
-                          </div>
-                          <div className="text-[#10b981] whitespace-pre-wrap">
-                            {message}
-                          </div>
-                        </div>
-                      )
-                    }
-                    
-                    // Show trade events (buy/sell)
-                    if (event.type === 'trade') {
-                      const { action, symbol, amount, price } = event.data
-                      const color = action === 'buy' ? 'text-green-400' : 'text-red-400'
-                      return (
-                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
-                          <div className="text-[#525252]" suppressHydrationWarning>
-                            {timestamp}
-                          </div>
-                          <div className={color}>
-                            {action?.toUpperCase()} {amount} {symbol} @ ${price}
-                          </div>
-                        </div>
-                      )
-                    }
-                    
-                    // Show progress events (trading updates)
-                    if (event.type === 'progress') {
-                      const message = event.data?.message || ''
-                      return (
-                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
-                          <div className="text-[#525252]" suppressHydrationWarning>
-                            {timestamp}
-                          </div>
-                          <div className="text-[#3b82f6]">
-                            {message}
-                          </div>
-                        </div>
-                      )
-                    }
-                    
-                    // Show status events
-                    if (event.type === 'status') {
-                      const message = event.data?.message || ''
-                      return (
-                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
-                          <div className="text-[#525252]" suppressHydrationWarning>
-                            {timestamp}
-                          </div>
-                          <div className="text-[#fbbf24]">
-                            {message}
-                          </div>
-                        </div>
-                      )
-                    }
-                    
-                    // Show other events
-                    return null
-                  })
-                ) : (
-                  <div className="text-center py-8 text-[#737373]">
-                    Waiting for trading activity...
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Positions Section */}
           <div>
