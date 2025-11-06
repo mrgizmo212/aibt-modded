@@ -125,12 +125,20 @@ class SystemAgent:
         # Load analysis tools
         self.tools = self._load_tools()
         
+        print(f"[SystemAgent] Creating agent with:")
+        print(f"  - Model: {self.model.model_name if hasattr(self.model, 'model_name') else type(self.model)}")
+        print(f"  - Tools: {[t.name for t in self.tools]}")
+        print(f"  - System prompt length: {len(self._get_system_prompt())} chars")
+        
         # Create agent
         self.agent = create_agent(
             self.model,
             tools=self.tools,
             system_prompt=self._get_system_prompt()
         )
+        
+        print(f"[SystemAgent] Agent created: {type(self.agent)}")
+        print(f"[SystemAgent] Agent has astream: {hasattr(self.agent, 'astream')}")
     
     def _load_tools(self) -> List:
         """Load analysis and strategy building tools"""
@@ -811,23 +819,53 @@ If user is confused, explain simply:
         
         messages.append({"role": "user", "content": user_message})
         
+        print(f"[SystemAgent] chat_stream called with {len(messages)} messages")
+        print(f"[SystemAgent] First message: {messages[0] if messages else 'None'}")
+        print(f"[SystemAgent] Last message: {messages[-1] if messages else 'None'}")
+        
+        # TEST: Try direct LLM call to verify model works
+        try:
+            print(f"[TEST] Testing direct LLM call...")
+            test_msg = [{"role": "user", "content": "Reply with OK"}]
+            test_response = await self.model.ainvoke(test_msg)
+            print(f"[TEST] Direct LLM works! Response: {test_response.content[:50]}")
+        except Exception as test_error:
+            print(f"[TEST ERROR] Direct LLM call failed: {test_error}")
+        
         try:
             # Stream response
+            print(f"[SystemAgent] Starting agent.astream()...")
+            print(f"[SystemAgent] Input to agent: {{'messages': {len(messages)} items}}")
+            chunk_num = 0
+            
             async for chunk in self.agent.astream({"messages": messages}):
+                chunk_num += 1
+                print(f"[SystemAgent] Chunk #{chunk_num}: {type(chunk)} = {str(chunk)[:200]}")
+                
                 if "messages" in chunk:
+                    print(f"[SystemAgent] Chunk has 'messages' key with {len(chunk['messages'])} messages")
                     for msg in chunk["messages"]:
+                        print(f"[SystemAgent] Message type: {type(msg)}, hasattr content: {hasattr(msg, 'content')}")
                         if hasattr(msg, "content") and msg.content:
+                            print(f"[SystemAgent] Yielding token: {msg.content[:50]}...")
                             yield {"type": "token", "content": msg.content}
                         
                         # Track tool usage
                         if hasattr(msg, "additional_kwargs") and "tool_calls" in msg.additional_kwargs:
                             for tool_call in msg.additional_kwargs["tool_calls"]:
-                                yield {"type": "tool", "tool": tool_call.get("function", {}).get("name", "unknown")}
+                                tool_name = tool_call.get("function", {}).get("name", "unknown")
+                                print(f"[SystemAgent] Tool called: {tool_name}")
+                                yield {"type": "tool", "tool": tool_name}
+                else:
+                    print(f"[SystemAgent] Chunk does NOT have 'messages' key. Keys: {chunk.keys() if isinstance(chunk, dict) else 'not a dict'}")
             
+            print(f"[SystemAgent] Agent stream completed. Total chunks: {chunk_num}")
             yield {"type": "done"}
             
         except Exception as e:
-            print(f"Streaming error: {e}")
+            print(f"[SystemAgent] Streaming error: {e}")
+            import traceback
+            traceback.print_exc()
             yield {"type": "error", "error": str(e)}
 
 

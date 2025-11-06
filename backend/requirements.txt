@@ -33,6 +33,7 @@ python-dateutil>=2.8.0
 # AI Trading Engine (LangChain for AI agents)
 langchain>=1.0.0
 langchain-openai>=1.0.0
+langgraph>=0.2.0
 langchain-mcp-adapters>=0.1.0
 fastmcp>=2.0.0
 

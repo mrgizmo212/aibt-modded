@@ -1307,10 +1307,10 @@ async def chat_with_system_agent(
         raise HTTPException(404, "Model not found")
     
     try:
-        # Create system agent
-        from agents.system_agent import create_system_agent
+        # Create LangGraph run agent
+        from agents.run_agent_langgraph import create_run_conversation_agent
         
-        agent = create_system_agent(
+        agent, system_prompt = create_run_conversation_agent(
             model_id=model_id,
             run_id=run_id,
             user_id=current_user["id"],
@@ -1656,7 +1656,7 @@ async def stream_new_conversation(
     """
     from sse_starlette.sse import EventSourceResponse
     from services import chat_service
-    from agents.system_agent import SystemAgent
+    from agents.model_agent_langgraph import create_model_conversation_agent
     
     # Manual token verification (EventSource can't send Authorization header)
     current_user = None
@@ -1729,7 +1729,7 @@ async def stream_new_conversation(
             tool_calls_used = []
             
             if model_id is None:
-                # GENERAL CHAT: Use ChatOpenAI directly (no SystemAgent, no tools)
+                # GENERAL CHAT: Use simple ChatOpenAI (no tools - kept simple for model builder)
                 print(f"[stream-new] General chat mode (no model)")
                 
                 # Get global chat settings
@@ -1814,41 +1814,52 @@ async def stream_new_conversation(
                     return
                     
             else:
-                # MODEL CHAT: Use SystemAgent (with tools)
+                # MODEL CHAT: Use LangGraph agent (with tools)
                 print(f"[stream-new] Model chat mode (model_id={model_id})")
                 
-                agent = SystemAgent(
+                agent, system_prompt = create_model_conversation_agent(
                     model_id=model_id,
-                    run_id=None,
                     user_id=current_user["id"],
                     supabase=services.get_supabase()
                 )
                 
-                # STEP 6: Stream AI response with tools
+                # STEP 6: Stream AI response with LangGraph
                 try:
-                    async for chunk in agent.chat_stream(message, history):
-                        if isinstance(chunk, dict):
-                            if chunk.get("type") == "token":
-                                token_text = chunk.get("content", "")
-                                full_response += token_text
-                                yield {
-                                    "event": "message",
-                                    "data": json.dumps({"type": "token", "content": token_text})
-                                }
-                            elif chunk.get("type") == "tool":
-                                tool_name = chunk.get("tool_name")
-                                tool_calls_used.append(tool_name)
-                                yield {
-                                    "event": "message",
-                                    "data": json.dumps({"type": "tool", "tool": tool_name})
-                                }
-                        else:
-                            # Plain string token
-                            full_response += chunk
-                            yield {
-                                "event": "message",
-                                "data": json.dumps({"type": "token", "content": chunk})
-                            }
+                    # Build messages for LangGraph
+                    messages_for_agent = [
+                        {"role": "system", "content": system_prompt}
+                    ]
+                    
+                    for msg in history:
+                        if msg.get("role") in ["user", "assistant"]:
+                            messages_for_agent.append({"role": msg["role"], "content": msg["content"]})
+                    
+                    messages_for_agent.append({"role": "user", "content": message})
+                    
+                    async for chunk in agent.astream(
+                        {"messages": messages_for_agent},
+                        config={"configurable": {"thread_id": f"model_{model_id}_session_{session_id}"}}
+                    ):
+                        if isinstance(chunk, dict) and "agent" in chunk:
+                            agent_update = chunk["agent"]
+                            
+                            if "messages" in agent_update:
+                                for msg in agent_update["messages"]:
+                                    if hasattr(msg, "content") and msg.content:
+                                        full_response += msg.content
+                                        yield {
+                                            "event": "message",
+                                            "data": json.dumps({"type": "token", "content": msg.content})
+                                        }
+                                    
+                                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                        for tool_call in msg.tool_calls:
+                                            tool_name = tool_call.get("name", "unknown")
+                                            tool_calls_used.append(tool_name)
+                                            yield {
+                                                "event": "message",
+                                                "data": json.dumps({"type": "tool", "tool": tool_name})
+                                            }
                 except Exception as stream_error:
                     print(f"[stream-new] Streaming error: {stream_error}")
                     yield {
@@ -2186,53 +2197,115 @@ IMPORTANT - About AI Decision Logs and Detailed Analysis:
             print(f"🤖 Starting AI stream with model: {ai_model}")
             print(f"📨 Message count: {len(messages)}")
             
-            # DECISION: Use SystemAgent for model conversations (get tools), simple ChatOpenAI for general
+            # DECISION: Use LangGraph for ALL conversation types (model, run, general)
             full_response = ""
             tool_calls_used = []
             
             if model_id:
-                # MODEL CONVERSATION: Use SystemAgent with ALL TOOLS
-                print(f"[stream] Model conversation mode (model_id={model_id}) - using SystemAgent with tools")
+                # MODEL CONVERSATION: Use LangGraph React Agent with ALL TOOLS
+                print(f"[stream] Model conversation mode (model_id={model_id}) - using LangGraph create_react_agent")
                 
-                from agents.system_agent import SystemAgent
+                from agents.model_agent_langgraph import create_model_conversation_agent
                 
-                agent = SystemAgent(
-                    model_id=model_id,
-                    run_id=None,  # None = access ALL runs for this model
-                    user_id=current_user["id"],
-                    supabase=services.get_supabase()
-                )
-                
-                # Stream with tools
                 try:
-                    async for chunk in agent.chat_stream(message, chat_history, conversation_summary):
-                        if isinstance(chunk, dict):
-                            if chunk.get("type") == "token":
-                                token_text = chunk.get("content", "")
-                                full_response += token_text
-                                yield {
-                                    "event": "message",
-                                    "data": json.dumps({"type": "token", "content": token_text})
-                                }
-                            elif chunk.get("type") == "tool":
-                                tool_name = chunk.get("tool_name") or chunk.get("tool", "unknown")
-                                tool_calls_used.append(tool_name)
-                                yield {
-                                    "event": "message",
-                                    "data": json.dumps({"type": "tool", "tool": tool_name})
-                                }
-                        else:
-                            # Plain string token
-                            full_response += str(chunk)
-                            yield {
-                                "event": "message",
-                                "data": json.dumps({"type": "token", "content": str(chunk)})
-                            }
+                    agent, system_prompt = create_model_conversation_agent(
+                        model_id=model_id,
+                        user_id=current_user["id"],
+                        supabase=services.get_supabase()
+                    )
+                    print(f"[LangGraph] Agent created successfully, ready to stream")
+                except Exception as agent_error:
+                    print(f"[ERROR] Failed to create LangGraph agent: {agent_error}")
+                    import traceback
+                    traceback.print_exc()
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"Failed to create agent: {str(agent_error)}"})
+                    }
+                    return
+                
+                # Stream with LangGraph agent
+                try:
+                    # Build message array for LangGraph
+                    messages_for_agent = []
                     
-                    print(f"✅ SystemAgent stream completed, response length: {len(full_response)}, tools used: {tool_calls_used}")
+                    # Prepend system prompt (from agent creation)
+                    messages_for_agent.append({
+                        "role": "system",
+                        "content": system_prompt
+                    })
+                    
+                    # Add conversation summary if exists
+                    if conversation_summary:
+                        messages_for_agent.append({
+                            "role": "system",
+                            "content": f"<conversation_summary>{conversation_summary}</conversation_summary>"
+                        })
+                    
+                    # Add conversation history
+                    for msg in chat_history[-30:]:
+                        if msg.get("role") in ["user", "assistant"]:
+                            messages_for_agent.append({
+                                "role": msg["role"],
+                                "content": msg["content"]
+                            })
+                    
+                    # Add current message
+                    messages_for_agent.append({"role": "user", "content": message})
+                    
+                    print(f"[LangGraph] Streaming with {len(messages_for_agent)} messages")
+                    
+                    # Stream from LangGraph agent
+                    chunk_count = 0
+                    async for chunk in agent.astream(
+                        {"messages": messages_for_agent},
+                        config={"configurable": {"thread_id": f"model_{model_id}_session_{session['id']}"}}
+                    ):
+                        chunk_count += 1
+                        print(f"[LangGraph] Chunk #{chunk_count}: keys={chunk.keys() if isinstance(chunk, dict) else 'not dict'}")
+                        
+                        # LangGraph returns updates with node names as keys (e.g., "agent")
+                        if isinstance(chunk, dict) and "agent" in chunk:
+                            agent_update = chunk["agent"]
+                            
+                            if "messages" in agent_update:
+                                messages_in_update = agent_update["messages"]
+                                print(f"[LangGraph] Processing {len(messages_in_update)} messages in update")
+                                
+                                for msg in messages_in_update:
+                                    # Handle message content
+                                    if hasattr(msg, "content") and msg.content:
+                                        full_response += msg.content
+                                        yield {
+                                            "event": "message",
+                                            "data": json.dumps({"type": "token", "content": msg.content})
+                                        }
+                                        print(f"[LangGraph] Token: {msg.content[:50]}...")
+                                    
+                                    # Handle tool calls
+                                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                        for tool_call in msg.tool_calls:
+                                            tool_name = tool_call.get("name", "unknown")
+                                            tool_calls_used.append(tool_name)
+                                            print(f"[LangGraph] Tool called: {tool_name}")
+                                            yield {
+                                                "event": "message",
+                                                "data": json.dumps({"type": "tool", "tool": tool_name})
+                                            }
+                        else:
+                            print(f"[LangGraph] Chunk format: {chunk}")
+                    
+                    print(f"[LangGraph] Total chunks received: {chunk_count}")
+                    print(f"✅ LangGraph agent stream completed, response length: {len(full_response)}, tools used: {tool_calls_used}")
+                    
+                    # Emit done event
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "done"})
+                    }
                 
                 except Exception as stream_error:
-                    print(f"❌ SystemAgent stream error: {stream_error}")
+                    print(f"❌ LangGraph agent stream error: {stream_error}")
                     import traceback
                     traceback.print_exc()
                     yield {
@@ -2242,26 +2315,87 @@ IMPORTANT - About AI Decision Logs and Detailed Analysis:
                     return
             
             else:
-                # GENERAL CONVERSATION: Simple ChatOpenAI (no tools)
-                print(f"[stream] General conversation mode (no model) - using simple ChatOpenAI")
+                # GENERAL CONVERSATION: LangGraph with model builder tools
+                print(f"[stream] General conversation mode (no model) - using LangGraph create_react_agent")
+                
+                from agents.general_agent_langgraph import create_general_conversation_agent
                 
                 try:
-                    chunk_count = 0
-                    async for chunk in model.astream(messages):
-                        if chunk.content:
-                            chunk_count += 1
-                            full_response += chunk.content
-                            event_data = {
-                                "event": "message",
-                                "data": json.dumps({"type": "token", "content": chunk.content})
-                            }
-                            print(f"📤 Yielding chunk #{chunk_count}: {chunk.content[:20]}...")
-                            yield event_data
+                    agent, system_prompt = create_general_conversation_agent(
+                        user_id=current_user["id"],
+                        supabase=services.get_supabase()
+                    )
+                    print(f"[LangGraph] General agent created successfully")
+                except Exception as agent_error:
+                    print(f"[ERROR] Failed to create general agent: {agent_error}")
+                    import traceback
+                    traceback.print_exc()
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"Failed to create agent: {str(agent_error)}"})
+                    }
+                    return
+                
+                # Build message array for LangGraph
+                try:
+                    messages_for_agent = []
                     
-                    print(f"✅ AI stream completed, {chunk_count} chunks, response length: {len(full_response)}")
+                    # Prepend system prompt
+                    messages_for_agent.append({"role": "system", "content": system_prompt})
+                    
+                    # Add conversation summary if exists
+                    if conversation_summary:
+                        messages_for_agent.append({
+                            "role": "system",
+                            "content": f"<conversation_summary>{conversation_summary}</conversation_summary>"
+                        })
+                    
+                    # Add conversation history
+                    for msg in chat_history[-30:]:
+                        if msg.get("role") in ["user", "assistant"]:
+                            messages_for_agent.append({"role": msg["role"], "content": msg["content"]})
+                    
+                    # Add current message
+                    messages_for_agent.append({"role": "user", "content": message})
+                    
+                    # Stream from LangGraph agent
+                    chunk_count = 0
+                    async for chunk in agent.astream(
+                        {"messages": messages_for_agent},
+                        config={"configurable": {"thread_id": f"general_session_{session['id']}"}}
+                    ):
+                        chunk_count += 1
+                        
+                        # LangGraph returns updates with node names as keys
+                        if isinstance(chunk, dict) and "agent" in chunk:
+                            agent_update = chunk["agent"]
+                            
+                            if "messages" in agent_update:
+                                for msg in agent_update["messages"]:
+                                    # Handle content
+                                    if hasattr(msg, "content") and msg.content:
+                                        full_response += msg.content
+                                        yield {
+                                            "event": "message",
+                                            "data": json.dumps({"type": "token", "content": msg.content})
+                                        }
+                                    
+                                    # Handle tool calls
+                                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                        for tool_call in msg.tool_calls:
+                                            tool_name = tool_call.get("name", "unknown")
+                                            tool_calls_used.append(tool_name)
+                                            yield {
+                                                "event": "message",
+                                                "data": json.dumps({"type": "tool", "tool": tool_name})
+                                            }
+                    
+                    print(f"✅ LangGraph general agent stream completed, {chunk_count} chunks, response length: {len(full_response)}, tools used: {tool_calls_used}")
                     
                 except Exception as stream_error:
-                    print(f"❌ AI stream error: {stream_error}")
+                    print(f"❌ General agent stream error: {stream_error}")
+                    import traceback
+                    traceback.print_exc()
                     yield {
                         "event": "message",
                         "data": json.dumps({"type": "error", "error": f"AI model error: {str(stream_error)}"})
@@ -2291,7 +2425,7 @@ IMPORTANT - About AI Decision Logs and Detailed Analysis:
                     tool_calls=tool_calls_used if tool_calls_used else None
                 )
                 
-                print(f"💾 Saved general chat conversation (model_id=None)")
+                print(f"💾 Saved chat conversation (model_id={model_id if model_id else 'None'})")
                     
                 # Summarize if needed (>60 messages)
                 from services.chat_summarization import should_summarize, summarize_conversation, update_session_summary
@@ -2382,10 +2516,10 @@ async def chat_stream_endpoint(
     
     async def event_generator():
         try:
-            # Create agent
-            from agents.system_agent import create_system_agent
+            # Create LangGraph agent for run analysis
+            from agents.run_agent_langgraph import create_run_conversation_agent
             
-            agent = create_system_agent(
+            agent, system_prompt = create_run_conversation_agent(
                 model_id=model_id,
                 run_id=run_id,
                 user_id=current_user["id"],
@@ -2407,43 +2541,84 @@ async def chat_stream_endpoint(
             if await should_summarize(session["id"], services.get_supabase()):
                 print(f"📝 Conversation has >60 messages, will summarize after response...")
             
-            # Stream response
+            # Build message array for LangGraph
+            messages_for_agent = []
+            
+            # Prepend system prompt
+            messages_for_agent.append({"role": "system", "content": system_prompt})
+            
+            # Add conversation summary if exists
+            if conversation_summary:
+                messages_for_agent.append({
+                    "role": "system",
+                    "content": f"<conversation_summary>{conversation_summary}</conversation_summary>"
+                })
+            
+            # Add conversation history
+            for msg in chat_history[-30:]:
+                if msg.get("role") in ["user", "assistant"]:
+                    messages_for_agent.append({"role": msg["role"], "content": msg["content"]})
+            
+            # Add current message
+            messages_for_agent.append({"role": "user", "content": message})
+            
+            # Stream response with LangGraph
             full_response = ""
             tool_calls = []
             
-            async for chunk in agent.chat_stream(message, chat_history, conversation_summary):
-                if chunk["type"] == "token":
-                    full_response += chunk["content"]
-                    yield {
-                        "event": "message",
-                        "data": json.dumps({"type": "token", "content": chunk["content"]})
-                    }
-                elif chunk["type"] == "tool":
-                    tool_calls.append(chunk["tool"])
-                    yield {
-                        "event": "message",
-                        "data": json.dumps({"type": "tool", "tool": chunk["tool"]})
-                    }
-                elif chunk["type"] == "done":
-                    # Save messages
-                    from services.chat_service import save_chat_message
+            async for chunk in agent.astream(
+                {"messages": messages_for_agent},
+                config={"configurable": {"thread_id": f"run_{run_id}_session_{session['id']}"}}
+            ):
+                # LangGraph returns updates with node names as keys
+                if isinstance(chunk, dict) and "agent" in chunk:
+                    agent_update = chunk["agent"]
                     
-                    await save_chat_message(
-                        model_id=model_id,
-                        run_id=run_id,
-                        role="user",
-                        content=message,
-                        user_id=current_user["id"]
-                    )
-                    
-                    await save_chat_message(
-                        model_id=model_id,
-                        run_id=run_id,
-                        role="assistant",
-                        content=full_response,
-                        user_id=current_user["id"],
-                        tool_calls=tool_calls if tool_calls else None
-                    )
+                    if "messages" in agent_update:
+                        for msg in agent_update["messages"]:
+                            # Handle content
+                            if hasattr(msg, "content") and msg.content:
+                                full_response += msg.content
+                                yield {
+                                    "event": "message",
+                                    "data": json.dumps({"type": "token", "content": msg.content})
+                                }
+                            
+                            # Handle tool calls
+                            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                for tool_call in msg.tool_calls:
+                                    tool_name = tool_call.get("name", "unknown")
+                                    tool_calls.append(tool_name)
+                                    yield {
+                                        "event": "message",
+                                        "data": json.dumps({"type": "tool", "tool": tool_name})
+                                    }
+            
+            # Emit done event
+            yield {
+                "event": "message",
+                "data": json.dumps({"type": "done"})
+            }
+            
+            # Save messages (after streaming completes)
+            from services.chat_service import save_chat_message
+            
+            await save_chat_message(
+                model_id=model_id,
+                run_id=run_id,
+                role="user",
+                content=message,
+                user_id=current_user["id"]
+            )
+            
+            await save_chat_message(
+                model_id=model_id,
+                run_id=run_id,
+                role="assistant",
+                content=full_response,
+                user_id=current_user["id"],
+                tool_calls=tool_calls if tool_calls else None
+            )
                     
                     # Summarize if needed (>60 messages)
                     if await should_summarize(session["id"], services.get_supabase()):
