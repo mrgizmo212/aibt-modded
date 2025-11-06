@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Plus,
   Shield,
-  Settings,
   LogOut,
   ChevronDown,
   ChevronRight,
@@ -844,10 +843,6 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
 
       {/* Footer */}
       <div className="p-4 border-t border-[#262626] space-y-1">
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a3a3a3] hover:text-white hover:bg-[#141414] transition-colors">
-          <Settings className="w-5 h-5" />
-          <span className="text-sm font-medium">Settings</span>
-        </button>
         <button 
           onClick={handleLogout}
           disabled={isLoggingOut}

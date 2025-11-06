@@ -68,7 +68,6 @@ export function ChatInterface({
       type: "ai",
       text: "Good morning! How can I help you with your trading today?",
       timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
     },
   ])
   const [input, setInput] = useState("")
@@ -171,7 +170,6 @@ export function ChatInterface({
           type: "ai",
           text: "Good morning! How can I help you with your trading today?",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
         }])
         setIsLoadingMessages(false)
         return
@@ -232,7 +230,6 @@ export function ChatInterface({
           type: "ai",
           text: "Good morning! How can I help you with your trading today?",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show stats", "Show all models", "Create new model", "View recent runs"],
         }])
       }
     }
@@ -368,7 +365,6 @@ export function ChatInterface({
           type: "ai",
           text: `🎉 Success! "${updatedData.name}" has been created and ${updatedData.backtest ? "backtest is running" : "is ready to use"}. You can start trading or view it in your models list.`,
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show all models", "Start trading", "View backtest results"],
         }
         setMessages((prev) => [...prev, completionMessage])
         setModelCreationData({})
@@ -623,7 +619,6 @@ export function ChatInterface({
             : "You don't have any trading models yet. Would you like to create one?",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           embeddedComponent: modelCount > 0 ? { type: "model_cards" } : undefined,
-          suggestedActions: modelCount === 0 ? ["Create new model"] : undefined,
         }
         onContextChange("dashboard")
       } 
@@ -635,7 +630,6 @@ export function ChatInterface({
           text: "Here's your performance analysis. I can help you understand what worked and what didn't.",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
           embeddedComponent: { type: "stats_grid" },
-          suggestedActions: ["Show all models", "View recent runs", "Create new model"],
         }
         onContextChange("dashboard")
       }
@@ -705,7 +699,6 @@ export function ChatInterface({
           type: "ai",
           text: "Hello! I'm your trading assistant. I can help you analyze performance, create models, and manage your trading strategies.",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show stats", "Show all models", "Analyze performance", "Create new model"],
         }
       }
       // Help/capabilities question
@@ -715,7 +708,6 @@ export function ChatInterface({
           type: "ai",
           text: "I can help you with:\n\n📊 View your portfolio stats and performance\n🤖 Show and manage your trading models\n📈 Analyze trading runs and suggest improvements\n✨ Create new models with custom strategies\n📜 View trading history and recent runs\n\nClick a suggestion below or select a specific run to have a detailed AI conversation about performance!",
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show stats", "Show all models", "View recent runs"],
         }
       }
       // Fallback - helpful suggestions
@@ -725,7 +717,6 @@ export function ChatInterface({
           type: "ai",
           text: `I can help with: viewing stats, showing models, analyzing performance, or creating new models. Click a suggestion or select a specific run for detailed AI analysis.`,
           timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-          suggestedActions: ["Show stats", "Show all models", "Analyze performance", "Create new model", "View recent runs"],
         }
       }
 
