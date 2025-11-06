@@ -75,6 +75,48 @@ Created 2 new tools for the model conversation agent:
 
 ---
 
+### ✅ Real-Time Positions and Logs Fix - COMPLETE
+
+**Problem:**
+1. Positions section showed "No positions yet" and never updated during live trading
+2. AI Decision Logs section never populated
+
+**Root Causes:**
+1. **Positions:** 
+   - Was using `/positions` endpoint (returns ALL historical records)
+   - Tried to display fields that don't exist in response (avg_price, unrealized_pl)
+   - Only polled every 30 seconds
+   
+2. **Logs:**
+   - LogsViewer queries `logs` table (for completed run logs)
+   - During live trading, reasoning goes to `positions` table, not `logs` table
+   - Showed empty state with no context
+
+**Solutions:**
+1. **Positions:** (lines 78-105, 518-531 in context-panel.tsx)
+   - Changed to use `/positions/latest` endpoint
+   - Parses `positions` dictionary correctly ({"AAPL": 10, "TSLA": 5})
+   - Shows Symbol, Shares, Live status (removed non-existent fields)
+   - Polls every 5 seconds (instead of 30)
+   - Refreshes immediately on trade events (lines 128-135)
+
+2. **Logs:** (lines 651-666 in context-panel.tsx)
+   - Hidden during active trading (when SSE connected)
+   - Shows explanation: "Logs are for completed runs"
+   - Notes: "Live reasoning appears in Trading Terminal"
+   - Only shows LogsViewer when model inactive
+
+**Files Modified:**
+- `frontend-v2/components/context-panel.tsx`
+
+**How It Works Now:**
+- During live trading: TradingTerminal shows real-time reasoning
+- After run completes: AI Decision Logs section shows full conversation logs
+- Positions update every 5 seconds + immediately on trades
+- Display shows actual current holdings from portfolio state
+
+---
+
 ## Previous Session (2025-11-04)
 
 ### ✅ Complete Codebase Analysis

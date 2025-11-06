@@ -72,17 +72,37 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     
     setLoading(true)
     try {
-      const [model, modelRuns, modelPositions] = await Promise.all([
+      const [model, modelRuns, latestPosition] = await Promise.all([
         getModelById(selectedModelId),
         getRuns(selectedModelId),
-        getPositions(selectedModelId).catch(() => [])
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/models/${selectedModelId}/positions/latest`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
       ])
       
-      console.log('[ContextPanel] Model data loaded:', { model, runs: modelRuns, positions: modelPositions })
+      console.log('[ContextPanel] Model data loaded:', { model, runs: modelRuns, latestPosition })
       
       setModelData(model)
       setRuns(modelRuns)
-      setPositions(modelPositions)
+      
+      // Parse positions dictionary into displayable array
+      if (latestPosition && latestPosition.positions) {
+        const positionsDict = latestPosition.positions
+        const parsedPositions = Object.entries(positionsDict)
+          .filter(([symbol]) => symbol !== 'CASH')
+          .map(([symbol, quantity]) => ({
+            symbol,
+            quantity: quantity as number,
+            // Note: We don't have real-time prices here, so we can't calculate P/L
+            // This will be enhanced with price data later
+          }))
+        
+        setPositions(parsedPositions)
+      } else {
+        setPositions([])
+      }
     } catch (error) {
       console.error('Failed to load model data:', error)
     } finally {
@@ -95,15 +115,24 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     if (context === "model" && selectedModelId) {
       loadModelData()
       
-      // Poll for updates every 30 seconds (just for new runs, not trades)
-      // Positions/trades update via SSE events
+      // Poll for updates every 5 seconds during active trading
+      // This ensures positions stay fresh during live runs
       const intervalId = setInterval(() => {
         loadModelData()
-      }, 30000) // 30 seconds
+      }, 5000) // 5 seconds for live updates
       
       return () => clearInterval(intervalId)
     }
   }, [context, selectedModelId, loadModelData])
+  
+  // Refresh positions immediately on trade events
+  useEffect(() => {
+    const latestEvent = events[events.length - 1]
+    if (latestEvent && latestEvent.type === 'trade') {
+      console.log('[ContextPanel] Trade detected, refreshing positions')
+      loadModelData()
+    }
+  }, [events, loadModelData])
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
       case 'trade':
@@ -488,17 +517,16 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
               <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-[#262626]">
                   <span className="text-[#a3a3a3] font-semibold">Symbol</span>
-                  <span className="text-[#a3a3a3] font-semibold">Qty</span>
-                  <span className="text-[#a3a3a3] font-semibold">Avg Price</span>
-                  <span className="text-[#a3a3a3] font-semibold">P/L</span>
+                  <span className="text-[#a3a3a3] font-semibold">Shares</span>
+                  <span className="text-[#a3a3a3] font-semibold text-right">Updated</span>
                 </div>
                 {positions.map((position: any, index: number) => (
                   <div key={index} className="flex items-center justify-between text-xs py-2 border-t border-[#262626]/50">
                     <span className="text-white font-semibold">{position.symbol}</span>
-                    <span className="text-[#a3a3a3] font-mono">{position.quantity}</span>
-                    <span className="text-white font-mono">${position.avg_price?.toFixed(2)}</span>
-                    <span className={`font-mono ${position.unrealized_pl >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
-                      {position.unrealized_pl >= 0 ? '+' : ''}${position.unrealized_pl?.toFixed(2)}
+                    <span className="text-[#10b981] font-mono">{position.quantity}</span>
+                    <span className="text-[#737373] text-xs">
+                      <div className="w-2 h-2 bg-[#10b981] rounded-full pulse-dot inline-block mr-1" />
+                      Live
                     </span>
                   </div>
                 ))}
@@ -619,11 +647,23 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
             )}
           </div>
 
-          {/* AI Decision Logs Section */}
-          <div>
-            <h2 className="text-base font-semibold text-white mb-4">AI Decision Logs</h2>
-            <LogsViewer modelId={selectedModelId} />
-          </div>
+          {/* AI Decision Logs Section - Only show when NOT actively trading (logs are for completed runs) */}
+          {!connected && (
+            <div>
+              <h2 className="text-base font-semibold text-white mb-4">AI Decision Logs</h2>
+              <div className="bg-[#1a1a1a]/50 border border-[#262626] rounded-lg p-4">
+                <p className="text-sm text-[#737373]">
+                  Decision logs show AI reasoning from completed runs.
+                </p>
+                <p className="text-xs text-[#525252] mt-2">
+                  During live trading, reasoning appears in the Trading Terminal above.
+                </p>
+              </div>
+              <div className="mt-4">
+                <LogsViewer modelId={selectedModelId} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
