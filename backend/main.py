@@ -2487,7 +2487,12 @@ async def chat_stream_endpoint(
     message: str,
     token: Optional[str] = None
 ):
-    """Stream chat response (SSE)"""
+    """
+    DEPRECATED: Use /api/chat/general-stream?model_id={model_id} instead
+    
+    Model conversations can analyze specific runs using tool parameters.
+    This endpoint maintained for backward compatibility but redirects to model conversation logic.
+    """
     from sse_starlette.sse import EventSourceResponse
     
     # Manual token verification (EventSource can't send Authorization header)
@@ -2516,15 +2521,24 @@ async def chat_stream_endpoint(
     
     async def event_generator():
         try:
-            # Create LangGraph agent for run analysis
-            from agents.run_agent_langgraph import create_run_conversation_agent
+            # SIMPLIFIED: Use model agent (can focus on specific run via tool parameters)
+            # No need for separate run agent - model agent handles both aggregate and specific
+            from agents.model_agent_langgraph import create_model_conversation_agent
             
-            agent, system_prompt = create_run_conversation_agent(
+            agent, system_prompt_base = create_model_conversation_agent(
                 model_id=model_id,
-                run_id=run_id,
                 user_id=current_user["id"],
                 supabase=services.get_supabase()
             )
+            
+            # Add run-specific context to system prompt
+            run_result = services.get_supabase().table("trading_runs").select("*").eq("id", run_id).execute()
+            run_info = ""
+            if run_result.data:
+                run = run_result.data[0]
+                run_info = f"\n\n<current_focus>\nUser is asking about Run #{run.get('run_number', '?')} specifically.\nWhen using tools, you MAY want to use specific_run_id={run_id} to focus on this run.\nBut you can also compare to other runs or analyze aggregate if relevant to the question.\n</current_focus>"
+            
+            system_prompt = system_prompt_base + run_info
             
             # Get history and summary
             from services.chat_service import get_chat_messages, get_or_create_chat_session
