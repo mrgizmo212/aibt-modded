@@ -50,6 +50,94 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-016: Model Conversation Streaming Not Working
+**Date Discovered:** 2025-11-06 18:30  
+**Date Fixed:** 2025-11-06 18:45  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User navigates to model conversation URL `/m/184/c/80`
+- Route loads successfully (no 404)
+- User sends a message
+- AI doesn't respond - stuck showing "streaming..." forever
+- After refresh, message shows blank AI reply
+
+**Root Cause:**
+Backend endpoint `/api/chat/general-stream` was hardcoding `model_id=None` when saving messages, even though it received `model_id=184` in the query parameters. This caused messages to be saved to a DIFFERENT conversation (the general conversation) instead of the intended model-specific conversation.
+
+**Affected Files:**
+- `backend/main.py` - Lines 2019, 2165, 2174, 2186
+
+**What Was Wrong:**
+
+```python
+# Line 2019-2021: Session creation
+session = await get_or_create_session_v2(
+    user_id=current_user["id"],
+    model_id=None  # ❌ Hardcoded!
+)
+
+# Line 2165: User message save
+model_id=None,  # ❌ Hardcoded!
+
+# Line 2174: AI response save
+model_id=None,  # ❌ Hardcoded!
+
+# Line 2186: Summarization session
+model_id=None  # ❌ Hardcoded!
+```
+
+**The Flow of the Bug:**
+1. User navigates to `/m/184/c/80` → Conversation 80 loads correctly ✅
+2. User sends "Hello" → Frontend sends `model_id=184` in query params ✅
+3. Backend receives `model_id=184` ✅
+4. Backend creates/gets session with `model_id=None` → **Uses DIFFERENT conversation** ❌
+5. Backend saves "Hello" with `model_id=None` → **Saves to wrong conversation** ❌
+6. Backend streams AI response ✅
+7. Backend saves response with `model_id=None` → **Saves to wrong conversation** ❌
+8. Frontend waits for messages in conversation 80 → **Never receives them** ❌
+
+**Final Solution:**
+Changed 4 instances of hardcoded `model_id=None` to use the `model_id` parameter value.
+
+**Code Changes:**
+
+[BEFORE - file: `backend/main.py`]
+```python
+# All 4 locations hardcoded to None
+model_id=None  # ← General conversation
+```
+
+[AFTER - file: `backend/main.py`]
+```python
+# All 4 locations now use parameter
+model_id=model_id  # ← Use model_id param (None for general, int for model-specific)
+```
+
+**What Now Works:**
+- General conversations (`/c/[id]`): `model_id=None` → Saves correctly ✅
+- Model conversations (`/m/184/c/80`): `model_id=184` → Saves correctly ✅
+
+**Test Script Created:**
+- Script: `scripts/verify-bug-model-conversation-streaming.js`
+- Tests 5 conditions, all pass ✅
+- Proves bug existed before fix, fixed after fix
+
+**Lessons Learned:**
+- **Parameter acceptance ≠ Parameter usage** - Endpoint can accept a param but not use it
+- **Hardcoded values from initial implementation** can break when features expand
+- **Test full data flow** - Context loading worked, but message saving didn't
+- **Comments can become stale** - "General conversation" comment was misleading
+
+**Prevention Strategy:**
+1. When adding optional parameters, grep for ALL usages of related fields
+2. Avoid hardcoded values - use parameters with conditionals
+3. Create tests that verify database records, not just API responses
+4. Update comments when endpoint behavior changes
+
+---
+
 ### BUG-015: 404 Error on New Model Conversation Navigation
 **Date Discovered:** 2025-11-06 15:30  
 **Date Fixed:** 2025-11-06 17:00  

@@ -2015,10 +2015,10 @@ async def general_chat_stream_endpoint(
             try:
                 from services.chat_service import get_or_create_session_v2
                 
-                # Get or create general conversation session
+                # Get or create conversation session (general or model-specific)
                 session = await get_or_create_session_v2(
                     user_id=current_user["id"],
-                    model_id=None  # ← General conversation
+                    model_id=model_id  # ← Use model_id param (None for general, int for model-specific)
                 )
                 conversation_summary = session.get("conversation_summary")
                 
@@ -2162,7 +2162,7 @@ For detailed trade analysis, ask users to select a specific run first (then you'
                     user_id=current_user["id"],
                     role="user",
                     content=message,
-                    model_id=None,  # ← General conversation (not tied to a model)
+                    model_id=model_id,  # ← Use model_id param (None for general, int for model-specific)
                     run_id=None
                 )
                 
@@ -2171,7 +2171,7 @@ For detailed trade analysis, ask users to select a specific run first (then you'
                     user_id=current_user["id"],
                     role="assistant",
                     content=full_response,
-                    model_id=None,  # ← General conversation (not tied to a model)
+                    model_id=model_id,  # ← Use model_id param (None for general, int for model-specific)
                     run_id=None
                 )
                 
@@ -2183,7 +2183,7 @@ For detailed trade analysis, ask users to select a specific run first (then you'
                 
                 session = await get_or_create_session_v2(
                     user_id=current_user["id"],
-                    model_id=None  # ← General conversation
+                    model_id=model_id  # ← Use model_id param (None for general, int for model-specific)
                 )
                 
                 if await should_summarize(session["id"], supabase):
