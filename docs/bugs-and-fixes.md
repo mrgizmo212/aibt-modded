@@ -173,6 +173,214 @@ AI: "This model has completed 1 run: Run #1, which was an intraday run on IBM (2
 
 ---
 
+### BUG-019: Duplicate SSE Connections (Memory Leak)
+**Date Discovered:** 2025-11-05 (recurred 2025-11-06)  
+**Date Fixed:** 2025-11-06 19:00  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Console shows: "Connected to trading stream for model 184" TWICE
+- Multiple EventSource instances created for same model
+- Memory leak accumulates over time
+- Supposedly fixed Nov 5th but still occurring
+
+**Root Cause:**
+No check if EventSource already exists before creating new connection. React 18 Strict Mode (dev) intentionally mounts components twice to detect bugs. First mount connects, unmount cleanup runs, second mount connects again. If cleanup doesn't complete before second mount, both connections remain active.
+
+**Affected Files:**
+- `frontend-v2/hooks/use-trading-stream.ts` - Lines 65-79
+
+**Console Evidence:**
+```
+[SSE Hook] Calling connectToStream for model: 184
+[SSE] Connected to trading stream for model 184
+[SSE] Connected to trading stream for model 184  ← DUPLICATE!
+```
+
+**Final Solution:**
+Added readyState check before creating new EventSource. If connection already exists and is not CLOSED, skip creating new one.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/hooks/use-trading-stream.ts` line 65]
+```typescript
+function connectToStream() {
+  // Clean up any existing connection
+  disconnectFromStream()
+  
+  const token = getToken()
+```
+
+[AFTER - file: `frontend-v2/hooks/use-trading-stream.ts` lines 65-71]
+```typescript
+function connectToStream() {
+  // Check if already connected or connecting (prevent duplicates from React Strict Mode)
+  if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
+    console.log('[SSE Hook] Connection already active (readyState:', eventSourceRef.current.readyState, '), skipping')
+    return
+  }
+  
+  // Clean up any existing connection
+  disconnectFromStream()
+  
+  const token = getToken()
+```
+
+**Lessons Learned:**
+- React 18 Strict Mode intentionally double-mounts components in dev
+- Must check resource state before creating duplicates
+- EventSource has readyState property: CONNECTING (0), OPEN (1), CLOSED (2)
+- Guard patterns essential for external connections
+
+**Prevention Strategy:**
+Always check if resource exists before creating: EventSource, WebSocket, timers, subscriptions
+
+---
+
+### BUG-020: First Message Shows Blank Response
+**Date Discovered:** 2025-11-06 18:30  
+**Date Fixed:** 2025-11-06 19:05  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User sends first message in new model conversation
+- User message appears correctly
+- AI avatar and timestamp appear (01:23 PM)
+- But NO response text displays - completely blank
+- Second attempt works perfectly
+
+**Root Cause:**
+Race condition between URL navigation and message state loading. When first message sent on `/m/184/new`:
+1. Streaming message created (id: X, text: "")
+2. Backend returns session_id
+3. Parent navigates to `/m/184/c/84`
+4. URL change triggers `loadConversationMessages()`
+5. Loads messages from DB (empty - AI response not saved yet!)
+6. **Wipes out streaming message from state**
+7. SSE tokens arrive but streamingMessageId is gone
+
+**Affected Files:**
+- `frontend-v2/components/chat-interface.tsx` - Lines 140-160
+
+**Timeline:**
+```
+T=0s:   Message sent, streaming message added to state
+T=0.1s: EventSource connects
+T=0.2s: First SSE event with session_id
+T=0.3s: Parent navigates /m/184/new → /m/184/c/84
+T=0.4s: URL change triggers loadConversationMessages()
+T=0.5s: Loads empty messages, clears state
+T=1.0s: SSE tokens arrive but streamingMessageId lost
+```
+
+**Final Solution:**
+Added check to skip message loading if currently streaming. Prevents race condition from clearing active streaming state during URL transition.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/chat-interface.tsx` line 141]
+```typescript
+const loadConversationMessages = async () => {
+  const sessionId = selectedConversationId
+  
+  if (sessionId === currentSessionId) {
+    return
+  }
+```
+
+[AFTER - file: `frontend-v2/components/chat-interface.tsx` lines 141-149]
+```typescript
+const loadConversationMessages = async () => {
+  const sessionId = selectedConversationId
+  
+  // CRITICAL: Don't reload if currently streaming (prevents race condition on first message)
+  if (streamingMessageId || isTyping) {
+    console.log('[Chat] Currently streaming, skip message reload to prevent clearing streaming state')
+    return
+  }
+  
+  if (sessionId === currentSessionId) {
+    return
+  }
+```
+
+**Lessons Learned:**
+- URL navigation triggers component re-renders and effect re-runs
+- State loading can clear active operations if not guarded
+- Check for in-progress operations before mutating state
+- Race conditions appear intermittently (hard to debug)
+
+**Prevention Strategy:**
+Before loading/resetting state, check: isLoading, isStreaming, isProcessing flags
+
+---
+
+### BUG-021: Context Panel Flicker and Duplicate API Calls
+**Date Discovered:** 2025-11-06 18:30  
+**Date Fixed:** 2025-11-06 19:10  
+**Severity:** LOW  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Context panel sections (Positions, All Runs, AI Decision Logs) flicker
+- Sections disappear and reappear during loading
+- Console shows duplicate API calls:
+  * `/api/models/184/runs` - called 4+ times
+  * `/api/models/184/positions` - called 3+ times
+  * `/api/models/184/logs` - called 4+ times
+
+**Root Cause:**
+`loadModelData()` function not memoized, causing it to be recreated on every render. useEffect dependencies include the function, triggering re-execution when function reference changes. Creates fetch → render → new function → fetch loop.
+
+**Affected Files:**
+- `frontend-v2/components/context-panel.tsx` - Lines 69-105
+
+**Final Solution:**
+Wrapped `loadModelData` in `useCallback` hook with `selectedModelId` as dependency. Function now has stable reference, preventing unnecessary re-executions.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/context-panel.tsx`]
+```typescript
+async function loadModelData() {
+  if (!selectedModelId) return
+  // ... fetch logic
+}
+
+useEffect(() => {
+  if (context === "model" && selectedModelId) {
+    loadModelData()  // Function recreated every render
+  }
+}, [context, selectedModelId])
+```
+
+[AFTER - file: `frontend-v2/components/context-panel.tsx`]
+```typescript
+const loadModelData = useCallback(async () => {
+  if (!selectedModelId) return
+  // ... fetch logic  
+}, [selectedModelId])  // Memoize based on selectedModelId only
+
+useEffect(() => {
+  if (context === "model" && selectedModelId) {
+    loadModelData()  // Stable function reference
+  }
+}, [context, selectedModelId, loadModelData])
+```
+
+**Lessons Learned:**
+- Functions in useEffect dependencies must be memoized
+- useCallback prevents function recreation on every render
+- Dependency arrays should include memoized function
+- Without memoization: fetch loops and visual flicker
+
+**Prevention Strategy:**
+Always wrap async functions in useCallback if used in useEffect dependencies
+
+---
+
 ### BUG-017: Variable Name Collision - 'dict' object has no attribute 'astream'
 **Date Discovered:** 2025-11-06 19:30  
 **Date Fixed:** 2025-11-06 19:45  

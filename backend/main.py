@@ -2149,8 +2149,21 @@ You can help users:
 - Answer questions about features
 - Guide them to use specific tools
 - Discuss specific models and their configurations
+- Answer basic questions about runs (you can see the run summary above)
 
-For detailed trade analysis, ask users to select a specific run first (then you'll have access to analysis tools)."""
+IMPORTANT - About AI Decision Logs and Detailed Analysis:
+- You do NOT have access to individual trade details or AI reasoning logs in THIS conversation
+- This is a MODEL conversation (general discussion about the model)
+- For detailed analysis including:
+  * Individual trade breakdowns
+  * AI reasoning logs (WHY each decision was made)
+  * Advanced metrics calculations
+  * Trade-by-trade performance
+- User needs to navigate to a SPECIFIC RUN conversation (/m/[modelId]/runs/[runId]/chat)
+- When asked about "AI reasoning", "why did it make this trade?", or "decision logs":
+  → Tell user: "To access detailed AI reasoning logs and trade analysis, please navigate to the specific run's conversation. I can see this model has [X] run(s) listed above - click on a run to analyze it in detail."
+  → Do NOT say you have access to tools you don't have
+  → Be helpful by guiding them to the right place"""
             
             # Build messages with history
             messages = [{"role": "system", "content": system_prompt}]

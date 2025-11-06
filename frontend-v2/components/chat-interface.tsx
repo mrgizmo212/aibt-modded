@@ -142,6 +142,12 @@ export function ChatInterface({
       // Use prop instead of URL parsing
       const sessionId = selectedConversationId
       
+      // CRITICAL: Don't reload if currently streaming (prevents race condition on first message)
+      if (streamingMessageId || isTyping) {
+        console.log('[Chat] Currently streaming, skip message reload to prevent clearing streaming state')
+        return
+      }
+      
       // Check if session actually changed (prevent unnecessary reloads)
       if (sessionId === currentSessionId) {
         return  // Same conversation, don't reload

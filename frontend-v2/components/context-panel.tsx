@@ -3,7 +3,7 @@
 import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCircle, Square, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
@@ -65,21 +65,8 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     }
   }, [events])
 
-  useEffect(() => {
-    if (context === "model" && selectedModelId) {
-      loadModelData()
-      
-      // Poll for updates every 30 seconds (just for new runs, not trades)
-      // Positions/trades update via SSE events
-      const intervalId = setInterval(() => {
-        loadModelData()
-      }, 30000) // 30 seconds (reduced from 10)
-      
-      return () => clearInterval(intervalId)
-    }
-  }, [context, selectedModelId])
-
-  async function loadModelData() {
+  // Memoize loadModelData to prevent duplicate calls
+  const loadModelData = useCallback(async () => {
     if (!selectedModelId) return
     
     setLoading(true)
@@ -100,7 +87,22 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedModelId])  // Memoize based on selectedModelId only
+  
+  // Call loadModelData when context/model changes
+  useEffect(() => {
+    if (context === "model" && selectedModelId) {
+      loadModelData()
+      
+      // Poll for updates every 30 seconds (just for new runs, not trades)
+      // Positions/trades update via SSE events
+      const intervalId = setInterval(() => {
+        loadModelData()
+      }, 30000) // 30 seconds
+      
+      return () => clearInterval(intervalId)
+    }
+  }, [context, selectedModelId, loadModelData])
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
       case 'trade':

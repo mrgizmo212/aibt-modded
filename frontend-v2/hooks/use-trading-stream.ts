@@ -63,6 +63,12 @@ export function useTradingStream(
   }, [modelId])  // Removed 'enabled' from deps - use only modelId to prevent rapid re-triggers
 
   function connectToStream() {
+    // Check if already connected or connecting (prevent duplicates from React Strict Mode)
+    if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
+      console.log('[SSE Hook] Connection already active (readyState:', eventSourceRef.current.readyState, '), skipping')
+      return
+    }
+    
     // Clean up any existing connection
     disconnectFromStream()
 

@@ -13,7 +13,11 @@ backend/.env
 frontend/.env.local
 **/.env
 **/.env.local
-
+# In root .gitignore
+backend/.env
+frontend-v2/.env
+.env
+*.env
 # ============================================================================
 # PYTHON (Backend)
 # ============================================================================
