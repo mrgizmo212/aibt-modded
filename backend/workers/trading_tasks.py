@@ -109,7 +109,7 @@ def run_intraday_trading(
         supabase = get_supabase()
         trading_service = TradingService(supabase)
         
-        # Create agent
+        # Create agent with FULL configuration
         agent = BaseAgent(
             signature=model["signature"],
             basemodel=base_model,
@@ -120,7 +120,15 @@ def run_intraday_trading(
             custom_rules=model.get("custom_rules"),
             custom_instructions=model.get("custom_instructions"),
             model_parameters=model.get("model_parameters"),
-            trading_service=trading_service
+            trading_service=trading_service,
+            # NEW CONFIGURATION PARAMETERS:
+            trading_style=model.get("trading_style", "day-trading"),
+            instrument=model.get("instrument", "stocks"),
+            allow_shorting=model.get("allow_shorting", False),
+            allow_options_strategies=model.get("allow_options_strategies", False),
+            allow_hedging=model.get("allow_hedging", False),
+            allowed_order_types=model.get("allowed_order_types", ["market", "limit"]),
+            margin_account=model.get("margin_account", False)
         )
         
         # Update state: Initializing agent
@@ -265,7 +273,7 @@ def run_daily_backtest(
         supabase = get_supabase()
         trading_service = TradingService(supabase)
         
-        # Create agent
+        # Create agent with FULL configuration
         agent = BaseAgent(
             signature=model["signature"],
             basemodel=base_model,
@@ -276,7 +284,15 @@ def run_daily_backtest(
             custom_rules=model.get("custom_rules"),
             custom_instructions=model.get("custom_instructions"),
             model_parameters=model.get("model_parameters"),
-            trading_service=trading_service
+            trading_service=trading_service,
+            # NEW CONFIGURATION PARAMETERS:
+            trading_style=model.get("trading_style", "day-trading"),
+            instrument=model.get("instrument", "stocks"),
+            allow_shorting=model.get("allow_shorting", False),
+            allow_options_strategies=model.get("allow_options_strategies", False),
+            allow_hedging=model.get("allow_hedging", False),
+            allowed_order_types=model.get("allowed_order_types", ["market", "limit"]),
+            margin_account=model.get("margin_account", False)
         )
         
         # Set run_id so trades link
