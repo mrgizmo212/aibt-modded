@@ -403,6 +403,36 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
                       )
                     }
                     
+                    // Show progress events (trading updates)
+                    if (event.type === 'progress') {
+                      const message = event.data?.message || ''
+                      return (
+                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                          <div className="text-[#525252]" suppressHydrationWarning>
+                            {timestamp}
+                          </div>
+                          <div className="text-[#3b82f6]">
+                            {message}
+                          </div>
+                        </div>
+                      )
+                    }
+                    
+                    // Show status events
+                    if (event.type === 'status') {
+                      const message = event.data?.message || ''
+                      return (
+                        <div key={`${event.timestamp}-${index}`} className="text-xs font-mono leading-relaxed">
+                          <div className="text-[#525252]" suppressHydrationWarning>
+                            {timestamp}
+                          </div>
+                          <div className="text-[#fbbf24]">
+                            {message}
+                          </div>
+                        </div>
+                      )
+                    }
+                    
                     // Show other events
                     return null
                   })
