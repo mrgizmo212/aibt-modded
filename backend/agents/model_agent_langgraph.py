@@ -38,13 +38,17 @@ def create_model_conversation_agent(
     from agents.tools.get_ai_reasoning import create_get_ai_reasoning_tool
     from agents.tools.calculate_metrics import create_calculate_metrics_tool
     from agents.tools.suggest_rules import create_suggest_rules_tool
+    from agents.tools.get_model_config import create_get_model_config_tool
+    from agents.tools.update_model_rules import create_update_model_rules_tool
     
     # Create tools - run_id=None means access ALL runs
     tools = [
         create_analyze_trades_tool(supabase, model_id, None, user_id),
         create_get_ai_reasoning_tool(supabase, model_id, None, user_id),
         create_calculate_metrics_tool(supabase, model_id, None, user_id),
-        create_suggest_rules_tool(supabase, model_id, user_id)
+        create_suggest_rules_tool(supabase, model_id, user_id),
+        create_get_model_config_tool(supabase, model_id, user_id),
+        create_update_model_rules_tool(supabase, model_id, user_id)
     ]
     
     print(f"[LangGraph] Loading tools for model {model_id}: {[t.name for t in tools]}")
@@ -206,7 +210,7 @@ Custom Instructions:
 🛠️ YOUR TOOLS - Use Them Actively
 ═══════════════════════════════════════════════════════════════
 
-You have 4 powerful tools at your disposal:
+You have 6 powerful tools at your disposal:
 
 1. **analyze_trades** - For trade analysis
    - When asked about trades, performance patterns, winning/losing trades
@@ -230,6 +234,18 @@ You have 4 powerful tools at your disposal:
    - Based on complete trading history
    - Example: "what rules should I add?"
 
+5. **get_model_config** - View current model configuration
+   - When asked "what are my current rules", "show config", "what settings"
+   - Returns complete model configuration including custom_rules and custom_instructions
+   - Example: "what rules do I currently have?"
+
+6. **update_model_rules** - Actually modify model configuration
+   - When user wants to ADD or CHANGE rules
+   - Can update custom_rules and/or custom_instructions
+   - Can append to existing rules or replace completely
+   - Example: "add a rule to limit position size to 20%"
+   - ALWAYS confirm with user before updating rules!
+
 🎯 Key Points:
 - USE tools proactively when questions relate to their domain
 - Don't say "I don't have access" - YOU DO!
@@ -240,6 +256,7 @@ You have 4 powerful tools at your disposal:
 - Only use specific run_id_filter if user explicitly mentions a database ID
 - You can filter/focus in your RESPONSE based on what user asked
 - Synthesize insights from complete history
+- **When suggesting rule changes:** First use suggest_rules, then ASK if user wants you to apply them with update_model_rules
 
 ═══════════════════════════════════════════════════════════════
 </tool_usage_instructions>

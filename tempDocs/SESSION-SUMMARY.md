@@ -1,30 +1,77 @@
-# Session Summary - Recent Bug Fixes and UI Improvements
-**Date:** 2025-11-06 16:00  
-**Task:** Fix UI reset bug during streaming, previous session completed comprehensive documentation
+# Session Summary - Model Chat Streaming Fix + Agent Tools
+**Date:** 2025-11-06 18:40  
+**Task:** Fix model chat streaming issue and add agent tools for rule management
 
 ---
 
-## Recent Session (2025-11-06)
+## Current Session (2025-11-06 18:40)
 
-### ✅ BUG-018: UI Reset During Streaming - FIXED
+### ✅ Model Chat Streaming Fix - COMPLETE
 
 **Problem:**
-User submitted first message on `/m/[id]/new`, UI briefly showed streaming message, then suddenly reset to welcome/default state mid-stream.
+Submitting message on `/m/184/new` caused streaming content to be lost after navigation to `/m/184/c/{sessionId}` - component would reload messages and wipe streaming content.
 
 **Root Cause:**
-Race condition - when session was created and navigation happened, the `useEffect` that loads conversation messages would run after streaming flags were cleared, causing message reload that cleared streaming content.
+Using `router.replace()` caused Next.js navigation which remounted the component, losing all React state.
 
 **Solution:**
-Set `currentSessionId` synchronously when `session_created` SSE event fires (line 439 in `chat-interface.tsx`), not after navigation. This ensures the session change guard catches duplicate loads.
+Copied the exact pattern from working `/new` page:
+1. Added `selectedConversationId` state to track ephemeral → persistent transition
+2. Changed `router.replace()` to `window.history.replaceState()` (no component remount)
+3. Made `isEphemeral` conditional on `selectedConversationId === null`
+4. Reverted all ChatInterface hacks (sessionStorage, refs, guards not needed)
 
 **Files Changed:**
-- `frontend-v2/components/chat-interface.tsx` (line 439)
+- `frontend-v2/app/m/[modelId]/new/page.tsx` - URL update pattern (lines 32, 147-164)
+- `frontend-v2/components/chat-interface.tsx` - reverted unnecessary changes
 
-**Documentation Updated:**
-- `docs/bugs-and-fixes.md` - Added BUG-018 with full analysis
-- `tempDocs/2025-11-06-ui-reset-during-streaming-fix.md` - Detailed investigation notes
+**Why It Works:**
+- Component stays mounted during URL change
+- All React state persists naturally (no remounting)
+- Same ChatGPT-style pattern used by `/new` page
 
-**Testing:** Manual screenshot testing (every second for 20 seconds) to observe streaming behavior
+---
+
+### ✅ Agent Rule Management Tools - COMPLETE
+
+**Problem:**
+Agent could suggest rules but couldn't actually view or modify model configuration.
+
+**Solution:**
+Created 2 new tools for the model conversation agent:
+
+1. **`get_model_config`** - View current model configuration
+   - Shows: trading style, margin, custom_rules, custom_instructions
+   - File: `backend/agents/tools/get_model_config.py`
+
+2. **`update_model_rules`** - Actually modify model configuration
+   - Updates `custom_rules` and/or `custom_instructions` in database
+   - Supports append mode (add to existing) or replace mode
+   - Max 2000 characters per field
+   - File: `backend/agents/tools/update_model_rules.py`
+
+**Files Created:**
+- `backend/agents/tools/get_model_config.py` - View config tool
+- `backend/agents/tools/update_model_rules.py` - Update config tool  
+- `docs/AGENT_TOOLS_OVERVIEW.md` - Complete tool documentation
+
+**Files Modified:**
+- `backend/agents/model_agent_langgraph.py` - Added new tools to agent (lines 41-42, 50-51, 237-247)
+
+**How It Works:**
+- Agent now has 6 tools total (was 4)
+- Can view current rules with `get_model_config`
+- Can suggest improvements with `suggest_rules`
+- Can actually apply changes with `update_model_rules`
+- Agent instructed to always ask before modifying configuration
+
+**Example Flow:**
+1. User: "How can I improve this?"
+2. Agent calls `suggest_rules` → suggests position size limits
+3. Agent asks: "Would you like me to add these rules?"
+4. User: "Yes"
+5. Agent calls `update_model_rules` → updates database
+6. Agent can call `get_model_config` → verifies changes applied
 
 ---
 
