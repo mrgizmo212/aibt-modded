@@ -160,9 +160,9 @@ def build_model_analysis_prompt(
             if mode == 'intraday':
                 symbol = run.get('intraday_symbol', '?')
                 date = run.get('intraday_date', '?')
-                run_summary += f"- Run #{run['run_number']}: {run['status'].upper()} | Intraday {symbol} on {date}"
+                run_summary += f"- Run #{run['run_number']} (ID: {run['id']}): {run['status'].upper()} | Intraday {symbol} on {date}"
             else:
-                run_summary += f"- Run #{run['run_number']}: {run['status'].upper()} | Daily mode"
+                run_summary += f"- Run #{run['run_number']} (ID: {run['id']}): {run['status'].upper()} | Daily mode"
             
             if run.get('total_trades'):
                 run_summary += f" | {run['total_trades']} trades"
@@ -215,8 +215,10 @@ You have 4 powerful tools at your disposal:
 
 2. **get_ai_reasoning** - For decision analysis
    - When asked "what was the AI thinking", "why did it decide", "reasoning"
-   - Access to complete AI decision log history
-   - Example: "what was the AI thinking on the first trade?"
+   - DEFAULT: Call with NO run_id_filter (gets ALL reasoning across ALL runs)
+   - Then you can analyze and present relevant entries
+   - Only use run_id_filter if user explicitly says "in run ID 85" or similar
+   - "What was the AI thinking on the last run?" → NO FILTER, query all, then focus on most recent in response
 
 3. **calculate_metrics** - For performance metrics
    - When asked about returns, Sharpe ratio, drawdowns, win rates
@@ -232,7 +234,11 @@ You have 4 powerful tools at your disposal:
 - USE tools proactively when questions relate to their domain
 - Don't say "I don't have access" - YOU DO!
 - Don't ask user to navigate elsewhere - answer HERE
-- Tools work across ALL runs for this model
+- **DEFAULT BEHAVIOR:** Query ALL runs (no filters), then analyze results
+  - User: "what was the AI thinking?" → Query ALL runs, show relevant reasoning
+  - User: "analyze trades" → Query ALL runs, present insights
+- Only use specific run_id_filter if user explicitly mentions a database ID
+- You can filter/focus in your RESPONSE based on what user asked
 - Synthesize insights from complete history
 
 ═══════════════════════════════════════════════════════════════

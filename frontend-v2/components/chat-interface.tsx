@@ -467,16 +467,22 @@ export function ChatInterface({
                 ? { ...m, streaming: false }
                 : m
             ))
-            setStreamingMessageId(null)
-            streamingMessageIdRef.current = null
-            setIsTyping(false)
             eventSource.close()
             
-            // NOW safe to navigate (streaming complete, message displayed)
+            // Navigate FIRST (while streaming flags still set to prevent race)
             if (createdSessionId && onConversationCreated) {
               console.log('[Chat] Navigating to conversation:', createdSessionId)
               onConversationCreated(createdSessionId, ephemeralModelId)
             }
+            
+            // THEN clear streaming state after navigation completes
+            // Delay to ensure URL change and guard check happen while flags still set
+            setTimeout(() => {
+              setStreamingMessageId(null)
+              streamingMessageIdRef.current = null
+              setIsTyping(false)
+              console.log('[Chat] Cleared streaming state after navigation')
+            }, 100)
           }
           
           // Error

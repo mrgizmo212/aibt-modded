@@ -33,23 +33,36 @@ def create_get_ai_reasoning_tool(supabase: Client, model_id: int, run_id: Option
         """
         
         # Build query
+        print(f"[get_ai_reasoning] Building query:")
+        print(f"  - model_id: {model_id}")
+        print(f"  - run_id (context): {run_id}")
+        print(f"  - run_id_filter (param): {run_id_filter}")
+        
         query = supabase.table("ai_reasoning")\
             .select("*")\
             .eq("model_id", model_id)
         
         # Filter by run if specified
         if run_id_filter:
+            print(f"  - Filtering by run_id_filter: {run_id_filter}")
             query = query.eq("run_id", run_id_filter)
         elif run_id:
             # Use current run context
+            print(f"  - Filtering by context run_id: {run_id}")
             query = query.eq("run_id", run_id)
+        else:
+            print(f"  - No run_id filter (querying ALL runs)")
         
         # Order by most recent
         query = query.order("timestamp", desc=True).limit(limit)
         
+        print(f"[get_ai_reasoning] Executing query...")
         result = query.execute()
         
+        print(f"[get_ai_reasoning] Query result: {len(result.data) if result.data else 0} records")
+        
         if not result.data:
+            print(f"[get_ai_reasoning] ❌ NO DATA RETURNED - RLS issue or query problem")
             return "No AI reasoning logs found. The AI may not have logged decision-making details for these trades."
         
         reasoning_logs = result.data

@@ -2633,27 +2633,27 @@ async def chat_stream_endpoint(
                 user_id=current_user["id"],
                 tool_calls=tool_calls if tool_calls else None
             )
+            
+            # Summarize if needed (>60 messages)
+            if await should_summarize(session["id"], services.get_supabase()):
+                print(f"📝 Summarizing conversation (>60 messages)...")
+                
+                # Get ALL messages for summarization
+                all_messages = await get_chat_messages(model_id, run_id, current_user["id"], limit=1000)
+                
+                # Summarize oldest 30 (keep recent 30 as-is)
+                if len(all_messages) > 30:
+                    messages_to_summarize = all_messages[:-30]  # All except last 30
                     
-                    # Summarize if needed (>60 messages)
-                    if await should_summarize(session["id"], services.get_supabase()):
-                        print(f"📝 Summarizing conversation (>60 messages)...")
-                        
-                        # Get ALL messages for summarization
-                        all_messages = await get_chat_messages(model_id, run_id, current_user["id"], limit=1000)
-                        
-                        # Summarize oldest 30 (keep recent 30 as-is)
-                        if len(all_messages) > 30:
-                            messages_to_summarize = all_messages[:-30]  # All except last 30
-                            
-                            summary = await summarize_conversation(
-                                messages_to_summarize,
-                                ai_model=agent.model.model_name,
-                                api_key=agent.model.openai_api_key
-                            )
-                            
-                            if summary:
-                                await update_session_summary(session["id"], summary, services.get_supabase())
-                                print(f"✅ Summary generated and saved ({len(summary)} chars)")
+                    summary = await summarize_conversation(
+                        messages_to_summarize,
+                        ai_model="openai/gpt-4.1-mini",
+                        api_key=config_settings.OPENAI_API_KEY
+                    )
+                    
+                    if summary:
+                        await update_session_summary(session["id"], summary, services.get_supabase())
+                        print(f"✅ Summary generated and saved ({len(summary)} chars)")
                     
                     yield {
                         "event": "message",
