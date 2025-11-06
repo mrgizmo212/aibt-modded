@@ -201,6 +201,161 @@ For example: A cash account (1x buying power) limits position sizes compared to 
         else:
             context_info += " | Analyzing all runs"
         
+        # ============================================================================
+        # LOAD RUN CONTEXT - Preload ALL run data into AI context
+        # ============================================================================
+        run_context = ""
+        if self.run_id:
+            try:
+                print(f"📊 Loading run context for run_id={self.run_id}...")
+                
+                # Fetch complete run details
+                run_result = self.supabase.table("trading_runs")\
+                    .select("*")\
+                    .eq("id", self.run_id)\
+                    .execute()
+                
+                if run_result.data:
+                    run = run_result.data[0]
+                    
+                    # Count actual trades
+                    trade_count_result = self.supabase.table("positions")\
+                        .select("id", count="exact")\
+                        .eq("run_id", self.run_id)\
+                        .execute()
+                    trade_count = trade_count_result.count if hasattr(trade_count_result, 'count') else run.get('total_trades', 0)
+                    
+                    # Count reasoning entries
+                    reasoning_count_result = self.supabase.table("ai_reasoning")\
+                        .select("id", count="exact")\
+                        .eq("run_id", self.run_id)\
+                        .execute()
+                    reasoning_count = reasoning_count_result.count if hasattr(reasoning_count_result, 'count') else 0
+                    
+                    # Get first and last trade dates
+                    trade_dates_result = self.supabase.table("positions")\
+                        .select("date")\
+                        .eq("run_id", self.run_id)\
+                        .order("date")\
+                        .execute()
+                    
+                    first_trade_date = "N/A"
+                    last_trade_date = "N/A"
+                    if trade_dates_result.data and len(trade_dates_result.data) > 0:
+                        first_trade_date = trade_dates_result.data[0].get('date', 'N/A')
+                        last_trade_date = trade_dates_result.data[-1].get('date', 'N/A')
+                    
+                    # Build mode-specific information
+                    if run['trading_mode'] == 'intraday':
+                        mode_details = f"""
+📍 Trading Mode: **INTRADAY** (minute-by-minute)
+   Symbol: {run.get('intraday_symbol', 'N/A')}
+   Date: {run.get('intraday_date', 'N/A')}
+   Session: {run.get('intraday_session', 'regular').upper()} session (9:30 AM - 4:00 PM)
+   Total Minutes: 390 possible trading minutes"""
+                    else:
+                        mode_details = f"""
+📍 Trading Mode: **DAILY** (end-of-day bars)
+   Date Range: {run.get('date_range_start', 'N/A')} to {run.get('date_range_end', 'N/A')}
+   Trading Days: Multiple days analyzed"""
+                    
+                    # Format return percentage
+                    final_return = run.get('final_return', 0)
+                    return_pct = (final_return * 100)
+                    return_emoji = "✅" if final_return > 0 else "❌" if final_return < 0 else "➖"
+                    
+                    # Format strategy snapshot
+                    strategy_snapshot = run.get('strategy_snapshot', {})
+                    if isinstance(strategy_snapshot, dict):
+                        strategy_text = f"""
+📋 Strategy Configuration Used:
+   AI Model: {strategy_snapshot.get('default_ai_model', 'Not specified')}
+   Temperature: {strategy_snapshot.get('model_parameters', {}).get('temperature', 'Not specified')}
+   
+   Custom Rules:
+   {strategy_snapshot.get('custom_rules', 'None specified')}
+   
+   Custom Instructions:
+   {strategy_snapshot.get('custom_instructions', 'None specified')}"""
+                    else:
+                        strategy_text = f"Strategy Snapshot: {strategy_snapshot}"
+                    
+                    # Calculate duration
+                    started = run.get('started_at', '')
+                    ended = run.get('ended_at', '')
+                    duration_text = "In progress" if run.get('status') == 'running' else f"Started: {started}\nEnded: {ended}"
+                    
+                    run_context = f"""
+
+<run_context>
+═══════════════════════════════════════════════════════════════
+🔍 ACTIVE RUN ANALYSIS - You are analyzing THIS SPECIFIC RUN:
+═══════════════════════════════════════════════════════════════
+
+🎯 Run Identity:
+   Run Number: #{run.get('run_number', '?')}
+   Run ID: {self.run_id}
+   Status: {run.get('status', 'unknown').upper()}
+
+{mode_details}
+
+{return_emoji} Performance Results:
+   Total Trades Executed: {trade_count}
+   Final Return: {return_pct:+.2f}% {return_emoji}
+   Final Portfolio Value: ${run.get('final_portfolio_value', 0):,.2f}
+   Max Drawdown: {(run.get('max_drawdown_during_run', 0) * 100):.2f}%
+   
+   First Trade: {first_trade_date}
+   Last Trade: {last_trade_date}
+
+⏱️ Execution Timeline:
+   {duration_text}
+
+🧠 AI Decision Intelligence:
+   Total Reasoning Entries: {reasoning_count}
+   - These are the AI's thought process logs
+   - Available via get_ai_reasoning tool for deep analysis
+   - Each entry explains WHY the AI made specific decisions
+
+{strategy_text}
+
+═══════════════════════════════════════════════════════════════
+
+💡 IMPORTANT - You Have Complete Run Context:
+   ✅ You KNOW all performance metrics above
+   ✅ You can REFERENCE this data directly in responses
+   ✅ You do NOT need to call tools for basic run information
+   ✅ Use analyze_trades tool ONLY for trade-by-trade breakdown
+   ✅ Use calculate_metrics tool ONLY for advanced calculations
+   ✅ Use get_ai_reasoning tool to see WHY AI made decisions
+
+   When user asks "how did this run perform?" or "what run am I looking at?"
+   → ANSWER IMMEDIATELY using the data above
+   → Do NOT say "let me calculate" or "let me check"
+   → You ALREADY KNOW the answer
+
+═══════════════════════════════════════════════════════════════
+</run_context>"""
+                    
+                    print(f"✅ Run context loaded successfully:")
+                    print(f"   - Run #{run.get('run_number')} ({run.get('trading_mode')} mode)")
+                    print(f"   - {trade_count} trades, {reasoning_count} AI decisions")
+                    print(f"   - Return: {return_pct:+.2f}%")
+                    
+                else:
+                    print(f"⚠️ Run {self.run_id} not found in database")
+                    
+            except Exception as e:
+                print(f"⚠️ Failed to load run context: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"ℹ️ No run_id provided - context will cover all runs for model {self.model_id}")
+        
+        # ============================================================================
+        # END RUN CONTEXT LOADING
+        # ============================================================================
+
         base_prompt = f"""<role>
 You are an expert trading strategy analyst and coach for True Trading Group's AI Trading Platform.
 </role>
@@ -214,6 +369,8 @@ You are an expert trading strategy analyst and coach for True Trading Group's AI
 </platform_context>
 
 {model_config}
+
+{run_context}
 
 <trading_modes>
 <mode name="intraday">
@@ -477,7 +634,6 @@ If user is confused, explain simply:
   - Reference minute_time for intraday, date for daily
   - Explain risk/reward tradeoffs clearly
 </constraints>
-</guidelines>
 """
         
         # Add global instructions if set by admin

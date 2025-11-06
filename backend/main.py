@@ -2088,6 +2088,51 @@ You can see this model's complete configuration and should answer questions abou
 When discussing trades or performance, consider how the configuration affects the AI's behavior.
 </model_context>"""
                         print(f"📋 Added full model configuration context for MODEL {model_id}")
+                        
+                        # NEW: Load run summary for model conversations
+                        run_summary = ""
+                        try:
+                            runs_result = supabase.table("trading_runs")\
+                                .select("id, run_number, status, trading_mode, total_trades, final_return, final_portfolio_value, intraday_symbol, intraday_date, date_range_start, date_range_end")\
+                                .eq("model_id", model_id)\
+                                .order("run_number", desc=True)\
+                                .limit(10)\
+                                .execute()
+                            
+                            if runs_result.data and len(runs_result.data) > 0:
+                                runs = runs_result.data
+                                run_summary = f"\n\n<run_summary>\nThis model has completed {len(runs)} run(s):\n\n"
+                                
+                                for run in runs:
+                                    mode = run.get('trading_mode', 'unknown')
+                                    if mode == 'intraday':
+                                        symbol = run.get('intraday_symbol', '?')
+                                        date = run.get('intraday_date', '?')
+                                        run_summary += f"- Run #{run['run_number']}: {run['status'].upper()} | Intraday {symbol} on {date}"
+                                    else:
+                                        start = run.get('date_range_start', '?')
+                                        end = run.get('date_range_end', '?')
+                                        run_summary += f"- Run #{run['run_number']}: {run['status'].upper()} | Daily {start} to {end}"
+                                    
+                                    if run.get('total_trades'):
+                                        run_summary += f" | {run['total_trades']} trades"
+                                    if run.get('final_return') is not None:
+                                        run_summary += f" | {run['final_return']*100:+.2f}% return"
+                                    if run.get('final_portfolio_value'):
+                                        run_summary += f" | ${run['final_portfolio_value']:,.2f}"
+                                    
+                                    run_summary += f"\n"
+                                
+                                run_summary += "\nYou can reference these runs when answering questions. For detailed analysis of a specific run, user should navigate to that run's conversation.\n</run_summary>"
+                                
+                                print(f"✅ Loaded run summary: {len(runs)} runs for model {model_id}")
+                                
+                                # Append to model_context
+                                model_context += run_summary
+                        
+                        except Exception as e:
+                            print(f"⚠️ Failed to load run summary: {e}")
+                        
                 except Exception as e:
                     print(f"⚠️ Failed to load model context: {e}")
             
