@@ -2186,30 +2186,87 @@ IMPORTANT - About AI Decision Logs and Detailed Analysis:
             print(f"🤖 Starting AI stream with model: {ai_model}")
             print(f"📨 Message count: {len(messages)}")
             
-            # Stream response
+            # DECISION: Use SystemAgent for model conversations (get tools), simple ChatOpenAI for general
             full_response = ""
-            try:
-                chunk_count = 0
-                async for chunk in model.astream(messages):
-                    if chunk.content:
-                        chunk_count += 1
-                        full_response += chunk.content
-                        event_data = {
-                            "event": "message",
-                            "data": json.dumps({"type": "token", "content": chunk.content})
-                        }
-                        print(f"📤 Yielding chunk #{chunk_count}: {chunk.content[:20]}...")
-                        yield event_data
+            tool_calls_used = []
+            
+            if model_id:
+                # MODEL CONVERSATION: Use SystemAgent with ALL TOOLS
+                print(f"[stream] Model conversation mode (model_id={model_id}) - using SystemAgent with tools")
                 
-                print(f"✅ AI stream completed, {chunk_count} chunks, response length: {len(full_response)}")
+                from agents.system_agent import SystemAgent
                 
-            except Exception as stream_error:
-                print(f"❌ AI stream error: {stream_error}")
-                yield {
-                    "event": "message",
-                    "data": json.dumps({"type": "error", "error": f"AI model error: {str(stream_error)}"})
-                }
-                return
+                agent = SystemAgent(
+                    model_id=model_id,
+                    run_id=None,  # None = access ALL runs for this model
+                    user_id=current_user["id"],
+                    supabase=services.get_supabase()
+                )
+                
+                # Stream with tools
+                try:
+                    async for chunk in agent.chat_stream(message, chat_history, conversation_summary):
+                        if isinstance(chunk, dict):
+                            if chunk.get("type") == "token":
+                                token_text = chunk.get("content", "")
+                                full_response += token_text
+                                yield {
+                                    "event": "message",
+                                    "data": json.dumps({"type": "token", "content": token_text})
+                                }
+                            elif chunk.get("type") == "tool":
+                                tool_name = chunk.get("tool_name") or chunk.get("tool", "unknown")
+                                tool_calls_used.append(tool_name)
+                                yield {
+                                    "event": "message",
+                                    "data": json.dumps({"type": "tool", "tool": tool_name})
+                                }
+                        else:
+                            # Plain string token
+                            full_response += str(chunk)
+                            yield {
+                                "event": "message",
+                                "data": json.dumps({"type": "token", "content": str(chunk)})
+                            }
+                    
+                    print(f"✅ SystemAgent stream completed, response length: {len(full_response)}, tools used: {tool_calls_used}")
+                
+                except Exception as stream_error:
+                    print(f"❌ SystemAgent stream error: {stream_error}")
+                    import traceback
+                    traceback.print_exc()
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"AI model error: {str(stream_error)}"})
+                    }
+                    return
+            
+            else:
+                # GENERAL CONVERSATION: Simple ChatOpenAI (no tools)
+                print(f"[stream] General conversation mode (no model) - using simple ChatOpenAI")
+                
+                try:
+                    chunk_count = 0
+                    async for chunk in model.astream(messages):
+                        if chunk.content:
+                            chunk_count += 1
+                            full_response += chunk.content
+                            event_data = {
+                                "event": "message",
+                                "data": json.dumps({"type": "token", "content": chunk.content})
+                            }
+                            print(f"📤 Yielding chunk #{chunk_count}: {chunk.content[:20]}...")
+                            yield event_data
+                    
+                    print(f"✅ AI stream completed, {chunk_count} chunks, response length: {len(full_response)}")
+                    
+                except Exception as stream_error:
+                    print(f"❌ AI stream error: {stream_error}")
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "error", "error": f"AI model error: {str(stream_error)}"})
+                    }
+                    return
             
             # Save conversation to database as general conversation (model_id=None)
             try:
@@ -2230,7 +2287,8 @@ IMPORTANT - About AI Decision Logs and Detailed Analysis:
                     role="assistant",
                     content=full_response,
                     model_id=model_id,  # ← Use model_id param (None for general, int for model-specific)
-                    run_id=None
+                    run_id=None,
+                    tool_calls=tool_calls_used if tool_calls_used else None
                 )
                 
                 print(f"💾 Saved general chat conversation (model_id=None)")

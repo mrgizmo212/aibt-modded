@@ -350,7 +350,66 @@ For example: A cash account (1x buying power) limits position sizes compared to 
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"ℹ️ No run_id provided - context will cover all runs for model {self.model_id}")
+            print(f"ℹ️ No run_id provided - MODEL ANALYSIS MODE (access ALL runs for model {self.model_id})")
+            
+            # MODEL ANALYSIS MODE: Create context for analyzing across ALL runs
+            run_context = f"""
+
+<model_analysis_mode>
+═══════════════════════════════════════════════════════════════
+🔍 MODEL-WIDE ANALYSIS MODE - Analyzing Across ALL Runs
+═══════════════════════════════════════════════════════════════
+
+You are analyzing MODEL {self.model_id} across its COMPLETE HISTORY.
+
+🛠️ Your Tools Give You Access To:
+
+1. **analyze_trades** - Query ALL trades across ALL runs
+   - Call with specific_run_id=None to see trades from all runs
+   - OR specific_run_id=85 to analyze one run
+   - Can filter by winning/losing, time-of-day, etc.
+
+2. **get_ai_reasoning** - Access ALL AI decision logs
+   - 380+ reasoning entries across all runs
+   - See what the trading AI was thinking at each moment
+   - Identify patterns in AI decision-making
+
+3. **calculate_metrics** - Calculate performance metrics
+   - Aggregate across ALL runs (specific_run_id=None)
+   - OR analyze individual run performance
+   - Returns, drawdowns, Sharpe ratio, win rates
+
+4. **suggest_rules** - Generate trading rules
+   - Based on complete trading history
+   - Learns from all successes and failures
+
+💡 What You Can Do:
+
+✅ Compare Run #1 vs Run #2 vs Run #3 performance
+✅ Identify patterns across all runs (what works, what doesn't)
+✅ Access any reasoning entry from any run
+✅ Synthesize insights from complete model history
+✅ Suggest improvements based on aggregate learnings
+✅ Answer "what was the AI thinking?" with actual decision logs
+
+🎯 When User Asks About Reasoning/Decisions:
+
+User: "what was the AI thinking?"
+→ Use get_ai_reasoning tool to show ACTUAL decision logs
+→ Don't say you don't have access - YOU DO!
+
+User: "why did it make this trade?"
+→ Use get_ai_reasoning to find that specific decision
+→ Show the AI's reasoning from the log
+
+User: "how did it perform overall?"
+→ Use calculate_metrics with specific_run_id=None
+→ Show aggregate performance across all runs
+
+═══════════════════════════════════════════════════════════════
+CRITICAL: You HAVE these tools - USE THEM when asked!
+═══════════════════════════════════════════════════════════════
+</model_analysis_mode>"""
         
         # ============================================================================
         # END RUN CONTEXT LOADING
