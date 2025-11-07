@@ -147,10 +147,16 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
     }
   })
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to bottom when new logs arrive (only if already at bottom)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      
+      // Only auto-scroll if user is already near the bottom
+      if (isNearBottom) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }
     }
   }, [logs])
 
@@ -223,13 +229,18 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
               <p className="text-[#525252] text-xs mt-1">Start trading to see live logs</p>
             </div>
           ) : (
-            logs.map((log, index) => (
-              <div key={index} className={`${getLogColor(log.type)} flex gap-2`}>
-                <span className="text-[#525252]" suppressHydrationWarning>{log.timestamp}</span>
-                {log.icon && <span className="flex-shrink-0 mt-0.5">{log.icon}</span>}
-                <span className="whitespace-pre-wrap">{log.message}</span>
-              </div>
-            ))
+            logs.map((log, index) => {
+              // Special formatting for HOLD decisions
+              const isHoldDecision = log.message.includes('💭') && log.message.includes('HOLD')
+              
+              return (
+                <div key={index} className={`${getLogColor(log.type)} flex gap-2 ${isHoldDecision ? 'opacity-70' : ''}`}>
+                  <span className="text-[#525252]" suppressHydrationWarning>{log.timestamp}</span>
+                  {log.icon && <span className="flex-shrink-0 mt-0.5">{log.icon}</span>}
+                  <span className="whitespace-pre-wrap">{log.message}</span>
+                </div>
+              )
+            })
           )}
         </div>
       </div>

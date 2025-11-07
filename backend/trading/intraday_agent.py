@@ -859,8 +859,13 @@ async def _ai_decide_intraday(
         
         content_upper = content.upper()
         
-        # Extract reasoning (text after dash)
-        reasoning = content.split(" - ", 1)[1] if " - " in content else content
+        # Extract reasoning (text after first dash, clean up duplicates)
+        if " - " in content:
+            reasoning = content.split(" - ", 1)[1]
+            # Take only the first sentence if multiple concatenated
+            reasoning = reasoning.split("HOLD")[0].strip()
+        else:
+            reasoning = content
         
         print(f"    💭 AI Response: {content[:100]}...")
         
