@@ -87,6 +87,11 @@ export default function Home({
     }
   }
 
+  const handleCreateModel = () => {
+    setEditingModel(null)  // null = create mode
+    setIsEditDialogOpen(true)
+  }
+
   const handleSaveModel = () => {
     console.log("Model saved")
     setIsEditDialogOpen(false)
@@ -122,6 +127,8 @@ export default function Home({
             selectedConversationId={selectedConversationId}
             onSelectModel={handleModelSelect}
             onToggleModel={handleToggleModel}
+            onModelEdit={handleEditModel}
+            onCreateModel={handleCreateModel}
             onConversationSelect={(sessionId, modelId) => {
               setSelectedConversationId(sessionId)
               if (modelId) {
@@ -168,6 +175,8 @@ export default function Home({
             setIsMenuOpen(false)
           }}
           onToggleModel={handleToggleModel}
+          onModelEdit={handleEditModel}
+          onCreateModel={handleCreateModel}
           onConversationSelect={(sessionId, modelId) => {
             setSelectedConversationId(sessionId)
             if (modelId) {

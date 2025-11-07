@@ -90,6 +90,11 @@ export default function NewModelConversationPage() {
     }
   }
 
+  const handleCreateModel = () => {
+    setEditingModel(null)  // null = create mode
+    setIsEditDialogOpen(true)
+  }
+
   const handleSaveModel = () => {
     console.log("Model saved")
     setIsEditDialogOpen(false)
@@ -120,6 +125,8 @@ export default function NewModelConversationPage() {
             isEphemeralActive={true}
             onSelectModel={handleModelSelect}
             onToggleModel={handleToggleModel}
+            onModelEdit={handleEditModel}
+            onCreateModel={handleCreateModel}
             onConversationSelect={(sessionId, convModelId) => {
               if (convModelId) {
                 router.push(`/m/${convModelId}/c/${sessionId}`)
@@ -183,6 +190,8 @@ export default function NewModelConversationPage() {
             setIsMenuOpen(false)
           }}
           onToggleModel={handleToggleModel}
+          onModelEdit={handleEditModel}
+          onCreateModel={handleCreateModel}
           onConversationSelect={(sessionId, convModelId) => {
             if (convModelId) {
               router.push(`/m/${convModelId}/c/${sessionId}`)
