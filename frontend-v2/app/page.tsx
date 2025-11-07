@@ -66,26 +66,8 @@ export default function Home({
   }
   
   const handleRunClick = async (modelId: number, runId: number) => {
-    console.log('Run clicked:', modelId, runId)
-    
-    // Set selected run for chat context
-    setSelectedModelId(modelId)
-    setSelectedRunId(runId)
-    
-    try {
-      // Fetch full run details
-      const { getRunDetails } = await import('@/lib/api')
-      const runData = await getRunDetails(modelId, runId)
-      
-      // Trigger chat to show run details
-      if ((window as any).__showRunInChat) {
-        (window as any).__showRunInChat(modelId, runId, runData)
-      }
-      
-      setContext("run")
-    } catch (error) {
-      console.error('Failed to load run details:', error)
-    }
+    // Navigate to dedicated run analysis route
+    router.push(`/m/${modelId}/r/${runId}`)
   }
 
   const handleToggleModel = (id: number) => {

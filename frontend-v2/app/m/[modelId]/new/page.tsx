@@ -71,20 +71,8 @@ export default function NewModelConversationPage() {
   }
   
   const handleRunClick = async (runModelId: number, runId: number) => {
-    setSelectedRunId(runId)
-    
-    try {
-      const { getRunDetails } = await import('@/lib/api')
-      const runData = await getRunDetails(runModelId, runId)
-      
-      if ((window as any).__showRunInChat) {
-        (window as any).__showRunInChat(runModelId, runId, runData)
-      }
-      
-      setContext("run")
-    } catch (error) {
-      console.error('Failed to load run details:', error)
-    }
+    // Navigate to dedicated run analysis route
+    router.push(`/m/${runModelId}/r/${runId}`)
   }
 
   const handleToggleModel = (id: number) => {

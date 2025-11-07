@@ -15,22 +15,23 @@ import { SystemStatusDrawer } from "@/components/system-status-drawer"
 import { SystemStatusTrigger } from "@/components/system-status-trigger"
 
 /**
- * General Conversation Detail Route
- * URL: /c/[conversationId]
- * Purpose: Display existing general conversation (no model)
- * Database record exists - conversation has been created
+ * Run Analysis Route
+ * URL: /m/[modelId]/r/[runId]
+ * Purpose: Display run details and enable run-specific chat analysis
+ * Shows run performance, trades, and AI reasoning
  */
-export default function GeneralConversationPage() {
+export default function RunAnalysisPage() {
   const router = useRouter()
   const params = useParams()
   const { user, loading } = useAuth()
   
-  // Extract conversation ID from URL params
-  const conversationId = params.conversationId ? parseInt(params.conversationId as string) : null
+  // Extract model ID and run ID from URL params
+  const modelId = params.modelId ? parseInt(params.modelId as string) : null
+  const runId = params.runId ? parseInt(params.runId as string) : null
   
   // State declarations
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
-  const [context, setContext] = useState<"dashboard" | "model" | "run">("dashboard")
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
+  const [context, setContext] = useState<"dashboard" | "model" | "run">("run")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isContextOpen, setIsContextOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -57,18 +58,19 @@ export default function GeneralConversationPage() {
     )
   }
 
-  // Don't render if not authenticated
-  if (!user) {
+  // Don't render if not authenticated or missing required params
+  if (!user || !modelId || !runId) {
     return null
   }
 
   const handleModelSelect = (id: number) => {
-    setContext("model")
+    // Navigate to model's new chat page
+    router.push(`/m/${id}/new`)
   }
   
-  const handleRunClick = async (runModelId: number, runId: number) => {
-    // Navigate to dedicated run analysis route
-    router.push(`/m/${runModelId}/r/${runId}`)
+  const handleRunClick = async (runModelId: number, clickedRunId: number) => {
+    // Navigate to the clicked run's analysis page
+    router.push(`/m/${runModelId}/r/${clickedRunId}`)
   }
 
   const handleToggleModel = (id: number) => {
@@ -99,7 +101,7 @@ export default function GeneralConversationPage() {
   }
 
   const handleMobileDetailsClick = (id: number) => {
-    setContext("model")
+    setContext("run")
     setIsContextOpen(true)
   }
 
@@ -111,8 +113,9 @@ export default function GeneralConversationPage() {
         {/* Left Sidebar - Navigation (Hidden on mobile) */}
         <div className="hidden lg:block lg:w-[20%] flex-shrink-0">
           <NavigationSidebar
-            selectedModelId={null}
-            selectedConversationId={conversationId}
+            selectedModelId={modelId}
+            selectedConversationId={selectedConversationId}
+            selectedRunId={runId}
             isEphemeralActive={false}
             onSelectModel={handleModelSelect}
             onToggleModel={handleToggleModel}
@@ -123,6 +126,7 @@ export default function GeneralConversationPage() {
                 router.push(`/c/${sessionId}`)
               }
             }}
+            onRunClick={handleRunClick}
           />
         </div>
 
@@ -130,15 +134,11 @@ export default function GeneralConversationPage() {
         <div className="w-full lg:w-[50%] flex-shrink-0 lg:mt-0 mt-[56px] lg:mb-0 mb-[72px]">
           <ChatInterface
             isEphemeral={false}
-            selectedConversationId={conversationId}
+            selectedConversationId={selectedConversationId}
             onConversationCreated={(sessionId, createdModelId) => {
-              console.log('[GeneralConversationPage] New conversation created:', sessionId, 'model:', createdModelId)
-              // Navigate to new conversation (general or model-specific)
-              if (createdModelId) {
-                router.push(`/m/${createdModelId}/c/${sessionId}`)
-              } else {
-                router.push(`/c/${sessionId}`)
-              }
+              console.log('[RunAnalysisPage] New conversation created:', sessionId, 'model:', createdModelId)
+              // Navigate to new conversation
+              router.push(`/m/${createdModelId}/c/${sessionId}`)
               
               // Notify sidebar to refresh
               window.dispatchEvent(new CustomEvent('conversation-created', {
@@ -150,8 +150,8 @@ export default function GeneralConversationPage() {
             onModelEdit={handleEditModel}
             onMobileDetailsClick={handleMobileDetailsClick}
             onShowRunDetails={handleRunClick}
-            selectedModelId={undefined}
-            selectedRunId={undefined}
+            selectedModelId={modelId}
+            selectedRunId={runId}
           />
         </div>
 
@@ -159,7 +159,8 @@ export default function GeneralConversationPage() {
         <div className="hidden lg:block lg:w-[30%] flex-shrink-0">
           <ContextPanel 
             context={context} 
-            selectedModelId={null} 
+            selectedModelId={modelId}
+            selectedRunId={runId}
             onEditModel={handleEditModel}
             onRunClick={handleRunClick}
           />
@@ -168,8 +169,9 @@ export default function GeneralConversationPage() {
 
       <MobileDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} side="left">
         <NavigationSidebar
-          selectedModelId={null}
-          selectedConversationId={conversationId}
+          selectedModelId={modelId}
+          selectedConversationId={selectedConversationId}
+          selectedRunId={runId}
           isEphemeralActive={false}
           onSelectModel={(id) => {
             handleModelSelect(id)
@@ -184,6 +186,7 @@ export default function GeneralConversationPage() {
             }
             setIsMenuOpen(false)
           }}
+          onRunClick={handleRunClick}
           isHidden={!isMenuOpen}
         />
       </MobileDrawer>
@@ -191,7 +194,8 @@ export default function GeneralConversationPage() {
       <MobileBottomSheet isOpen={isContextOpen} onClose={() => setIsContextOpen(false)}>
         <ContextPanel 
           context={context} 
-          selectedModelId={null} 
+          selectedModelId={modelId}
+          selectedRunId={runId}
           onEditModel={handleEditModel}
           onRunClick={handleRunClick}
         />
@@ -212,3 +216,4 @@ export default function GeneralConversationPage() {
     </>
   )
 }
+

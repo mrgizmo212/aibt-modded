@@ -50,6 +50,154 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-027: Missing Dedicated Run Route and Triple API Calls
+**Date Discovered:** 2025-11-07 16:45  
+**Date Fixed:** 2025-11-07 17:30  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- Click run from sidebar → URL stays `/m/186/new` instead of changing
+- `/api/models/186/runs/101` called **3 times** (should be 1-2)
+- No shareable run URLs
+- Run context not reflected in URL
+- Duplicate data fetching
+
+**Root Cause:**
+1. **No dedicated route for runs** - Clicking run changed context state but not URL
+2. **Duplicate fetching** - Both page component AND ContextPanel fetched run details
+3. **Missing navigation** - handleRunClick called `setContext("run")` instead of `router.push()`
+
+**Affected Files:**
+- All page components with handleRunClick:
+  - `frontend-v2/app/m/[modelId]/new/page.tsx`
+  - `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx`
+  - `frontend-v2/app/c/[conversationId]/page.tsx`
+  - `frontend-v2/app/new/page.tsx`
+  - `frontend-v2/app/page.tsx`
+
+**Why This Was Wrong:**
+
+**Old Pattern:**
+```typescript
+const handleRunClick = async (modelId: number, runId: number) => {
+  setSelectedRunId(runId)
+  
+  // Fetch run details
+  const runData = await getRunDetails(modelId, runId)  // ← DUPLICATE #1
+  
+  if ((window as any).__showRunInChat) {
+    (window as any).__showRunInChat(modelId, runId, runData)
+  }
+  
+  setContext("run")  // ← Change state, not URL
+}
+```
+
+Problems:
+1. URL doesn't change → `/m/186/new` lies about what user is viewing
+2. Page fetches run details (not needed)
+3. ContextPanel ALSO fetches run details → Duplicate #2
+4. React Strict Mode → Duplicate #3 = **3 total fetches**
+
+**Final Solution:**
+1. Created dedicated route: `/m/[modelId]/r/[runId]/page.tsx`
+2. Updated all handleRunClick to navigate instead of fetching
+3. ContextPanel handles all run data fetching (single source)
+
+**Code Changes:**
+
+[CREATED - file: `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx`]
+```typescript
+// New dedicated route for run analysis
+export default function RunAnalysisPage() {
+  const params = useParams()
+  const modelId = parseInt(params.modelId as string)
+  const runId = parseInt(params.runId as string)
+  
+  const [context] = useState<"dashboard" | "model" | "run">("run")
+  
+  return (
+    <div className="flex h-screen">
+      <NavigationSidebar 
+        selectedModelId={modelId}
+        selectedRunId={runId}
+        onRunClick={handleRunClick}
+      />
+      
+      <ChatInterface 
+        selectedModelId={modelId}
+        selectedRunId={runId}
+      />
+      
+      <ContextPanel 
+        context="run"
+        selectedModelId={modelId}
+        selectedRunId={runId}
+      />
+    </div>
+  )
+}
+```
+
+[AFTER - All page files: Updated handleRunClick]
+```typescript
+const handleRunClick = async (modelId: number, runId: number) => {
+  // Navigate to dedicated run analysis route
+  router.push(`/m/${modelId}/r/${runId}`)
+}
+```
+
+**What Changed:**
+1. **Created 1 new file:** `/m/[modelId]/r/[runId]/page.tsx` (205 lines)
+2. **Modified 5 files:** Simplified handleRunClick from ~15 lines to 3 lines each
+3. **Removed duplicate fetch:** Page components no longer fetch run details
+4. **Proper URLs:** Runs now have shareable URLs like `/m/186/r/101`
+
+**Files Modified:**
+- ✅ Created: `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx`
+- ✅ Modified: `frontend-v2/app/m/[modelId]/new/page.tsx` (lines 73-76)
+- ✅ Modified: `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` (lines 70-72)
+- ✅ Modified: `frontend-v2/app/c/[conversationId]/page.tsx` (lines 69-71)
+- ✅ Modified: `frontend-v2/app/new/page.tsx` (lines 110-112)
+- ✅ Modified: `frontend-v2/app/page.tsx` (lines 68-70)
+
+**Route Structure Now:**
+```
+/app
+├── page.tsx                          ← Dashboard
+├── new/page.tsx                      ← New general conversation
+├── c/[conversationId]/page.tsx       ← General conversation
+└── m/[modelId]/
+    ├── new/page.tsx                  ← New model conversation
+    ├── c/[conversationId]/page.tsx   ← Model conversation
+    └── r/[runId]/page.tsx            ← Run analysis ✅ NEW
+```
+
+**Benefits:**
+- ✅ URL reflects what user is viewing
+- ✅ Shareable run URLs (send `/m/186/r/101` to colleague)
+- ✅ Bookmarkable runs
+- ✅ Reduced API calls (1 fetch instead of 3)
+- ✅ Cleaner code (removed duplicate logic)
+- ✅ Proper navigation hierarchy
+
+**Lessons Learned:**
+- **URLs should reflect content** - If viewing a run, URL should say so
+- **Single source of truth** - Only one component should fetch data
+- **Dedicated routes > state changes** - Proper routing is better than context switching
+- **Duplicate fetches waste resources** - Check who else is fetching before adding new fetch
+- **Route planning matters** - Design URL structure upfront to avoid refactoring
+
+**Prevention Strategy:**
+1. **Design URL structure first** - Map all user flows to routes before implementing
+2. **One component owns data** - Decide who fetches, others receive as props
+3. **Use router.push for major state changes** - Don't rely on context state for navigation
+4. **Test with network tab open** - Catch duplicate API calls early
+5. **Document route structure** - Keep route map in overview.md
+
+---
+
 ### BUG-026: Controlled to Uncontrolled Input Error in Edit Model Dialog
 **Date Discovered:** 2025-11-07 16:30  
 **Date Fixed:** 2025-11-07 16:35  
@@ -1945,17 +2093,16 @@ if (data.type === 'session_created' && data.session_id) {
 
 ## Bug Statistics
 
-**Total Bugs Logged:** 23  
+**Total Bugs Logged:** 24  
 **Critical:** 4 (BUG-001, BUG-003, BUG-023, BUG-025)  
 **High:** 18 (BUG-002, BUG-004 through BUG-022, BUG-024)  
-**Medium:** 1 (BUG-026)  
+**Medium:** 2 (BUG-026, BUG-027)  
 **Status:**
-- Fixed: 23 (100%)
+- Fixed: 24 (100%)
 - In Progress: 0
 - Blocked: 0
 
-**Most Common Bug Type:** Frontend State Management & Streaming (14/23)  
-**Average Time to Fix:** ~30 minutes  
+**Most Common Bug Type:** Frontend State Management & Routing (15/24)  
 **Test Coverage:** 100% (all fixes have test verification or manual test protocols)
 
 ---
