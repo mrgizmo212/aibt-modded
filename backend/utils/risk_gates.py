@@ -12,9 +12,10 @@ class RiskGates:
     These provide baseline safety regardless of user rules
     """
     
-    def __init__(self, model_id: int, user_profile: Optional[Dict] = None):
+    def __init__(self, model_id: int, user_profile: Optional[Dict] = None, model_config: Optional[Dict] = None):
         self.model_id = model_id
         self.user_profile = user_profile or {}
+        self.model_config = model_config or {}
     
     def validate_all(
         self,
@@ -70,14 +71,23 @@ class RiskGates:
                 return False, f"SAFETY GATE: Cannot cover {amount} {symbol}, only short {abs(short_position)}"
         
         # ====================================================================
-        # GATE 4: Daily Loss Circuit Breaker (if user profile set)
+        # GATE 4: Daily Loss Circuit Breaker (Dollar-based from model config)
         # ====================================================================
-        if self.user_profile.get('stop_trading_if_daily_loss_exceeds'):
+        # Check user-configured dollar limit first (from model_parameters)
+        max_daily_loss_dollars = self.model_config.get('max_daily_loss_dollars')
+        if max_daily_loss_dollars:
+            daily_pnl = portfolio_snapshot.get('daily_pnl', 0)
+            
+            if daily_pnl < -max_daily_loss_dollars:
+                return False, f"CIRCUIT BREAKER: Daily loss ${abs(daily_pnl):.2f} exceeds configured limit ${max_daily_loss_dollars:.2f}"
+        
+        # Legacy: Also check user_profile if set
+        elif self.user_profile.get('stop_trading_if_daily_loss_exceeds'):
             daily_pnl = portfolio_snapshot.get('daily_pnl', 0)
             max_loss = abs(self.user_profile['stop_trading_if_daily_loss_exceeds'])
             
             if daily_pnl < -max_loss:
-                return False, f"CIRCUIT BREAKER: Daily loss ${abs(daily_pnl):.2f} exceeds user limit ${max_loss:.2f}"
+                return False, f"CIRCUIT BREAKER: Daily loss ${abs(daily_pnl):.2f} exceeds limit ${max_loss:.2f}"
         
         # ====================================================================
         # GATE 5: Portfolio Drawdown Limit (25% hard limit)
@@ -92,15 +102,21 @@ class RiskGates:
                 return False, f"CIRCUIT BREAKER: Portfolio down {drawdown*100:.1f}% from initial value (25% max allowed)"
         
         # ====================================================================
-        # GATE 6: Prevent Extreme Position Sizes (50% hard limit)
+        # GATE 6: Prevent Extreme Position Sizes (Dollar-based if configured, else 50% hard limit)
         # ====================================================================
         if action in ['buy', 'short']:
             trade_value = amount * price
             total_value = portfolio_snapshot.get('total_value', portfolio_snapshot['cash'])
-            extreme_threshold = total_value * 0.50  # 50% hard limit
             
+            # Check user-configured dollar limit first (from model_parameters)
+            max_position_dollars = self.model_config.get('max_position_size_dollars')
+            if max_position_dollars and trade_value > max_position_dollars:
+                return False, f"RISK LIMIT: Trade value ${trade_value:.2f} exceeds configured max position size ${max_position_dollars:.2f}"
+            
+            # Fallback: 50% hard limit (baseline safety)
+            extreme_threshold = total_value * 0.50  # 50% hard limit
             if trade_value > extreme_threshold:
-                return False, f"SAFETY GATE: Single trade of ${trade_value:.2f} would be {trade_value/total_value*100:.1f}% of portfolio (50% max)"
+                return False, f"SAFETY GATE: Single trade of ${trade_value:.2f} would be {trade_value/total_value*100:.1f}% of portfolio (50% hard limit)"
         
         # ====================================================================
         # GATE 7: Minimum Cash Reserve (10% hard limit)
@@ -116,7 +132,7 @@ class RiskGates:
         return True, None  # All gates passed
 
 
-def create_risk_gates(model_id: int, user_profile: Optional[Dict] = None) -> RiskGates:
+def create_risk_gates(model_id: int, user_profile: Optional[Dict] = None, model_config: Optional[Dict] = None) -> RiskGates:
     """Factory function to create risk gates"""
-    return RiskGates(model_id, user_profile)
+    return RiskGates(model_id, user_profile, model_config)
 

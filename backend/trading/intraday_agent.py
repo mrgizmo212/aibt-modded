@@ -252,11 +252,19 @@ async def run_intraday_session(
     from utils.rule_enforcer import create_rule_enforcer
     from utils.risk_gates import create_risk_gates
     
+    # Get model configuration for risk parameters
+    model_result = supabase.table("models").select("model_parameters").eq("id", model_id).execute()
+    model_params = model_result.data[0].get("model_parameters", {}) if model_result.data else {}
+    
     enforcer = create_rule_enforcer(supabase, model_id)
-    risk_gates = create_risk_gates(model_id)
+    risk_gates = create_risk_gates(model_id, model_config=model_params)
     
     print(f"  ✅ Rule enforcer loaded ({len(enforcer.rules)} active rules)")
     print(f"  ✅ Risk gates initialized")
+    if model_params.get('max_position_size_dollars'):
+        print(f"  💰 Max position size: ${model_params['max_position_size_dollars']:.2f}")
+    if model_params.get('max_daily_loss_dollars'):
+        print(f"  🛑 Max daily loss: ${model_params['max_daily_loss_dollars']:.2f}")
     
     trades_executed = 0
     trades_rejected_rules = 0
