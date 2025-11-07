@@ -47,7 +47,7 @@ export function MobileDrawer({ isOpen, onClose, side, children }: MobileDrawerPr
             <X className="w-5 h-5" />
           </Button>
         </div>
-        <div className="overflow-y-auto h-[calc(100vh-64px)]">{children}</div>
+        <div className="overflow-y-auto h-[calc(100vh-64px)]">{isOpen && children}</div>
       </div>
     </>
   )

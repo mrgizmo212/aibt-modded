@@ -99,7 +99,7 @@ export function MobileBottomSheet({ isOpen, onClose, children }: MobileBottomShe
 
         {/* Content - Fully scrollable */}
         <div className="overflow-y-auto scrollbar-thin" style={{ height: `calc(${height} - 60px)` }}>
-          {children}
+          {isOpen && children}
         </div>
       </div>
     </>

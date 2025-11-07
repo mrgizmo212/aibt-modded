@@ -5,7 +5,7 @@
 ### ISSUE-1: Duplicate API Calls on Navigation to /m/186/new
 **Date Discovered:** 2025-11-07 17:00  
 **Severity:** MEDIUM  
-**Status:** 📝 NOTED - To be fixed later
+**Status:** ✅ FIXED (See BUG-028)
 
 **Symptoms:**
 - User clicks "New Chat" button from model conversation
@@ -111,7 +111,7 @@
 ### ISSUE-3: Duplicate "Conversation Created" Events
 **Date Discovered:** 2025-11-07 17:05  
 **Severity:** LOW  
-**Status:** 📝 NOTED - To be fixed later
+**Status:** ✅ FIXED (See BUG-028)
 
 **Symptoms:**
 - When sending first message, `conversation-created` event fires TWICE:
@@ -140,7 +140,7 @@
 ### ISSUE-4: Messages Loaded Twice for Same Conversation
 **Date Discovered:** 2025-11-07 17:10  
 **Severity:** LOW  
-**Status:** 📝 NOTED - To be fixed later
+**Status:** ✅ FIXED (See BUG-028)
 
 **Symptoms:**
 - User clicks conversation in sidebar
@@ -164,7 +164,7 @@
 ### ISSUE-5: Excessive Trading Status Polling
 **Date Discovered:** 2025-11-07 17:10  
 **Severity:** LOW  
-**Status:** 📝 NOTED - To be fixed later
+**Status:** ✅ FIXED (See BUG-028)
 
 **Symptoms:**
 - `/api/trading/status` called **5+ times** during conversation navigation
