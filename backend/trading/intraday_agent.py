@@ -630,9 +630,15 @@ async def run_intraday_session(
                 conversation_history.pop(0)
             
         else:
-            # HOLD - only show reasoning occasionally
-            if idx % 30 == 0:  # Every 30 minutes
+            # HOLD - show reasoning occasionally in console
+            if idx % 30 == 0:  # Every 30 minutes in console
                 print(f"    📊 HOLD - {reasoning[:80]}")
+            
+            # Emit HOLD decision with reasoning to frontend (every minute)
+            if event_stream:
+                await event_stream.emit(model_id, "terminal", {
+                    "message": f"    💭 {minute} - HOLD: {reasoning[:200]}"
+                })
             
             # Track HOLD decisions too (important for context)
             decision_log['result'] = '⏸️  HOLD: No trade'
