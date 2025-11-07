@@ -133,6 +133,14 @@ class ChatResponse(BaseModel):
     response: str
     suggested_rules: List[Dict] = []
 
+class EnhanceStrategyRequest(BaseModel):
+    text: str
+    context: str  # "entry" | "exit" | "position" | "risk" | "general"
+
+class EnhanceStrategyResponse(BaseModel):
+    enhanced_text: str
+    original_text: str
+
 class RunInfo(BaseModel):
     id: int
     model_id: int

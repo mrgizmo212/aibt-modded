@@ -789,7 +789,36 @@ export function ChatInterface({
                'Design and create your trading models'}
             </p>
           </div>
-          <Button variant="ghost" size="icon" className="text-[#a3a3a3] hover:text-white">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-[#a3a3a3] hover:text-red-500 transition-colors"
+            onClick={async () => {
+              if (!selectedConversationId) {
+                // Just reset to new chat
+                window.location.href = selectedModelId ? `/m/${selectedModelId}/new` : '/new'
+                return
+              }
+              
+              if (confirm('Delete this conversation? This cannot be undone.')) {
+                try {
+                  const { deleteSession } = await import('@/lib/api')
+                  await deleteSession(selectedConversationId)
+                  
+                  // Navigate back to new chat
+                  if (selectedModelId || ephemeralModelId) {
+                    window.location.href = `/m/${selectedModelId || ephemeralModelId}/new`
+                  } else {
+                    window.location.href = '/new'
+                  }
+                } catch (error: any) {
+                  const { toast } = await import('sonner')
+                  toast.error(error.message || 'Failed to delete conversation')
+                }
+              }
+            }}
+            title="Delete conversation"
+          >
             <Trash2 className="w-5 h-5" />
           </Button>
         </div>

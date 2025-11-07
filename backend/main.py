@@ -44,7 +44,9 @@ from models import (
     ErrorResponse,
     ChatRequest,
     ChatResponse,
-    RunInfo
+    RunInfo,
+    EnhanceStrategyRequest,
+    EnhanceStrategyResponse
 )
 from pagination import create_pagination_params, PaginationParams
 from errors import NotFoundError, AuthorizationError, log_error
@@ -2673,6 +2675,69 @@ async def chat_stream_endpoint(
             }
     
     return EventSourceResponse(event_generator())
+
+
+# ============================================================================
+# STRATEGY ENHANCEMENT (AI-powered text refinement for visual builder)
+# ============================================================================
+
+@app.post("/api/enhance-strategy", response_model=EnhanceStrategyResponse)
+async def enhance_strategy_text(
+    request: EnhanceStrategyRequest,
+    current_user: Dict = Depends(require_auth)
+):
+    """
+    Enhance user's strategy description using AI
+    Makes vague rules clear and actionable for trading AI
+    """
+    from langchain_openai import ChatOpenAI
+    
+    # Use fast, cheap model for enhancement
+    chat_model = ChatOpenAI(
+        model="openai/gpt-4.1-mini",
+        temperature=0.3,
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENAI_API_KEY,
+        default_headers={
+            "HTTP-Referer": "https://aibt.truetradinggroup.com",
+            "X-Title": "AIBT AI Trading Platform"
+        }
+    )
+    
+    # Context-specific enhancement prompts
+    context_prompts = {
+        "entry": "Enhance this entry condition into a clear, specific rule that an AI trading bot can follow. Make it actionable with specific indicators or price conditions.",
+        "exit": "Enhance this exit condition into a clear, specific rule. Include exact profit targets or stop loss percentages.",
+        "position": "Enhance this position sizing rule into a clear, specific guideline. Include exact percentages or dollar amounts.",
+        "risk": "Enhance this risk management rule into a clear, enforceable limit. Be specific about thresholds and actions.",
+        "general": "Enhance this trading rule to be clear, specific, and actionable for an AI trading bot."
+    }
+    
+    prompt = context_prompts.get(request.context, context_prompts["general"])
+    
+    try:
+        response = chat_model.invoke([
+            {"role": "system", "content": f"{prompt} Keep it concise (max 100 characters). Return ONLY the enhanced rule, no explanation."},
+            {"role": "user", "content": request.text}
+        ])
+        
+        enhanced = response.content.strip()
+        
+        # Fallback to original if enhancement failed
+        if not enhanced or len(enhanced) > 200:
+            enhanced = request.text
+        
+        return {
+            "enhanced_text": enhanced,
+            "original_text": request.text
+        }
+    except Exception as e:
+        print(f"Enhancement error: {e}")
+        # Return original text if enhancement fails
+        return {
+            "enhanced_text": request.text,
+            "original_text": request.text
+        }
 
 
 # ============================================================================
