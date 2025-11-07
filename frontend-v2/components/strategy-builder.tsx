@@ -21,6 +21,16 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
 import { X, TrendingUp, TrendingDown, DollarSign, Shield, Settings, Zap, Sparkles, Loader2 } from 'lucide-react'
+import {
+  ModelNameNode,
+  AIModelNode,
+  TradingStyleNode,
+  InitialCashNode,
+  TradingActionsNode,
+  OrderTypesNode,
+  CustomInstructionsNode,
+} from './strategy-builder-nodes'
+import { StrategyCoach } from './strategy-coach'
 
 interface StrategyBuilderProps {
   onComplete: (config: { custom_rules: string; custom_instructions: string; name?: string; trading_style?: string; margin_account?: boolean; initial_cash?: number }) => void
@@ -249,6 +259,14 @@ const nodeTypes = {
   select: SelectNode,
   toggle: ToggleNode,
   numberInput: NumberInputNode,
+  // NEW: Setup and configuration nodes
+  modelName: ModelNameNode,
+  aiModel: AIModelNode,
+  tradingStyle: TradingStyleNode,
+  initialCash: InitialCashNode,
+  tradingActions: TradingActionsNode,
+  orderTypes: OrderTypesNode,
+  customInstructions: CustomInstructionsNode,
 }
 
 export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) {
@@ -260,7 +278,8 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
   
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
-  const [selectedCategory, setSelectedCategory] = useState<string>('entry')
+  const [selectedCategory, setSelectedCategory] = useState<string>('setup')
+  const [coachMinimized, setCoachMinimized] = useState(false)
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -293,6 +312,15 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
       { type: 'numberInput', icon: Shield, label: 'Max Position $', data: { label: 'Max Position Size', prefix: '$', value: 2000, min: 100, max: 100000, step: 100 } },
       { type: 'riskManagement', icon: Shield, label: 'Min Cash Reserve', data: { label: 'Keep 20% cash minimum' } },
       { type: 'textInput', icon: Shield, label: 'Custom Risk', data: { label: 'Custom Risk Rule', category: 'risk', placeholder: 'Describe risk limits...' } },
+    ],
+    setup: [
+      { type: 'modelName', icon: Sparkles, label: 'Model Name', data: { value: '' } },
+      { type: 'aiModel', icon: Sparkles, label: 'AI Model', data: { value: '' } },
+      { type: 'tradingStyle', icon: Zap, label: 'Trading Style', data: { value: '' } },
+      { type: 'initialCash', icon: DollarSign, label: 'Initial Cash', data: { value: 10000 } },
+      { type: 'tradingActions', icon: Settings, label: 'Trading Actions', data: { shortSelling: false, multiLegOptions: false, hedging: false } },
+      { type: 'orderTypes', icon: TrendingUp, label: 'Order Types', data: { selectedTypes: ['market', 'limit'] } },
+      { type: 'customInstructions', icon: Sparkles, label: 'Custom Instructions', data: { value: '' } },
     ],
     settings: [
       { type: 'select', icon: Settings, label: 'Trading Style', data: { label: 'Trading Style', value: 'day-trading', options: ['scalping', 'day-trading', 'swing-trading', 'long-term'] } },
@@ -341,7 +369,7 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
       let customInstructions = ''
       let config: any = {}
 
-      // Extract settings
+      // Extract settings (EXISTING - keep as-is for backwards compatibility)
       const settingsNodes = nodes.filter(n => ['select', 'toggle', 'numberInput'].includes(n.type || ''))
       console.log('[Builder] Found settings nodes:', settingsNodes.length)
       settingsNodes.forEach(node => {
@@ -351,6 +379,33 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
         if (node.data.label === 'Allow Shorting') config.allow_shorting = node.data.value
         if (node.data.label === 'Initial Cash') config.initial_cash = node.data.value
       })
+      
+      // NEW: Extract setup nodes (additive - doesn't break existing logic)
+      const nameNode = nodes.find(n => n.type === 'modelName')
+      const aiModelNode = nodes.find(n => n.type === 'aiModel')
+      const styleNode = nodes.find(n => n.type === 'tradingStyle')
+      const cashNode = nodes.find(n => n.type === 'initialCash')
+      const actionsNode = nodes.find(n => n.type === 'tradingActions')
+      const orderTypesNode = nodes.find(n => n.type === 'orderTypes')
+      const instructionsNode = nodes.find(n => n.type === 'customInstructions')
+      
+      // Add to config (overrides old settings if new setup nodes present)
+      if (nameNode?.data.value) config.name = nameNode.data.value
+      if (aiModelNode?.data.value) config.default_ai_model = aiModelNode.data.value
+      if (styleNode?.data.value) config.trading_style = styleNode.data.value
+      if (cashNode?.data.value) config.initial_cash = cashNode.data.value
+      
+      // NEW trading configuration
+      if (actionsNode) {
+        config.allow_short_selling = actionsNode.data.shortSelling || false
+        config.allow_multi_leg_options = actionsNode.data.multiLegOptions || false
+        config.allow_hedging = actionsNode.data.hedging || false
+      }
+      
+      // NEW order types
+      if (orderTypesNode?.data.selectedTypes) {
+        config.allowed_order_types = orderTypesNode.data.selectedTypes
+      }
 
       // Group rule nodes
       const entryNodes = nodes.filter(n => n.type === 'entry' || (n.type === 'textInput' && n.data.category === 'entry'))
@@ -399,7 +454,12 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
         })
       }
 
-      customInstructions = 'Strategy designed with visual builder. Follow all rules above without exception.'
+      // Use custom instructions from node if present, otherwise use default
+      if (instructionsNode?.data.value?.trim()) {
+        customInstructions = instructionsNode.data.value.trim()
+      } else {
+        customInstructions = 'Strategy designed with visual builder. Follow all rules above without exception.'
+      }
 
       const finalConfig = {
         custom_rules: customRules.trim(),
@@ -422,6 +482,7 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
   }
 
   const categoryInfo = {
+    setup: { icon: Sparkles, color: '#3b82f6', label: 'Setup & Config' },
     entry: { icon: TrendingUp, color: '#10b981', label: 'Entry Conditions' },
     exit: { icon: TrendingDown, color: '#ef4444', label: 'Exit Conditions' },
     position: { icon: DollarSign, color: '#3b82f6', label: 'Position Sizing' },
@@ -541,6 +602,14 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
             </div>
           </Panel>
         </ReactFlow>
+        
+        {/* Strategy Coach Panel */}
+        <StrategyCoach
+          nodes={nodes}
+          onGenerateStrategy={generateStrategy}
+          isMinimized={coachMinimized}
+          onToggleMinimize={() => setCoachMinimized(!coachMinimized)}
+        />
       </div>
     </div>
   )

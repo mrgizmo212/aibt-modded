@@ -238,10 +238,60 @@ Removed `&& editingModel` check from 5 page components:
 
 ---
 
+---
+
+### FEATURE-1: Run Conversations in Navigation Sidebar
+**Date Added:** 2025-11-07 19:00  
+**Status:** ✅ IMPLEMENTED
+
+**Problem:**
+- Run conversations stored in database but invisible in sidebar
+- No way to access past run analysis discussions
+- Users had to remember which runs they discussed
+- Navigation between runs difficult
+
+**Solution Implemented:**
+Added "Run Conversations" section to navigation sidebar that:
+- Shows all runs that have conversations
+- Displays run metadata (run number, date, return %)
+- Click navigates to run details page (`/m/[modelId]/r/[runId]`)
+- Can delete run conversations
+- Organized separately from model conversations
+
+**Files Modified:**
+- ✅ `backend/services/chat_service.py` - Added `has_run` parameter, includes run data in response
+- ✅ `backend/main.py` - Updated endpoint to accept `has_run` query parameter
+- ✅ `frontend-v2/lib/api.ts` - Updated `listChatSessions` to accept `has_run` option
+- ✅ `frontend-v2/components/navigation-sidebar.tsx` - Added complete run conversations UI and state management
+
+**Critical Patterns Used:**
+- ✅ isHidden guard - Prevents duplicate API calls from mobile drawer
+- ✅ runConversationsLoaded flag - Load only once
+- ✅ Event listener with debouncing - Prevents spam
+- ✅ Cleanup functions - No memory leaks
+- ✅ Exact same patterns as BUG-028 fixes
+
+**UI Structure:**
+```
+Momentum Scalper (expanded)
+├── + New Chat
+├── 💬 CONVERSATIONS
+│   └── Model conversations
+├── 🏃 RUN CONVERSATIONS
+│   └── Run #2 - Today (2 msgs • -1.31%)
+```
+
+**Navigation Flow:**
+- Click run conversation → Navigate to `/m/186/r/101`
+- View run stats + continue conversation
+- Easy switching between different run analyses
+
+---
+
 ## Next Steps
 - Continue testing to find all bugs
 - Fix all bugs in batch
 - Document all fixes together
 
-**Last Updated:** 2025-11-07 17:05
+**Last Updated:** 2025-11-07 19:00
 

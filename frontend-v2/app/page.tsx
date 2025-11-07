@@ -11,6 +11,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { MobileDrawer } from "@/components/mobile-drawer"
 import { MobileBottomSheet } from "@/components/mobile-bottom-sheet"
 import { ModelEditDialog } from "@/components/model-edit-dialog"
+import { ModelCreationChoice } from "@/components/model-creation-choice"
 import { SystemStatusDrawer } from "@/components/system-status-drawer"
 import { SystemStatusTrigger } from "@/components/system-status-trigger"
 
@@ -34,6 +35,7 @@ export default function Home({
   const [activeTab, setActiveTab] = useState("dashboard")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<any>(null)
+  const [isChoiceDialogOpen, setIsChoiceDialogOpen] = useState(false)
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState(false)
 
   // Redirect to login if not authenticated
@@ -88,8 +90,22 @@ export default function Home({
   }
 
   const handleCreateModel = () => {
+    setIsChoiceDialogOpen(true)  // Show choice dialog first
+  }
+  
+  const handleChooseForm = () => {
     setEditingModel(null)  // null = create mode
     setIsEditDialogOpen(true)
+  }
+  
+  const handleChooseBuilder = () => {
+    // Visual builder not available on main dashboard
+    // Could redirect to /new with builder open, or show message
+    router.push('/new')
+    // After navigation, trigger builder open
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-strategy-builder'))
+    }, 100)
   }
 
   const handleSaveModel = () => {
@@ -202,6 +218,13 @@ export default function Home({
       </MobileBottomSheet>
 
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <ModelCreationChoice
+        isOpen={isChoiceDialogOpen}
+        onClose={() => setIsChoiceDialogOpen(false)}
+        onChooseForm={handleChooseForm}
+        onChooseBuilder={handleChooseBuilder}
+      />
 
       {isEditDialogOpen && (
         <ModelEditDialog
