@@ -77,14 +77,21 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
     
     setLoading(true)
     try {
+      const { getToken } = await import('@/lib/auth')
+      const token = getToken()
+      
       const [model, modelRuns, latestPosition] = await Promise.all([
         getModelById(selectedModelId),
         getRuns(selectedModelId),
         fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/models/${selectedModelId}/positions/latest`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            'Authorization': `Bearer ${token}`
           }
-        }).then(r => r.ok ? r.json() : null).catch(() => null)
+        }).then(r => {
+          // 404 means no positions yet (expected for new models)
+          if (r.status === 404) return null
+          return r.ok ? r.json() : null
+        }).catch(() => null)
       ])
       
       console.log('[ContextPanel] Model data loaded:', { model, runs: modelRuns, latestPosition })
@@ -100,12 +107,11 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
           .map(([symbol, quantity]) => ({
             symbol,
             quantity: quantity as number,
-            // Note: We don't have real-time prices here, so we can't calculate P/L
-            // This will be enhanced with price data later
           }))
         
         setPositions(parsedPositions)
       } else {
+        // No positions yet (new model or all positions closed)
         setPositions([])
       }
     } catch (error) {
@@ -388,15 +394,15 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
             </div>
           )}
 
-          {/* Trading Terminal - Full Screen for Running Models */}
-          {context === "model" && selectedModelId && connected && (
+          {/* Trading Terminal - Show for model context (will show connection status) */}
+          {context === "model" && selectedModelId && (
             <div>
               <TradingTerminal modelId={selectedModelId} modelName={modelData?.name} />
             </div>
           )}
 
-          {/* Fallback Live Updates - For non-running models or dashboard */}
-          {(!connected || context !== "model") && (
+          {/* Fallback Live Updates - For dashboard only */}
+          {context !== "model" && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-white">Live Updates</h2>

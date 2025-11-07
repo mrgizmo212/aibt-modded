@@ -304,7 +304,8 @@ class BaseAgent:
                 }
                 
                 # Special handling for parameters that need model_kwargs
-                special_params = {'verbosity', 'reasoning_effort', 'web_search'}
+                # Note: web_search removed - not supported by most models
+                special_params = {'verbosity', 'reasoning_effort'}
                 model_kwargs = {}
                 
                 for key, value in self.model_parameters.items():
@@ -316,6 +317,8 @@ class BaseAgent:
                         print(f"   ✅ {key}: {value} (in model_kwargs)")
                     elif key == 'max_prompt_tokens':
                         print(f"   ⏭️  {key}: {value} (skipped - not supported by ChatOpenAI)")
+                    elif key == 'web_search':
+                        print(f"   ⏭️  {key}: {value} (skipped - not needed for trading)")
                     else:
                         print(f"   ⚠️  {key}: {value} (unknown parameter, skipped)")
                 

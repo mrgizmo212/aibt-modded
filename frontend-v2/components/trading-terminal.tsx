@@ -19,7 +19,45 @@ interface LogEntry {
 
 export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [historicalLogs, setHistoricalLogs] = useState<LogEntry[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Load historical logs from database on mount
+  useEffect(() => {
+    if (!modelId) return
+    
+    async function loadHistoricalLogs() {
+      try {
+        const { fetchModelLogs } = await import('@/lib/api')
+        const data = await fetchModelLogs(modelId)
+        
+        if (data.logs && data.logs.length > 0) {
+          const parsedLogs: LogEntry[] = []
+          
+          data.logs.forEach((log: any) => {
+            const timestamp = new Date(log.timestamp || log.created_at).toLocaleTimeString()
+            
+            // Parse log messages
+            const messages = log.messages || []
+            messages.forEach((msg: any) => {
+              parsedLogs.push({
+                timestamp,
+                type: 'info',
+                message: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+              })
+            })
+          })
+          
+          setHistoricalLogs(parsedLogs)
+          console.log('[TradingTerminal] Loaded', parsedLogs.length, 'historical log entries')
+        }
+      } catch (error) {
+        console.error('[TradingTerminal] Failed to load historical logs:', error)
+      }
+    }
+    
+    loadHistoricalLogs()
+  }, [modelId])
 
   const { events, connected } = useTradingStream(modelId, {
     enabled: !!modelId,
@@ -88,6 +126,15 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
           }
           break
 
+        case 'terminal':
+          // Backend console output - the actual trading logs!
+          logEntry = {
+            timestamp,
+            type: 'info',
+            message: event.data?.message || '',
+          }
+          break
+
         default:
           logEntry = {
             timestamp,
@@ -96,7 +143,7 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
           }
       }
 
-      setLogs(prev => [...prev, logEntry].slice(-200)) // Keep last 200 logs
+      setLogs(prev => [...prev, logEntry].slice(-500)) // Keep last 500 logs (terminal can have lots)
     }
   })
 
@@ -149,7 +196,27 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
       {/* Terminal Content */}
       <div className="h-[400px] overflow-y-auto scrollbar-thin" ref={scrollRef}>
         <div className="p-4 font-mono text-xs space-y-1">
-          {logs.length === 0 ? (
+          {/* Show historical logs first, then live logs */}
+          {historicalLogs.length > 0 && (
+            <>
+              <div className="text-[#737373] border-b border-[#262626] pb-2 mb-2">
+                ═══ Historical Logs ═══
+              </div>
+              {historicalLogs.map((log, index) => (
+                <div key={`hist-${index}`} className={`${getLogColor(log.type)} flex gap-2`}>
+                  <span className="text-[#525252]" suppressHydrationWarning>{log.timestamp}</span>
+                  {log.icon && <span className="flex-shrink-0 mt-0.5">{log.icon}</span>}
+                  <span className="whitespace-pre-wrap">{log.message}</span>
+                </div>
+              ))}
+              {logs.length > 0 && (
+                <div className="text-[#737373] border-b border-[#262626] py-2 my-2">
+                  ═══ Live Updates ═══
+                </div>
+              )}
+            </>
+          )}
+          {logs.length === 0 && historicalLogs.length === 0 ? (
             <div className="text-center py-8">
               <Terminal className="w-8 h-8 text-[#525252] mx-auto mb-2" />
               <p className="text-[#737373]">Waiting for trading activity...</p>
@@ -169,8 +236,8 @@ export function TradingTerminal({ modelId, modelName }: TradingTerminalProps) {
 
       {/* Footer */}
       <div className="bg-[#1a1a1a] border-t border-[#262626] px-4 py-2 flex items-center justify-between text-xs text-[#737373]">
-        <span>{logs.length} log entries</span>
-        <span>Last 200 shown</span>
+        <span>{historicalLogs.length + logs.length} log entries</span>
+        <span>{historicalLogs.length > 0 ? 'Historical + ' : ''}Live (last 500)</span>
       </div>
     </div>
   )

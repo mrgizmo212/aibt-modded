@@ -326,15 +326,24 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
   }
 
   const generateStrategy = () => {
+    console.log('[Builder] Generating strategy from nodes:', nodes.length)
+    
+    if (nodes.length === 0) {
+      console.log('[Builder] No nodes to generate from')
+      return
+    }
+    
     setIsVisible(false)
     
     setTimeout(() => {
+      console.log('[Builder] Converting flow to config...')
       let customRules = ''
       let customInstructions = ''
       let config: any = {}
 
       // Extract settings
       const settingsNodes = nodes.filter(n => ['select', 'toggle', 'numberInput'].includes(n.type || ''))
+      console.log('[Builder] Found settings nodes:', settingsNodes.length)
       settingsNodes.forEach(node => {
         if (node.data.label === 'Trading Style') config.trading_style = node.data.value
         if (node.data.label === 'Instrument') config.instrument = node.data.value
@@ -392,11 +401,16 @@ export function StrategyBuilder({ onComplete, onCancel }: StrategyBuilderProps) 
 
       customInstructions = 'Strategy designed with visual builder. Follow all rules above without exception.'
 
-      onComplete({
+      const finalConfig = {
         custom_rules: customRules.trim(),
         custom_instructions: customInstructions.trim(),
         ...config
-      })
+      }
+      
+      console.log('[Builder] Generated config:', finalConfig)
+      console.log('[Builder] Calling onComplete...')
+      
+      onComplete(finalConfig)
     }, 500)
   }
   

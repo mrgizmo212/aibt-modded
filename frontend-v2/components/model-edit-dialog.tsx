@@ -64,20 +64,20 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
   const modelParams = (model as any)?.model_parameters || {}
   
   const [formData, setFormData] = useState({
-    name: model?.name || "",
-    trading_style: (model as any)?.trading_style || "day-trading",
-    instrument: (model as any)?.instrument || "stocks",
-    allow_shorting: (model as any)?.allow_shorting || false,
-    margin_account: (model as any)?.margin_account || false,
-    allow_options_strategies: (model as any)?.allow_options_strategies || false,
-    allow_hedging: (model as any)?.allow_hedging || false,
-    allowed_order_types: (model as any)?.allowed_order_types || ["market", "limit"],
-    default_ai_model: model?.default_ai_model || "",
-    custom_rules: (model as any)?.custom_rules || "",
-    custom_instructions: (model as any)?.custom_instructions || "",
-    starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
-    max_position_size_dollars: modelParams?.max_position_size_dollars || 2000,
-    max_daily_loss_dollars: modelParams?.max_daily_loss_dollars || 500,
+    name: model?.name ?? "",
+    trading_style: (model as any)?.trading_style ?? "day-trading",
+    instrument: (model as any)?.instrument ?? "stocks",
+    allow_shorting: (model as any)?.allow_shorting ?? false,
+    margin_account: (model as any)?.margin_account ?? false,
+    allow_options_strategies: (model as any)?.allow_options_strategies ?? false,
+    allow_hedging: (model as any)?.allow_hedging ?? false,
+    allowed_order_types: (model as any)?.allowed_order_types ?? ["market", "limit"],
+    default_ai_model: model?.default_ai_model ?? "",
+    custom_rules: (model as any)?.custom_rules ?? "",
+    custom_instructions: (model as any)?.custom_instructions ?? "",
+    starting_capital: (model as any)?.initial_cash ?? model?.starting_capital ?? 10000,
+    max_position_size_dollars: modelParams?.max_position_size_dollars ?? 2000,
+    max_daily_loss_dollars: modelParams?.max_daily_loss_dollars ?? 500,
   })
   
   // Model parameters managed by ModelSettings component
