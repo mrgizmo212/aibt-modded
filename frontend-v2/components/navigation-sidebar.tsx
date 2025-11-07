@@ -552,11 +552,11 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     router.push(`/m/${modelId}/new`)
   }
   
-  const handleSelectRunConversation = (modelId: number, sessionId: number) => {
-    console.log('[Nav] Run conversation selected:', sessionId, 'model:', modelId)
+  const handleSelectRunConversation = (modelId: number, runId: number) => {
+    console.log('[Nav] Run conversation selected for run:', runId, 'model:', modelId)
     
-    // Navigate to conversation (same route as model conversations)
-    onConversationSelect?.(sessionId, modelId)
+    // Navigate to run details page where user can view stats AND chat about the run
+    router.push(`/m/${modelId}/r/${runId}`)
   }
   
   const handleDeleteRunConversation = async (modelId: number, convoId: number, e: React.MouseEvent) => {
@@ -992,7 +992,7 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                                   modelRunConversations[model.id].map((convo) => (
                                     <div
                                       key={convo.id}
-                                      onClick={() => handleSelectRunConversation(model.id, convo.id)}
+                                      onClick={() => handleSelectRunConversation(model.id, convo.run_id)}
                                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#1a1a1a] transition-colors cursor-pointer group ${
                                         selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
                                       }`}
