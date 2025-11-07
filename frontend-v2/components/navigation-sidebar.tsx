@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel, listChatSessions, resumeSession, deleteSession } from "@/lib/api"
+import { getModels, getTradingStatus, startIntradayTrading, stopTrading, updateModel, deleteModel, listChatSessions, resumeSession, deleteSession } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { useTradingStream } from "@/hooks/use-trading-stream"
@@ -714,8 +714,31 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                               <button
                                 onClick={(e) => handleStartEdit(model, e)}
                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#1a1a1a] rounded text-[#a3a3a3] hover:text-white transition-all"
+                                title="Edit model name"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  if (model.status === "running") {
+                                    toast.error('Cannot delete a running model. Stop trading first.')
+                                    return
+                                  }
+                                  if (confirm(`Delete model "${model.name}"? This will delete all runs, trades, and conversations. This cannot be undone.`)) {
+                                    try {
+                                      await deleteModel(model.id)
+                                      toast.success(`Model "${model.name}" deleted`)
+                                      loadModels() // Refresh
+                                    } catch (error: any) {
+                                      toast.error(error.message || 'Failed to delete model')
+                                    }
+                                  }
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#1a1a1a] rounded text-[#ef4444] transition-all"
+                                title="Delete model"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                               {togglingModelId === model.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin text-[#3b82f6] opacity-100" />

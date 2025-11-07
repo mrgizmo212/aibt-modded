@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Send, Trash2, Bot, Square, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { StatsGrid } from "./embedded/stats-grid"
@@ -62,11 +63,22 @@ export function ChatInterface({
   selectedConversationId,
   onConversationCreated,
 }: ChatInterfaceProps) {
+  // Dynamic welcome message based on context
+  const getWelcomeMessage = () => {
+    if (selectedRunId) {
+      return "I've loaded the complete data for this run. I can analyze trades, explain AI reasoning, calculate metrics, and help you understand what happened. What would you like to explore?"
+    } else if (selectedModelId || ephemeralModelId) {
+      return "I have access to all your trading history and 6 powerful analysis tools. I can review performance, suggest improvements, and even update your model's rules. How can I help optimize your strategy?"
+    } else {
+      return "Welcome to Strategy Lab! I can help you design a custom trading model tailored to your goals. Tell me about your trading style - are you interested in day trading, swing trading, or long-term investing?"
+    }
+  }
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       type: "ai",
-      text: "Good morning! How can I help you with your trading today?",
+      text: getWelcomeMessage(),
       timestamp: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
     },
   ])
@@ -733,6 +745,11 @@ export function ChatInterface({
     setInput(suggestion)
     setTimeout(() => handleSend(), 100)
   }
+  
+  const handleQuickPrompt = (prompt: string) => {
+    // Just populate the input, let user review and send manually
+    setInput(prompt)
+  }
 
   return (
     <div className="h-full bg-[#121212] flex flex-col">
@@ -757,7 +774,100 @@ export function ChatInterface({
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4 lg:p-6 space-y-4 lg:space-y-6">
-        {messages.map((message) => (
+        {/* Welcome UI - Only show when no conversation started yet */}
+        {messages.length === 1 && messages[0].id === "1" && !chatStream.isStreaming && (
+          <div className="space-y-4">
+            <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-4">
+              <div className="flex gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#3b82f6]/10 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-[#3b82f6]" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-white leading-relaxed mb-3">
+                    {getWelcomeMessage()}
+                  </p>
+                  
+                  {/* Capability Cards - Click to populate input */}
+                  <div className="grid grid-cols-1 gap-2 mt-3">
+                    {selectedRunId ? (
+                      <>
+                        <button
+                          onClick={() => handleQuickPrompt("Analyze all trades from this run. What patterns do you see?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#10b981]/30 hover:bg-[#10b981]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#10b981]">✓</span> <span className="text-[#a3a3a3]">Analyze all trades from this run</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("What was the AI thinking during this run?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#10b981]/30 hover:bg-[#10b981]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#10b981]">✓</span> <span className="text-[#a3a3a3]">Review AI decision-making process</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("Calculate performance metrics for this run.")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#10b981]/30 hover:bg-[#10b981]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#10b981]">✓</span> <span className="text-[#a3a3a3]">Calculate performance metrics</span>
+                        </button>
+                      </>
+                    ) : selectedModelId || ephemeralModelId ? (
+                      <>
+                        <button
+                          onClick={() => handleQuickPrompt("Analyze my trading patterns across all runs. What's working and what's not?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#8b5cf6]/30 hover:bg-[#8b5cf6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#8b5cf6]">✓</span> <span className="text-[#a3a3a3]">Analyze trading patterns across all runs</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("Show me my current model rules and configuration.")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#8b5cf6]/30 hover:bg-[#8b5cf6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#8b5cf6]">✓</span> <span className="text-[#a3a3a3]">View and update model rules</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("How can I improve this model's performance?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#8b5cf6]/30 hover:bg-[#8b5cf6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#8b5cf6]">✓</span> <span className="text-[#a3a3a3]">Get AI-powered improvement suggestions</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleQuickPrompt("I want to create a day trading model. What should I configure?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#3b82f6]">✓</span> <span className="text-[#a3a3a3]">Design custom trading strategies</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("Help me create a new AI trading model.")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#3b82f6]">✓</span> <span className="text-[#a3a3a3]">Create new AI trading models</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickPrompt("What trading style would you recommend for me?")}
+                          className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
+                        >
+                          <span className="text-[#3b82f6]">✓</span> <span className="text-[#a3a3a3]">Get personalized recommendations</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-[#525252] mt-3" suppressHydrationWarning>
+                    {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Show all messages when conversation has started */}
+        {(messages.length > 1 || chatStream.isStreaming) && messages.map((message) => (
           <div key={message.id}>
             {message.type === "ai" ? (
               <div className="flex gap-2 lg:gap-3 max-w-[95%] lg:max-w-[90%]">
@@ -917,18 +1027,37 @@ export function ChatInterface({
           )}
         </div>
         
-        <div className="flex gap-2">
-          <Input
+        <div className="flex gap-2 items-end">
+          <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            onKeyDown={(e) => {
+              // Enter alone = send message
+              if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault()
+                handleSend()
+              }
+              // Ctrl+Enter = insert line break (limited to 4 lines)
+              else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                const lineCount = (input.match(/\n/g) || []).length + 1
+                if (lineCount >= 4) {
+                  e.preventDefault() // Stop after 4 lines, textarea will scroll
+                }
+              }
+            }}
             placeholder={
-              selectedRunId ? "Ask about this run..." :
-              selectedModelId ? "Ask about this model..." :
-              "Design a trading strategy..."
+              selectedRunId ? "Ask about this run... (Ctrl+Enter for line break)" :
+              selectedModelId ? "Ask about this model... (Ctrl+Enter for line break)" :
+              "Design a trading strategy... (Ctrl+Enter for line break)"
             }
             disabled={chatStream.isStreaming}
-            className="flex-1 bg-[#1a1a1a] border-[#262626] text-white placeholder:text-[#7373a3] focus-visible:ring-[#3b82f6] h-11 lg:h-10"
+            className="flex-1 bg-[#1a1a1a] border-[#262626] text-white placeholder:text-[#737373] focus-visible:ring-[#3b82f6] resize-none min-h-[44px] max-h-[120px] py-3"
+            rows={1}
+            style={{
+              height: 'auto',
+              minHeight: '44px',
+              maxHeight: '120px'
+            }}
           />
           
           {chatStream.isStreaming ? (
