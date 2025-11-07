@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,10 +43,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            AI Trading Platform
-          </CardTitle>
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <img
+              src="https://truetradinggroup.com/wp-content/uploads/2025/10/darkLogoN.png"
+              alt="TTG Pro"
+              className="h-12 w-auto"
+            />
+          </div>
           <CardDescription className="text-center">
             Sign in to your account to continue
           </CardDescription>

@@ -16,11 +16,12 @@ import { useAuth } from "@/lib/auth-context"
 interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
   selectedModelId: number | null
+  selectedRunId?: number | null  // ← NEW: For run context
   onEditModel?: (id: number) => void
   onRunClick?: (modelId: number, runId: number) => void  // ← NEW: Click handler for runs
 }
 
-export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick }: ContextPanelProps) {
+export function ContextPanel({ context, selectedModelId, selectedRunId, onEditModel, onRunClick }: ContextPanelProps) {
   const { user } = useAuth()
   const [modelData, setModelData] = useState<any>(null)
   const [runs, setRuns] = useState<any[]>([])
@@ -669,45 +670,127 @@ export function ContextPanel({ context, selectedModelId, onEditModel, onRunClick
     )
   }
 
-  if (context === "run") {
+  if (context === "run" && selectedRunId && selectedModelId) {
+    const [runData, setRunData] = useState<any>(null)
+    const [runLoading, setRunLoading] = useState(true)
+    
+    useEffect(() => {
+      async function loadRunData() {
+        try {
+          setRunLoading(true)
+          const data = await getRunDetails(selectedModelId!, selectedRunId!)
+          setRunData(data)
+        } catch (error) {
+          console.error('Failed to load run data:', error)
+        } finally {
+          setRunLoading(false)
+        }
+      }
+      
+      loadRunData()
+    }, [selectedRunId, selectedModelId])
+    
+    if (runLoading || !runData) {
+      return (
+        <div className="h-screen bg-[#1a1a1a] border-l border-[#262626] overflow-y-auto scrollbar-thin">
+          <div className="p-6">
+            <div className="animate-pulse space-y-6">
+              <div className="h-6 bg-[#262626] rounded w-1/3"></div>
+              <div className="space-y-3">
+                <div className="h-4 bg-[#262626] rounded w-1/4"></div>
+                <div className="h-8 bg-[#262626] rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    
+    const returnPercent = (runData.final_return || 0) * 100
+    const isPositive = returnPercent >= 0
+    
     return (
       <div className="h-screen bg-[#1a1a1a] border-l border-[#262626] overflow-y-auto scrollbar-thin">
         <div className="p-6 space-y-6">
           <div>
-            <h2 className="text-base font-semibold text-white mb-4">Run #12 Stats</h2>
+            <h2 className="text-base font-semibold text-white mb-4">
+              Run #{runData.run_number} Details
+            </h2>
             <div className="space-y-4">
               <div>
+                <p className="text-xs text-[#a3a3a3] mb-1">Trading Mode</p>
+                <p className="text-sm font-semibold text-white">
+                  {runData.trading_mode === 'intraday' 
+                    ? `Intraday - ${runData.intraday_symbol} (${runData.intraday_date})`
+                    : `Daily - ${runData.date_range_start} to ${runData.date_range_end}`
+                  }
+                </p>
+              </div>
+              <div>
                 <p className="text-xs text-[#a3a3a3] mb-1">Final Return</p>
-                <p className="text-2xl font-bold font-mono text-[#ef4444]">-5.2%</p>
+                <p className={`text-2xl font-bold font-mono ${isPositive ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
+                  {returnPercent >= 0 ? '+' : ''}{returnPercent.toFixed(2)}%
+                </p>
               </div>
               <div>
                 <p className="text-xs text-[#a3a3a3] mb-1">Total Trades</p>
-                <p className="text-xl font-semibold text-white">23</p>
+                <p className="text-xl font-semibold text-white">{runData.total_trades || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-[#a3a3a3] mb-1">Win Rate</p>
-                <p className="text-xl font-semibold text-white">35%</p>
-                <p className="text-xs text-[#ef4444] mt-1">↓ Below average</p>
+                <p className="text-xs text-[#a3a3a3] mb-1">Final Portfolio Value</p>
+                <p className="text-xl font-semibold text-white">
+                  ${(runData.final_portfolio_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-[#a3a3a3] mb-1">Duration</p>
-                <p className="text-xl font-semibold text-white">6.5 hours</p>
+                <p className="text-xs text-[#a3a3a3] mb-1">Max Drawdown</p>
+                <p className="text-xl font-semibold text-[#ef4444]">
+                  {((runData.max_drawdown_during_run || 0) * 100).toFixed(2)}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-[#a3a3a3] mb-1">Status</p>
+                <Badge className={
+                  runData.status === 'completed' ? 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20' :
+                  runData.status === 'running' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                  runData.status === 'failed' ? 'bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/20' :
+                  'bg-[#737373]/10 text-[#737373] border-[#737373]/20'
+                }>
+                  {runData.status?.toUpperCase()}
+                </Badge>
               </div>
             </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-semibold text-white mb-4">Trade Timeline</h2>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-[#10b981] rounded-full" />
-              <div className="w-3 h-3 bg-[#10b981] rounded-full" />
-              <div className="w-3 h-3 bg-[#ef4444] rounded-full" />
-              <div className="w-3 h-3 bg-[#ef4444] rounded-full" />
-              <div className="w-3 h-3 bg-[#ef4444] rounded-full" />
-              <div className="flex-1 h-px bg-[#262626]" />
+          {/* Trade Details */}
+          {runData.positions && runData.positions.length > 0 && (
+            <div>
+              <h2 className="text-base font-semibold text-white mb-4">Trade History</h2>
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4">
+                <p className="text-sm text-[#737373]">
+                  {runData.positions.length} position changes recorded
+                </p>
+                <p className="text-xs text-[#525252] mt-1">
+                  Chat with this run to analyze trade-by-trade details
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-[#a3a3a3] mt-2">← Losses started here</p>
-          </div>
+          )}
+          
+          {/* AI Reasoning */}
+          {runData.reasoning && runData.reasoning.length > 0 && (
+            <div>
+              <h2 className="text-base font-semibold text-white mb-4">AI Reasoning</h2>
+              <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg p-4">
+                <p className="text-sm text-[#737373]">
+                  {runData.reasoning.length} decision logs recorded
+                </p>
+                <p className="text-xs text-[#525252] mt-1">
+                  Chat with this run to explore AI decision-making process
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )

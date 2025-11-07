@@ -1,5 +1,7 @@
 "use client"
 import { Activity, Database, Zap, TrendingUp, X, CheckCircle2, AlertCircle, XCircle } from "lucide-react"
+import { useEffect, useState } from "react"
+import { getTradingStatus } from "@/lib/api"
 
 interface SystemStatusDrawerProps {
   isOpen: boolean
@@ -7,19 +9,39 @@ interface SystemStatusDrawerProps {
 }
 
 export function SystemStatusDrawer({ isOpen, onClose }: SystemStatusDrawerProps) {
+  const [activeRuns, setActiveRuns] = useState(0)
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    if (isOpen) {
+      loadStatus()
+    }
+  }, [isOpen])
+  
+  async function loadStatus() {
+    try {
+      setLoading(true)
+      const statuses = await getTradingStatus()
+      setActiveRuns(statuses.length)
+    } catch (error) {
+      console.error('Failed to load system status:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   const systemStatus = {
     overall: "operational" as "operational" | "degraded" | "down",
     services: [
-      { name: "Trading API", status: "operational" as const, latency: "45ms", uptime: "99.9%" },
-      { name: "Database", status: "operational" as const, latency: "12ms", uptime: "100%" },
-      { name: "AI Models", status: "operational" as const, latency: "230ms", uptime: "99.7%" },
-      { name: "Market Data", status: "operational" as const, latency: "89ms", uptime: "99.8%" },
+      { name: "Trading API", status: "operational" as const },
+      { name: "Database", status: "operational" as const },
+      { name: "AI Models", status: "operational" as const },
+      { name: "Market Data", status: "operational" as const },
     ],
     metrics: {
-      activeRuns: 3,
-      queuedOrders: 7,
-      apiCalls: "1.2k/hr",
-      dataUsage: "45.2 GB",
+      activeRuns: activeRuns,
+      totalModels: "View Dashboard",
+      recentActivity: "View Feed"
     },
   }
 
@@ -92,24 +114,16 @@ export function SystemStatusDrawer({ isOpen, onClose }: SystemStatusDrawerProps)
 
           {/* Services */}
           <div>
-            <h4 className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider mb-2">Services</h4>
+            <h4 className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider mb-2">Platform Status</h4>
             <div className="space-y-2">
               {systemStatus.services.map((service) => (
                 <div key={service.name} className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between">
                     <span className="text-white text-sm font-medium">{service.name}</span>
                     <div className={`flex items-center gap-1.5 ${getStatusColor(service.status)}`}>
                       {getStatusIcon(service.status)}
                       <span className="text-xs font-medium capitalize">{service.status}</span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-[#737373]">
-                    <span>
-                      Latency: <span className="text-[#a3a3a3] font-mono">{service.latency}</span>
-                    </span>
-                    <span>
-                      Uptime: <span className="text-[#a3a3a3] font-mono">{service.uptime}</span>
-                    </span>
                   </div>
                 </div>
               ))}
@@ -118,35 +132,23 @@ export function SystemStatusDrawer({ isOpen, onClose }: SystemStatusDrawerProps)
 
           {/* Metrics */}
           <div>
-            <h4 className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider mb-2">Metrics</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3">
+            <h4 className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider mb-2">Current Activity</h4>
+            <div className="grid grid-cols-1 gap-2">
+              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Zap className="w-4 h-4 text-[#f59e0b]" />
                   <span className="text-[#a3a3a3] text-xs">Active Runs</span>
                 </div>
-                <div className="text-white text-xl font-bold font-mono">{systemStatus.metrics.activeRuns}</div>
+                {loading ? (
+                  <div className="h-8 bg-[#262626] rounded w-12 animate-pulse"></div>
+                ) : (
+                  <div className="text-white text-2xl font-bold font-mono">{systemStatus.metrics.activeRuns}</div>
+                )}
               </div>
-              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-4 h-4 text-[#3b82f6]" />
-                  <span className="text-[#a3a3a3] text-xs">Queued Orders</span>
-                </div>
-                <div className="text-white text-xl font-bold font-mono">{systemStatus.metrics.queuedOrders}</div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Activity className="w-4 h-4 text-[#10b981]" />
-                  <span className="text-[#a3a3a3] text-xs">API Calls</span>
-                </div>
-                <div className="text-white text-lg font-bold font-mono">{systemStatus.metrics.apiCalls}</div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Database className="w-4 h-4 text-[#8b5cf6]" />
-                  <span className="text-[#a3a3a3] text-xs">Data Usage</span>
-                </div>
-                <div className="text-white text-lg font-bold font-mono">{systemStatus.metrics.dataUsage}</div>
+              <div className="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3 text-center">
+                <p className="text-xs text-[#737373]">
+                  For detailed metrics, view the dashboard
+                </p>
               </div>
             </div>
           </div>

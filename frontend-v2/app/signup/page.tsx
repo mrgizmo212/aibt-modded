@@ -62,12 +62,19 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <img
+              src="https://truetradinggroup.com/wp-content/uploads/2025/10/darkLogoN.png"
+              alt="TTG Pro"
+              className="h-12 w-auto"
+            />
+          </div>
+          <CardTitle className="text-xl font-bold text-center">
             Create Account
           </CardTitle>
           <CardDescription className="text-center">
-            Sign up for AI Trading Platform
+            Join the AI Trading platform
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

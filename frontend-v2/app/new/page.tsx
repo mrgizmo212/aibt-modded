@@ -235,7 +235,8 @@ export default function NewConversationPage() {
         <div className="hidden lg:block lg:w-[30%] flex-shrink-0">
           <ContextPanel 
             context={context} 
-            selectedModelId={selectedModelId} 
+            selectedModelId={selectedModelId}
+            selectedRunId={selectedRunId}
             onEditModel={handleEditModel}
             onRunClick={handleRunClick}
           />
@@ -269,7 +270,8 @@ export default function NewConversationPage() {
       <MobileBottomSheet isOpen={isContextOpen} onClose={() => setIsContextOpen(false)}>
         <ContextPanel 
           context={context} 
-          selectedModelId={selectedModelId} 
+          selectedModelId={selectedModelId}
+          selectedRunId={selectedRunId}
           onEditModel={handleEditModel}
           onRunClick={handleRunClick}
         />
