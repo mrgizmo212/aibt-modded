@@ -50,6 +50,99 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-029: "Create Model" Button Only Works on /new Route
+**Date Discovered:** 2025-11-07 17:15  
+**Date Fixed:** 2025-11-07 18:15  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- "Create Model" button works perfectly on `/new` route ✅
+- Button doesn't work (or has massive delay) on all other routes:
+  - `/m/186/new` ❌
+  - `/m/186/c/131` ❌
+  - `/c/130` ❌
+  - `/m/186/r/101` ❌
+- Confirmed in production (https://ttgaibtfront.onrender.com/)
+
+**Root Cause:**
+Only `/new/page.tsx` defined `handleCreateModel` function and passed `onCreateModel` prop to NavigationSidebar. All other page components were missing this handler, so the button had no onClick functionality.
+
+**Affected Files:**
+- `frontend-v2/app/page.tsx` - Missing handler
+- `frontend-v2/app/m/[modelId]/new/page.tsx` - Missing handler
+- `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` - Missing handler
+- `frontend-v2/app/c/[conversationId]/page.tsx` - Missing handler
+- `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` - Missing handler
+
+**Why This Was Wrong:**
+NavigationSidebar has "Create Model" button that calls `onCreateModel?.()`:
+```typescript
+<button onClick={() => onCreateModel?.()}>
+  Create Model
+</button>
+```
+
+**If `onCreateModel` prop not passed:**
+- Optional chaining `?.()` silently fails
+- Button click does nothing
+- No error shown to user
+- Appears broken
+
+**Final Solution:**
+Added `handleCreateModel` function and `onCreateModel` prop to all 5 page components.
+
+**Code Changes:**
+
+[ADDED to ALL page files - Handler function]
+```typescript
+const handleCreateModel = () => {
+  setEditingModel(null)  // null = create mode
+  setIsEditDialogOpen(true)
+}
+```
+
+[ADDED to ALL NavigationSidebar props]
+```typescript
+<NavigationSidebar
+  // ... other props
+  onModelEdit={handleEditModel}
+  onCreateModel={handleCreateModel}  // ✅ ADDED
+  // ... rest
+/>
+```
+
+**Files Modified:**
+- ✅ `frontend-v2/app/page.tsx` - Added handler + prop (2 places)
+- ✅ `frontend-v2/app/m/[modelId]/new/page.tsx` - Added handler + prop (2 places)
+- ✅ `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` - Added handler + prop (2 places)
+- ✅ `frontend-v2/app/c/[conversationId]/page.tsx` - Added handler + prop (2 places)
+- ✅ `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` - Added handler + prop (2 places)
+
+**Total:** 5 files × 2 instances (desktop + mobile) = 10 prop additions
+
+**Benefits:**
+- ✅ "Create Model" now works on ALL routes
+- ✅ Consistent UX across entire app
+- ✅ No route-specific workarounds needed
+- ✅ Users can create models from anywhere
+
+**Lessons Learned:**
+- **Optional chaining fails silently** - `onProp?.()` doesn't error if prop is undefined
+- **Copy-paste creates inconsistency** - Some pages had feature, others didn't
+- **Test all routes, not just one** - Feature worked on one page but broken on others
+- **Props must be passed consistently** - If component expects prop, ALL parents must provide it
+- **Production testing reveals these issues** - Feature worked where we tested, failed where we didn't
+
+**Prevention Strategy:**
+1. **Define required props in TypeScript** - Make props non-optional if always needed
+2. **Test feature on ALL routes** - Don't assume one working route means all work
+3. **Checklist when adding new features** - Verify feature added to all relevant pages
+4. **Use shared layout or context** - Hoist common handlers to avoid duplication
+5. **Code review cross-page consistency** - Check all pages have same handlers
+
+---
+
 ### BUG-028: Excessive Duplicate API Calls from Hidden Mobile Components
 **Date Discovered:** 2025-11-07 17:20  
 **Date Fixed:** 2025-11-07 17:45  
@@ -2220,16 +2313,16 @@ if (data.type === 'session_created' && data.session_id) {
 
 ## Bug Statistics
 
-**Total Bugs Logged:** 25  
+**Total Bugs Logged:** 26  
 **Critical:** 4 (BUG-001, BUG-003, BUG-023, BUG-025)  
-**High:** 18 (BUG-002, BUG-004 through BUG-022, BUG-024)  
+**High:** 19 (BUG-002, BUG-004 through BUG-022, BUG-024, BUG-029)  
 **Medium:** 3 (BUG-026, BUG-027, BUG-028)  
 **Status:**
-- Fixed: 25 (100%)
+- Fixed: 26 (100%)
 - In Progress: 0
 - Blocked: 0
 
-**Most Common Bug Type:** Frontend State Management & Performance (16/25)  
+**Most Common Bug Type:** Frontend State Management & Routing (17/26)  
 **Test Coverage:** 100% (all fixes have test verification or manual test protocols)
 
 ---

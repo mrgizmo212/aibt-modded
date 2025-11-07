@@ -184,46 +184,49 @@
 
 ---
 
-### ISSUE-6: "Create Model" Button Has Massive Delay or Not Working
+### ISSUE-6: "Create Model" Button Only Works on /new Route
 **Date Discovered:** 2025-11-07 17:15  
+**Updated:** 2025-11-07 18:15  
 **Severity:** HIGH  
-**Status:** 📝 NOTED - To be fixed later
+**Status:** ✅ FIXED (See BUG-029)
 
 **Symptoms:**
 - User clicks "Create Model" button from sidebar
-- Nothing happens immediately
-- Massive delay before anything loads
-- Eventually loads (or doesn't)
-- **NO logs showing button click** in console
+- **Works perfectly on `/new` route** ✅
+- **Does NOT work (or massive delay) on other routes:**
+  - `/m/186/new`
+  - `/m/186/c/131`
+  - `/c/130`
+  - `/m/186/r/101`
 
 **Expected Behavior:**
-- Click button → Dialog opens immediately
-- Form initializes
-- Console shows dialog opening logs
+- Click "Create Model" → Dialog opens immediately on ALL routes
 
 **Actual Behavior:**
-- Click → Nothing
-- Long delay
-- No immediate feedback
-- No console logs for click event
+- `/new`: Works instantly ✅
+- All other routes: Doesn't work or massive delay ❌
+
+**Confirmed in Production:**
+- Tested on https://ttgaibtfront.onrender.com/
+- Incognito browser, cache cleared
+- Behavior is consistent
 
 **Likely Causes:**
-1. Button click handler not attached
-2. JavaScript error preventing handler execution
-3. Modal/dialog component slow to mount
-4. Heavy component initialization blocking UI
-5. Missing onClick handler
+1. `onCreateModel` handler only passed on `/new` page
+2. Other pages missing the handler prop
+3. ModelEditDialog state management different per page
+4. NavigationSidebar receiving different props per route
 
 **To Investigate:**
-- Check if onClick handler exists on "Create Model" button
-- Check for JavaScript errors when clicking
-- Check ModelEditDialog component initialization
-- Look for blocking operations in dialog mount
+- Check which pages pass `onCreateModel` prop to NavigationSidebar
+- Compare `/new/page.tsx` with other page components
+- Check if handler is defined in all page components
+- Verify NavigationSidebar button has onClick guard
 
 **Impact:**
-- Poor UX (no feedback)
-- Users think app is frozen
-- May click multiple times (duplicate modals?)
+- HIGH - Users can't create models from most pages
+- Must navigate to `/new` first (workaround exists but poor UX)
+- Confusing - button visible but non-functional
 
 ---
 
