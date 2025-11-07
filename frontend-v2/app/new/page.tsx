@@ -102,8 +102,8 @@ export default function NewConversationPage() {
   }
 
   const handleModelSelect = (id: number) => {
-    setSelectedModelId(id)
-    setContext("model")
+    // Navigate to model's chat page (cross-page navigation, must use router)
+    router.push(`/m/${id}/new`)
   }
   
   const handleRunClick = async (modelId: number, runId: number) => {

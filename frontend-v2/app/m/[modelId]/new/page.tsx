@@ -64,7 +64,10 @@ export default function NewModelConversationPage() {
   }
 
   const handleModelSelect = (id: number) => {
-    setContext("model")
+    // Navigate to selected model's chat page (if different model)
+    if (id !== modelId) {
+      router.push(`/m/${id}/new`)
+    }
   }
   
   const handleRunClick = async (runModelId: number, runId: number) => {

@@ -76,6 +76,8 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
     custom_rules: (model as any)?.custom_rules || "",
     custom_instructions: (model as any)?.custom_instructions || "",
     starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+    max_position_size_dollars: modelParams?.max_position_size_dollars || 2000,
+    max_daily_loss_dollars: modelParams?.max_daily_loss_dollars || 500,
   })
   
   // Model parameters managed by ModelSettings component
@@ -163,7 +165,11 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         allowed_order_types: formData.allowed_order_types,
         default_ai_model: formData.default_ai_model,
         initial_cash: formData.starting_capital,
-        model_parameters: modelParameters,
+        model_parameters: {
+          ...modelParameters,
+          max_position_size_dollars: formData.max_position_size_dollars,
+          max_daily_loss_dollars: formData.max_daily_loss_dollars
+        },
         custom_rules: formData.custom_rules || undefined,
         custom_instructions: formData.custom_instructions || undefined
       }
@@ -549,43 +555,51 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
           <div className="space-y-4 p-4 bg-[#1a1a1a] rounded-lg border border-[#262626]">
             <h3 className="text-sm font-semibold text-white">Risk Management</h3>
             
-            {/* Max Position Size */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-white">Max Position Size</Label>
-                <span className="text-sm font-mono text-[#a3a3a3]">{formData.max_position_size}%</span>
+            {/* Max Position Size in Dollars */}
+            <div className="space-y-2">
+              <Label htmlFor="max-position-size" className="text-sm text-white">
+                Max Position Size (Dollars)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]">$</span>
+                <Input
+                  id="max-position-size"
+                  type="number"
+                  min={100}
+                  max={100000}
+                  step={100}
+                  value={formData.max_position_size_dollars}
+                  onChange={(e) => setFormData({ ...formData, max_position_size_dollars: parseFloat(e.target.value) || 0 })}
+                  className="bg-[#1a1a1a] border-[#262626] text-white pl-7"
+                  disabled={loading}
+                />
               </div>
-              <Slider
-                value={[formData.max_position_size]}
-                onValueChange={(value) => setFormData({ ...formData, max_position_size: value[0] })}
-                min={5}
-                max={50}
-                step={5}
-                className="w-full"
-                disabled={loading}
-              />
               <p className="text-xs text-[#737373]">
-                Maximum percentage of capital per trade
+                Maximum dollar amount per trade (regardless of portfolio size)
               </p>
             </div>
 
-            {/* Max Daily Loss */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-white">Max Daily Loss</Label>
-                <span className="text-sm font-mono text-[#a3a3a3]">{formData.max_daily_loss}%</span>
+            {/* Max Daily Loss in Dollars */}
+            <div className="space-y-2">
+              <Label htmlFor="max-daily-loss" className="text-sm text-white">
+                Max Daily Loss (Dollars)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]">$</span>
+                <Input
+                  id="max-daily-loss"
+                  type="number"
+                  min={50}
+                  max={10000}
+                  step={50}
+                  value={formData.max_daily_loss_dollars}
+                  onChange={(e) => setFormData({ ...formData, max_daily_loss_dollars: parseFloat(e.target.value) || 0 })}
+                  className="bg-[#1a1a1a] border-[#262626] text-white pl-7"
+                  disabled={loading}
+                />
               </div>
-              <Slider
-                value={[formData.max_daily_loss]}
-                onValueChange={(value) => setFormData({ ...formData, max_daily_loss: value[0] })}
-                min={1}
-                max={20}
-                step={1}
-                className="w-full"
-                disabled={loading}
-              />
               <p className="text-xs text-[#737373]">
-                Stop trading if daily loss exceeds this percentage
+                Stop trading if daily loss exceeds this dollar amount
               </p>
             </div>
           </div>

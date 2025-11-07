@@ -739,8 +739,16 @@ export function ChatInterface({
       <div className="hidden lg:block p-6 border-b border-[#262626]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-white">AI Assistant</h1>
-            <p className="text-xs text-[#a3a3a3] mt-1">Ask me anything about your trading</p>
+            <h1 className="text-xl font-semibold text-white">
+              {selectedRunId ? `Run #${selectedRunId} Analysis` :
+               selectedModelId ? 'Model Lab' :
+               'Strategy Lab'}
+            </h1>
+            <p className="text-xs text-[#a3a3a3] mt-1">
+              {selectedRunId ? 'Deep dive into this trading session' :
+               selectedModelId ? 'Analyze performance & refine your strategy' :
+               'Design and create your trading models'}
+            </p>
           </div>
           <Button variant="ghost" size="icon" className="text-[#a3a3a3] hover:text-white">
             <Trash2 className="w-5 h-5" />
@@ -885,19 +893,26 @@ export function ChatInterface({
       <div className="p-3 lg:p-4 bg-[#0a0a0a] border-t border-[#262626]">
         {/* Show context badge */}
         <div className="mb-2 text-xs text-[#737373] flex items-center gap-2">
-          {!isGeneralChat ? (
+          {selectedRunId ? (
             <>
               <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
                 Run #{selectedRunId}
               </Badge>
-              <span>AI chat with full analysis tools (4 tools available)</span>
+              <span>AI chat with full run analysis tools</span>
+            </>
+          ) : selectedModelId ? (
+            <>
+              <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+                Model Lab
+              </Badge>
+              <span>Analyze performance & refine your trading strategy</span>
             </>
           ) : (
             <>
               <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
-                General Chat
+                Strategy Lab
               </Badge>
-              <span>AI assistant (select a run for detailed analysis)</span>
+              <span>Design and create your trading & investing models</span>
             </>
           )}
         </div>
@@ -907,7 +922,11 @@ export function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={isGeneralChat ? "Ask me anything..." : "Ask about this run..."}
+            placeholder={
+              selectedRunId ? "Ask about this run..." :
+              selectedModelId ? "Ask about this model..." :
+              "Design a trading strategy..."
+            }
             disabled={chatStream.isStreaming}
             className="flex-1 bg-[#1a1a1a] border-[#262626] text-white placeholder:text-[#7373a3] focus-visible:ring-[#3b82f6] h-11 lg:h-10"
           />

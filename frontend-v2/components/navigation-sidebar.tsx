@@ -148,6 +148,14 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
       })
     }
   }, [firstRunningId, connected, runningModelIds.length])
+  
+  // Auto-expand selected model to show its conversations
+  useEffect(() => {
+    if (selectedModelId && !expandedModels[selectedModelId]) {
+      console.log('[Navigation] Auto-expanding selected model:', selectedModelId)
+      setExpandedModels(prev => ({ ...prev, [selectedModelId]: true }))
+    }
+  }, [selectedModelId])
 
   // Load models and trading status on mount (ONLY if not hidden)
   useEffect(() => {
