@@ -47,6 +47,8 @@ interface ChatInterfaceProps {
   ephemeralModelId?: number  // Model ID for /m/[id]/new
   selectedConversationId?: number | null  // Existing conversation ID for /c/[id]
   onConversationCreated?: (sessionId: number, modelId?: number) => void  // Callback after session created
+  // NEW: Strategy builder trigger
+  onOpenStrategyBuilder?: () => void
 }
 
 export function ChatInterface({
@@ -62,6 +64,7 @@ export function ChatInterface({
   ephemeralModelId,
   selectedConversationId,
   onConversationCreated,
+  onOpenStrategyBuilder,
 }: ChatInterfaceProps) {
   // Dynamic welcome message based on context
   const getWelcomeMessage = () => {
@@ -309,6 +312,25 @@ export function ChatInterface({
       (window as any).__showRunInChat = showRunInChat
     }
   }, [onShowRunDetails])
+  
+  // Listen for strategy-generated event from builder
+  useEffect(() => {
+    const handleStrategyGenerated = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const { custom_rules, custom_instructions } = customEvent.detail
+      
+      // Format generated strategy for chat input
+      const strategyText = `Create a new trading model with this strategy:\n\nCUSTOM RULES:\n${custom_rules}\n\nCUSTOM INSTRUCTIONS:\n${custom_instructions}\n\nPlease create this model for me.`
+      
+      setInput(strategyText)
+    }
+    
+    window.addEventListener('strategy-generated', handleStrategyGenerated as EventListener)
+    
+    return () => {
+      window.removeEventListener('strategy-generated', handleStrategyGenerated as EventListener)
+    }
+  }, [])
 
   const handleModelCreationNext = (stepData: any) => {
     const updatedData = { ...modelCreationData, ...stepData }
@@ -836,10 +858,18 @@ export function ChatInterface({
                     ) : (
                       <>
                         <button
-                          onClick={() => handleQuickPrompt("I want to create a day trading model. What should I configure?")}
+                          onClick={() => {
+                            // Desktop: Open visual builder
+                            // Mobile: Use text prompt
+                            if (window.innerWidth >= 1024 && onOpenStrategyBuilder) {
+                              onOpenStrategyBuilder()
+                            } else {
+                              handleQuickPrompt("I want to create a day trading model. What should I configure?")
+                            }
+                          }}
                           className="bg-[#0a0a0a] border border-[#262626]/50 hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 rounded-lg p-2 text-xs text-left transition-all cursor-pointer"
                         >
-                          <span className="text-[#3b82f6]">✓</span> <span className="text-[#a3a3a3]">Design custom trading strategies</span>
+                          <span className="text-[#3b82f6]">✓</span> <span className="text-[#a3a3a3]">Design custom trading strategies {window.innerWidth >= 1024 ? '(Visual Builder)' : ''}</span>
                         </button>
                         <button
                           onClick={() => handleQuickPrompt("Help me create a new AI trading model.")}

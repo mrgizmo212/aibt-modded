@@ -9,6 +9,7 @@ import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { ActivityFeed } from "@/components/activity-feed"
 import { TradingTerminal } from "@/components/trading-terminal"
+import { StrategyBuilder } from "@/components/strategy-builder"
 import { AVAILABLE_MODELS } from "@/lib/constants"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
@@ -17,11 +18,14 @@ interface ContextPanelProps {
   context: "dashboard" | "model" | "run"
   selectedModelId: number | null
   selectedRunId?: number | null  // ← NEW: For run context
+  showStrategyBuilder?: boolean  // ← NEW: Show visual strategy builder
+  onBuilderComplete?: (config: { custom_rules: string; custom_instructions: string }) => void
+  onBuilderCancel?: () => void
   onEditModel?: (id: number) => void
   onRunClick?: (modelId: number, runId: number) => void  // ← NEW: Click handler for runs
 }
 
-export function ContextPanel({ context, selectedModelId, selectedRunId, onEditModel, onRunClick }: ContextPanelProps) {
+export function ContextPanel({ context, selectedModelId, selectedRunId, showStrategyBuilder, onBuilderComplete, onBuilderCancel, onEditModel, onRunClick }: ContextPanelProps) {
   const { user } = useAuth()
   const [modelData, setModelData] = useState<any>(null)
   const [runs, setRuns] = useState<any[]>([])
@@ -152,6 +156,24 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, onEditMo
     }
   }
 
+  // Show Strategy Builder instead of dashboard when activated
+  if (context === "dashboard" && showStrategyBuilder) {
+    return (
+      <StrategyBuilder
+        onComplete={(config) => {
+          if (onBuilderComplete) {
+            onBuilderComplete(config)
+          }
+        }}
+        onCancel={() => {
+          if (onBuilderCancel) {
+            onBuilderCancel()
+          }
+        }}
+      />
+    )
+  }
+  
   if (context === "dashboard") {
     return (
       <div className="h-screen bg-[#1a1a1a] border-l border-[#262626] overflow-y-auto scrollbar-thin">

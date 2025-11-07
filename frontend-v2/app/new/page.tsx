@@ -35,6 +35,7 @@ export default function NewConversationPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<any>(null)
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState(false)
+  const [showStrategyBuilder, setShowStrategyBuilder] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -173,7 +174,7 @@ export default function NewConversationPage() {
     <>
       <MobileHeader onMenuClick={() => setIsMenuOpen(true)} onContextClick={() => setIsContextOpen(true)} />
 
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden relative">
         {/* Left Sidebar - Navigation (Hidden on mobile) */}
         <div className="hidden lg:block lg:w-[20%] flex-shrink-0">
           <NavigationSidebar
@@ -201,9 +202,10 @@ export default function NewConversationPage() {
           />
         </div>
 
-        {/* Middle Column - Chat (Full width on mobile) */}
-        <div className="w-full lg:w-[50%] flex-shrink-0 lg:mt-0 mt-[56px] lg:mb-0 mb-[72px]">
-          <ChatInterface
+        {/* Middle Column - Chat (Full width on mobile, hidden when builder active) */}
+        {!showStrategyBuilder && (
+          <div className="w-full lg:w-[50%] flex-shrink-0 lg:mt-0 mt-[56px] lg:mb-0 mb-[72px]">
+            <ChatInterface
             isEphemeral={selectedConversationId === null}
             selectedConversationId={selectedConversationId}
             onConversationCreated={(sessionId, modelId) => {
@@ -226,17 +228,36 @@ export default function NewConversationPage() {
             onModelEdit={handleEditModel}
             onMobileDetailsClick={handleMobileDetailsClick}
             onShowRunDetails={handleRunClick}
+            onOpenStrategyBuilder={() => setShowStrategyBuilder(true)}
             selectedModelId={undefined}
             selectedRunId={undefined}
           />
-        </div>
+          </div>
+        )}
 
         {/* Right Sidebar - Context Panel (Hidden on mobile) */}
-        <div className="hidden lg:block lg:w-[30%] flex-shrink-0">
+        <div className={`hidden lg:block flex-shrink-0 transition-all duration-500 ease-out ${
+          showStrategyBuilder ? 'lg:w-[80%]' : 'lg:w-[30%]'
+        }`}>
           <ContextPanel 
             context={context} 
             selectedModelId={selectedModelId}
             selectedRunId={selectedRunId}
+            showStrategyBuilder={showStrategyBuilder}
+            onBuilderComplete={(config) => {
+              // Builder handles its own slide-out animation
+              // It will call this AFTER animation completes
+              setShowStrategyBuilder(false)
+              // Trigger chat input population via custom event
+              window.dispatchEvent(new CustomEvent('strategy-generated', {
+                detail: config
+              }))
+            }}
+            onBuilderCancel={() => {
+              // Builder handles its own slide-out animation
+              // It will call this AFTER animation completes
+              setShowStrategyBuilder(false)
+            }}
             onEditModel={handleEditModel}
             onRunClick={handleRunClick}
           />
@@ -272,6 +293,14 @@ export default function NewConversationPage() {
           context={context} 
           selectedModelId={selectedModelId}
           selectedRunId={selectedRunId}
+          showStrategyBuilder={showStrategyBuilder}
+          onBuilderComplete={(config) => {
+            setShowStrategyBuilder(false)
+            window.dispatchEvent(new CustomEvent('strategy-generated', {
+              detail: config
+            }))
+          }}
+          onBuilderCancel={() => setShowStrategyBuilder(false)}
           onEditModel={handleEditModel}
           onRunClick={handleRunClick}
         />
