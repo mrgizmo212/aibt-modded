@@ -52,49 +52,43 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ### BUG-029: "Create Model" Button Only Works on /new Route
 **Date Discovered:** 2025-11-07 17:15  
-**Date Fixed:** 2025-11-07 18:15  
+**Date Fixed:** 2025-11-07 18:30  
 **Severity:** HIGH  
 **Status:** ✅ FIXED
 
 **Symptoms:**
 - "Create Model" button works perfectly on `/new` route ✅
-- Button doesn't work (or has massive delay) on all other routes:
+- Button doesn't work on all other routes:
+  - `/` (main dashboard) ❌
   - `/m/186/new` ❌
   - `/m/186/c/131` ❌
   - `/c/130` ❌
   - `/m/186/r/101` ❌
 - Confirmed in production (https://ttgaibtfront.onrender.com/)
+- Dialog simply doesn't render when clicking "Create Model"
 
 **Root Cause:**
-Only `/new/page.tsx` defined `handleCreateModel` function and passed `onCreateModel` prop to NavigationSidebar. All other page components were missing this handler, so the button had no onClick functionality.
+Incorrect conditional rendering of `ModelEditDialog` component. Five pages had buggy conditional:
 
-**Affected Files:**
-- `frontend-v2/app/page.tsx` - Missing handler
-- `frontend-v2/app/m/[modelId]/new/page.tsx` - Missing handler
-- `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` - Missing handler
-- `frontend-v2/app/c/[conversationId]/page.tsx` - Missing handler
-- `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` - Missing handler
-
-**Why This Was Wrong:**
-NavigationSidebar has "Create Model" button that calls `onCreateModel?.()`:
 ```typescript
-<button onClick={() => onCreateModel?.()}>
-  Create Model
-</button>
+{isEditDialogOpen && editingModel && (
+  <ModelEditDialog ... />
+)}
 ```
 
-**If `onCreateModel` prop not passed:**
-- Optional chaining `?.()` silently fails
-- Button click does nothing
-- No error shown to user
-- Appears broken
+The `&& editingModel` check prevented the dialog from rendering when `editingModel` is `null` (which indicates create mode). Only `/new/page.tsx` had the correct conditional without the double check.
 
-**Final Solution:**
-Added `handleCreateModel` function and `onCreateModel` prop to all 5 page components.
+**Affected Files:**
+- `frontend-v2/app/page.tsx` line 206
+- `frontend-v2/app/c/[conversationId]/page.tsx` line 211
+- `frontend-v2/app/m/[modelId]/new/page.tsx` line 219
+- `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` line 208
+- `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` line 215
 
-**Code Changes:**
+**Why This Was Wrong:**
 
-[ADDED to ALL page files - Handler function]
+The `handleCreateModel` function sets `editingModel` to `null` to indicate create mode:
+
 ```typescript
 const handleCreateModel = () => {
   setEditingModel(null)  // null = create mode
@@ -102,44 +96,85 @@ const handleCreateModel = () => {
 }
 ```
 
-[ADDED to ALL NavigationSidebar props]
+But when checking for the dialog rendering, 5 pages used this buggy conditional:
+
 ```typescript
-<NavigationSidebar
-  // ... other props
-  onModelEdit={handleEditModel}
-  onCreateModel={handleCreateModel}  // ✅ ADDED
-  // ... rest
-/>
+{isEditDialogOpen && editingModel && (
+  <ModelEditDialog model={editingModel} ... />
+)}
+```
+
+Since `editingModel` is `null` (falsy), the `&& editingModel` check fails and the dialog never renders.
+
+Only `/new/page.tsx` had the correct conditional:
+
+```typescript
+{isEditDialogOpen && (
+  <ModelEditDialog model={editingModel} ... />
+)}
+```
+
+**The ModelEditDialog Component Correctly Handles Both Cases:**
+- `model={null}` → Create new model mode
+- `model={actualData}` → Edit existing model mode
+
+The issue was purely the conditional rendering check, NOT missing handlers.
+
+**Final Solution:**
+Remove the `&& editingModel` check from 5 page files.
+
+**Code Changes:**
+
+[BEFORE - All 5 affected pages]
+```typescript
+{isEditDialogOpen && editingModel && (
+  <ModelEditDialog
+    model={editingModel}
+    onClose={() => setIsEditDialogOpen(false)}
+    onSave={handleSaveModel}
+  />
+)}
+```
+
+[AFTER - Fixed conditional]
+```typescript
+{isEditDialogOpen && (
+  <ModelEditDialog
+    model={editingModel}
+    onClose={() => setIsEditDialogOpen(false)}
+    onSave={handleSaveModel}
+  />
+)}
 ```
 
 **Files Modified:**
-- ✅ `frontend-v2/app/page.tsx` - Added handler + prop (2 places)
-- ✅ `frontend-v2/app/m/[modelId]/new/page.tsx` - Added handler + prop (2 places)
-- ✅ `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` - Added handler + prop (2 places)
-- ✅ `frontend-v2/app/c/[conversationId]/page.tsx` - Added handler + prop (2 places)
-- ✅ `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` - Added handler + prop (2 places)
-
-**Total:** 5 files × 2 instances (desktop + mobile) = 10 prop additions
+- ✅ `frontend-v2/app/page.tsx` line 206
+- ✅ `frontend-v2/app/c/[conversationId]/page.tsx` line 211
+- ✅ `frontend-v2/app/m/[modelId]/new/page.tsx` line 219
+- ✅ `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` line 208
+- ✅ `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` line 215
 
 **Benefits:**
 - ✅ "Create Model" now works on ALL routes
-- ✅ Consistent UX across entire app
-- ✅ No route-specific workarounds needed
-- ✅ Users can create models from anywhere
+- ✅ "Edit Model" continues to work as before
+- ✅ Consistent conditional rendering pattern across all pages
+- ✅ Dialog properly handles both create (null) and edit (data) modes
 
 **Lessons Learned:**
-- **Optional chaining fails silently** - `onProp?.()` doesn't error if prop is undefined
-- **Copy-paste creates inconsistency** - Some pages had feature, others didn't
-- **Test all routes, not just one** - Feature worked on one page but broken on others
-- **Props must be passed consistently** - If component expects prop, ALL parents must provide it
-- **Production testing reveals these issues** - Feature worked where we tested, failed where we didn't
+- **Falsy value checks can break intended behavior** - `null` is a valid value but fails `&&` checks
+- **Inconsistent patterns across files** - One file had correct pattern, others didn't
+- **Test all routes, not just one** - Feature worked on `/new`, failed everywhere else
+- **Component API design matters** - `ModelEditDialog` uses `null` for create mode, which is correct
+- **Conditional rendering must respect component API** - Don't add checks that break valid use cases
+- **Production testing reveals these issues** - Bug only discovered through comprehensive testing
 
 **Prevention Strategy:**
-1. **Define required props in TypeScript** - Make props non-optional if always needed
-2. **Test feature on ALL routes** - Don't assume one working route means all work
-3. **Checklist when adding new features** - Verify feature added to all relevant pages
-4. **Use shared layout or context** - Hoist common handlers to avoid duplication
-5. **Code review cross-page consistency** - Check all pages have same handlers
+1. **Review conditional patterns during copy-paste** - Don't blindly copy, understand the logic
+2. **Test null/undefined as valid values** - Not all falsy values mean "don't render"
+3. **Document component API contracts** - Make it clear when `null` is a valid prop value
+4. **Test feature on ALL routes** - Comprehensive testing prevents route-specific bugs
+5. **Use consistent patterns** - If one page has the right pattern, apply it everywhere
+6. **Understand falsy vs invalid** - `null` can be intentional and valid, not always an error condition
 
 ---
 

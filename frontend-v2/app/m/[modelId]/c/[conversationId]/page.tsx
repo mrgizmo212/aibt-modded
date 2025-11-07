@@ -205,7 +205,7 @@ export default function ModelConversationPage() {
 
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {isEditDialogOpen && editingModel && (
+      {isEditDialogOpen && (
         <ModelEditDialog
           model={editingModel}
           onClose={() => setIsEditDialogOpen(false)}

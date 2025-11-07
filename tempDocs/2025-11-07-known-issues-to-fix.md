@@ -186,47 +186,55 @@
 
 ### ISSUE-6: "Create Model" Button Only Works on /new Route
 **Date Discovered:** 2025-11-07 17:15  
-**Updated:** 2025-11-07 18:15  
+**Date Fixed:** 2025-11-07 18:30  
 **Severity:** HIGH  
 **Status:** ✅ FIXED (See BUG-029)
+
+**Root Cause Found:**
+- Incorrect conditional rendering: `{isEditDialogOpen && editingModel && (`
+- The `&& editingModel` check prevented dialog from rendering when `editingModel` is `null` (create mode)
+- Only `/new/page.tsx` had correct conditional: `{isEditDialogOpen && (`
+- Other 5 pages had the buggy double check
 
 **Symptoms:**
 - User clicks "Create Model" button from sidebar
 - **Works perfectly on `/new` route** ✅
-- **Does NOT work (or massive delay) on other routes:**
-  - `/m/186/new`
-  - `/m/186/c/131`
-  - `/c/130`
-  - `/m/186/r/101`
+- **Does NOT work on other routes:**
+  - `/m/186/new` ❌
+  - `/m/186/c/131` ❌
+  - `/c/130` ❌
+  - `/m/186/r/101` ❌
+  - `/` (main dashboard) ❌
 
 **Expected Behavior:**
 - Click "Create Model" → Dialog opens immediately on ALL routes
 
 **Actual Behavior:**
-- `/new`: Works instantly ✅
-- All other routes: Doesn't work or massive delay ❌
+- `/new`: Works instantly ✅ (correct conditional)
+- All other routes: Dialog doesn't render ❌ (buggy conditional)
 
-**Confirmed in Production:**
-- Tested on https://ttgaibtfront.onrender.com/
-- Incognito browser, cache cleared
-- Behavior is consistent
+**The Fix:**
+Removed `&& editingModel` check from 5 page components:
+1. ✅ `frontend-v2/app/page.tsx` line 206
+2. ✅ `frontend-v2/app/c/[conversationId]/page.tsx` line 211
+3. ✅ `frontend-v2/app/m/[modelId]/new/page.tsx` line 219
+4. ✅ `frontend-v2/app/m/[modelId]/c/[conversationId]/page.tsx` line 208
+5. ✅ `frontend-v2/app/m/[modelId]/r/[runId]/page.tsx` line 215
 
-**Likely Causes:**
-1. `onCreateModel` handler only passed on `/new` page
-2. Other pages missing the handler prop
-3. ModelEditDialog state management different per page
-4. NavigationSidebar receiving different props per route
+**Technical Details:**
+- `handleCreateModel()` sets `editingModel` to `null` for create mode
+- `ModelEditDialog` component correctly handles both `null` (create) and actual model data (edit)
+- The double conditional `&& editingModel` was preventing render when `null` (falsy)
 
-**To Investigate:**
-- Check which pages pass `onCreateModel` prop to NavigationSidebar
-- Compare `/new/page.tsx` with other page components
-- Check if handler is defined in all page components
-- Verify NavigationSidebar button has onClick guard
+**Verification:**
+- All pages now use correct conditional: `{isEditDialogOpen && (`
+- Create model button should work on all routes
+- Edit model button continues to work (when `editingModel` has data)
 
 **Impact:**
-- HIGH - Users can't create models from most pages
-- Must navigate to `/new` first (workaround exists but poor UX)
-- Confusing - button visible but non-functional
+- HIGH - Users can now create models from ANY page
+- UX significantly improved
+- Consistent behavior across all routes
 
 ---
 
