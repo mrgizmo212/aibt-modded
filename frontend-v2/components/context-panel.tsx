@@ -35,6 +35,8 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
   const liveUpdatesRef = useRef<HTMLDivElement>(null)
   const [selectedRun, setSelectedRun] = useState<any>(null)
   const [carouselIndex, setCarouselIndex] = useState(0)
+  const [runData, setRunData] = useState<any>(null)
+  const [runLoading, setRunLoading] = useState(false)
 
   // Connect to SSE for ANY running model to show in dashboard
   // If on model context, connect to that specific model
@@ -698,15 +700,13 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
     )
   }
 
-  if (context === "run" && selectedRunId && selectedModelId) {
-    const [runData, setRunData] = useState<any>(null)
-    const [runLoading, setRunLoading] = useState(true)
-    
-    useEffect(() => {
+  // Load run data when run context is active
+  useEffect(() => {
+    if (context === "run" && selectedRunId && selectedModelId) {
       async function loadRunData() {
         try {
           setRunLoading(true)
-          const data = await getRunDetails(selectedModelId!, selectedRunId!)
+          const data = await getRunDetails(selectedModelId, selectedRunId)
           setRunData(data)
         } catch (error) {
           console.error('Failed to load run data:', error)
@@ -716,7 +716,10 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
       }
       
       loadRunData()
-    }, [selectedRunId, selectedModelId])
+    }
+  }, [context, selectedRunId, selectedModelId])
+  
+  if (context === "run" && selectedRunId && selectedModelId) {
     
     if (runLoading || !runData) {
       return (
