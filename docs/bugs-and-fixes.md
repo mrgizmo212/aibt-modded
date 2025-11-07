@@ -50,6 +50,550 @@ This file tracks all bugs encountered in the AI Trading Bot codebase, attempted 
 
 ## Active Bug Log
 
+### BUG-026: Controlled to Uncontrolled Input Error in Edit Model Dialog
+**Date Discovered:** 2025-11-07 16:30  
+**Date Fixed:** 2025-11-07 16:35  
+**Severity:** MEDIUM  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User clicks "Edit Model" button
+- Console error: "A component is changing a controlled input to be uncontrolled"
+- Error points to `input.tsx` line 7 and `model-edit-dialog.tsx` line 565
+- Warning about value changing from defined to undefined
+
+**Root Cause:**
+The `useEffect` that syncs form data when model loads was missing two fields that exist in the initial `useState`. When the effect fired, it set formData without these fields, causing them to become `undefined`.
+
+**Affected Files:**
+- `frontend-v2/components/model-edit-dialog.tsx` - Lines 120-141
+
+**Field Mismatch:**
+
+Initial `useState` (lines 66-81) has 13 fields including:
+- `max_position_size_dollars: modelParams?.max_position_size_dollars ?? 2000`
+- `max_daily_loss_dollars: modelParams?.max_daily_loss_dollars ?? 500`
+
+useEffect `setFormData` (lines 123-136) had ONLY 11 fields - missing:
+- ❌ max_position_size_dollars
+- ❌ max_daily_loss_dollars
+
+**What Happened:**
+1. Dialog opens → Initial state has `max_position_size_dollars: 2000` (defined)
+2. Model data loads → useEffect fires
+3. useEffect calls `setFormData({ ... })` WITHOUT those fields
+4. Fields become `undefined`
+5. Input components receive `value={undefined}` instead of `value={2000}`
+6. React error: controlled (had value) → uncontrolled (no value)
+
+**Final Solution:**
+Added the two missing fields to the useEffect's setFormData call.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/model-edit-dialog.tsx` lines 123-136]
+```typescript
+setFormData({
+  name: model?.name || "",
+  trading_style: (model as any)?.trading_style || "day-trading",
+  instrument: (model as any)?.instrument || "stocks",
+  allow_shorting: (model as any)?.allow_shorting || false,
+  margin_account: (model as any)?.margin_account || false,
+  allow_options_strategies: (model as any)?.allow_options_strategies || false,
+  allow_hedging: (model as any)?.allow_hedging || false,
+  allowed_order_types: (model as any)?.allowed_order_types || ["market", "limit"],
+  default_ai_model: model?.default_ai_model || "",
+  custom_rules: (model as any)?.custom_rules || "",
+  custom_instructions: (model as any)?.custom_instructions || "",
+  starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+})
+```
+
+[AFTER - file: `frontend-v2/components/model-edit-dialog.tsx` lines 123-138]
+```typescript
+setFormData({
+  name: model?.name || "",
+  trading_style: (model as any)?.trading_style || "day-trading",
+  instrument: (model as any)?.instrument || "stocks",
+  allow_shorting: (model as any)?.allow_shorting || false,
+  margin_account: (model as any)?.margin_account || false,
+  allow_options_strategies: (model as any)?.allow_options_strategies || false,
+  allow_hedging: (model as any)?.allow_hedging || false,
+  allowed_order_types: (model as any)?.allowed_order_types || ["market", "limit"],
+  default_ai_model: model?.default_ai_model || "",
+  custom_rules: (model as any)?.custom_rules || "",
+  custom_instructions: (model as any)?.custom_instructions || "",
+  starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+  max_position_size_dollars: modelParams?.max_position_size_dollars ?? 2000,  // ✅ ADDED
+  max_daily_loss_dollars: modelParams?.max_daily_loss_dollars ?? 500,  // ✅ ADDED
+})
+```
+
+**Lessons Learned:**
+- **useState and useEffect must match** - All fields in initial state must be included in effect updates
+- **Controlled inputs require values** - React doesn't allow switching between controlled/uncontrolled
+- **Use spread operator carefully** - When creating new object, must include ALL fields
+- **Missing fields become undefined** - JavaScript doesn't error, React does
+- **Check all setFormData calls** - Ensure field lists are complete
+
+**Prevention Strategy:**
+1. **Extract form shape to type** - Define interface for formData to enforce consistency
+2. **Use spread operator** - `setFormData({ ...formData, ...newFields })` instead of creating new object
+3. **TypeScript strict mode** - Would catch missing required fields
+4. **Code review checklist** - When adding new form fields, verify ALL setFormData calls
+5. **Test dialog opening** - Always test edit dialogs open correctly without errors
+
+**Why Spread Operator is Better:**
+```typescript
+// ❌ BAD: Must list ALL fields (easy to forget)
+setFormData({
+  field1: value1,
+  field2: value2,
+  // Forgot field3! Now it's undefined
+})
+
+// ✅ GOOD: Preserves all fields, only updates what changed
+setFormData({
+  ...formData,  // Keep everything
+  field1: value1  // Update only this
+})
+```
+
+---
+
+### BUG-025: Missing getRunDetails Import Causes Sidebar to Go Blank
+**Date Discovered:** 2025-11-07 16:15  
+**Date Fixed:** 2025-11-07 16:20  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User clicks run → Run loads in chat ✅
+- Sidebar shows loading state briefly ✅
+- Then sidebar goes completely blank ❌
+- Console error: `ReferenceError: getRunDetails is not defined`
+
+**Root Cause:**
+`getRunDetails` function was being called in the useEffect hook (line 151) but was **never imported** from `@/lib/api`. Classic missing import bug.
+
+**Affected Files:**
+- `frontend-v2/components/context-panel.tsx` - Line 7 (imports), Line 151 (function call)
+
+**Why This Happened:**
+When we moved the useEffect hook to fix BUG-023 (React Hook order violation), the code already had the `getRunDetails` call, but we never noticed it wasn't imported. The error only appeared when the code path was actually executed (clicking a run with `context === "run"`).
+
+**The Error:**
+```
+ReferenceError: getRunDetails is not defined
+    at loadRunData (context-panel.tsx:158:24)
+```
+
+**Investigation Journey:**
+1. Initially thought `selectedRunId` was undefined
+2. Added extensive debugging logs
+3. Logs showed ALL state was correct:
+   - `context: 'run'` ✅
+   - `selectedRunId: 101` ✅
+   - `selectedModelId: 186` ✅
+4. Found the real error: missing import!
+
+**Final Solution:**
+Added `getRunDetails` to the import statement.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/context-panel.tsx` line 7]
+```typescript
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun } from "@/lib/api"
+```
+
+[AFTER - file: `frontend-v2/components/context-panel.tsx` line 7]
+```typescript
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun, getRunDetails } from "@/lib/api"
+```
+
+**Also Cleaned Up:**
+- Removed debugging console.log statements from context-panel.tsx
+- Removed debugging console.log statements from page.tsx
+- Kept error handling and state reset logic from BUG-024
+
+**Lessons Learned:**
+- **Check imports when moving code** - Always verify functions are imported when refactoring
+- **ReferenceError = missing import** - Classic JavaScript error pattern
+- **Debugging reveals real issues** - Console logs helped rule out state problems
+- **Test the actual code path** - Error only appeared when clicking a run, not during initial load
+- **TypeScript would have caught this** - With proper types, IDE would show error before runtime
+
+**Prevention Strategy:**
+1. **Use TypeScript strict mode** - Catches missing imports at compile time
+2. **Check imports when copying/moving code** - Verify all dependencies are available
+3. **Test all code paths** - Click through features to trigger actual execution
+4. **Use IDE autocomplete** - Shows available imports when typing function names
+5. **Enable ESLint rules** - `no-undef` catches undefined variables
+
+**Why Console Logs Were Essential:**
+The debugging logs proved:
+- State management was working perfectly
+- Props were being passed correctly
+- The problem was in the execution, not the data flow
+- Led us directly to the ReferenceError
+
+---
+
+### BUG-024: Sidebar Goes Blank After Run Content Loads
+**Date Discovered:** 2025-11-07 15:45  
+**Date Fixed:** 2025-11-07 16:00  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User clicks on a run from "All Runs" section
+- Run content loads in chat area correctly ✅
+- Sidebar (context panel) initially shows run details ✅
+- THEN sidebar becomes completely blank ❌
+- Sidebar disappears despite context being "run"
+
+**Root Cause:**
+Missing state reset logic in the run data loading `useEffect`. When context changed away from "run", the `runData` state persisted with stale data. On subsequent run clicks, the component would:
+1. Check condition: `context === "run" && selectedRunId && selectedModelId` ✅
+2. Load new run data ✅
+3. BUT component might re-render with stale/undefined state before new data arrives
+4. Condition fails temporarily → Falls through to `return null` at line 830
+5. Blank sidebar appears
+
+**Additional Issue:**
+No error handling to clear `runData` on fetch failure, causing stale state to persist.
+
+**Affected Files:**
+- `frontend-v2/components/context-panel.tsx` - Lines 146-167
+
+**Why This Was Wrong:**
+```typescript
+// BEFORE - Lines 146-162
+useEffect(() => {
+  if (context === "run" && selectedRunId && selectedModelId) {
+    async function loadRunData() {
+      try {
+        setRunLoading(true)
+        const data = await getRunDetails(selectedModelId, selectedRunId)
+        setRunData(data)
+      } catch (error) {
+        console.error('Failed to load run data:', error)
+        // ❌ No cleanup on error - stale data persists
+      } finally {
+        setRunLoading(false)
+      }
+    }
+    
+    loadRunData()
+  }
+  // ❌ No else block - state not reset when context changes
+}, [context, selectedRunId, selectedModelId])
+```
+
+**Problems:**
+1. No state reset when `context` changes away from "run"
+2. Stale `runData` from previous run persists
+3. No error handling cleanup
+4. Component can briefly render with invalid state during transitions
+
+**Final Solution:**
+Added `else` block to reset state when NOT in run context, and added error handling to clear data on fetch failure.
+
+**Code Changes:**
+
+[AFTER - file: `frontend-v2/components/context-panel.tsx` lines 146-167]
+```typescript
+useEffect(() => {
+  if (context === "run" && selectedRunId && selectedModelId) {
+    async function loadRunData() {
+      try {
+        setRunLoading(true)
+        const data = await getRunDetails(selectedModelId, selectedRunId)
+        setRunData(data)
+      } catch (error) {
+        console.error('Failed to load run data:', error)
+        setRunData(null)  // ✅ Clear data on error to prevent stale state
+      } finally {
+        setRunLoading(false)
+      }
+    }
+    
+    loadRunData()
+  } else {
+    // ✅ Reset state when NOT in run context to prevent stale data
+    setRunData(null)
+    setRunLoading(false)
+  }
+}, [context, selectedRunId, selectedModelId])
+```
+
+**What Changed:**
+1. **Added error cleanup:** `setRunData(null)` in catch block
+2. **Added else block:** Resets `runData` and `runLoading` when context is not "run"
+3. **Ensures fresh state:** Every context change starts with clean slate
+
+**Lessons Learned:**
+- **useEffect cleanup is bidirectional:** Reset state both on mount AND when dependencies change away
+- **Stale state causes blank renders:** Components can render between state updates
+- **Error handling needs cleanup:** Failed fetches should reset state, not leave stale data
+- **Context switches need state reset:** When leaving a context, clear its associated state
+- **Async timing matters:** Component can re-render multiple times during async operations
+
+**Prevention Strategy:**
+1. **Always add else blocks** to useEffect that loads data conditionally
+2. **Reset all related state** when condition becomes false
+3. **Clear data on fetch errors** to prevent stale state persistence
+4. **Test context switching** (dashboard → model → run → back to model)
+5. **Check for blank renders** during state transitions
+6. **Use loading states** to show placeholders during data fetches
+
+**Related Pattern:**
+```typescript
+// ❌ BAD: Only loads data, never cleans up
+useEffect(() => {
+  if (shouldLoad) {
+    loadData()
+  }
+}, [shouldLoad])
+
+// ✅ GOOD: Loads data AND cleans up when condition changes
+useEffect(() => {
+  if (shouldLoad) {
+    loadData()
+  } else {
+    setData(null)
+    setLoading(false)
+  }
+}, [shouldLoad])
+```
+
+---
+
+### BUG-022: Context Panel Constant Refreshing/Jiggling
+**Date Discovered:** 2025-11-07 15:00  
+**Date Fixed:** 2025-11-07 15:30  
+**Severity:** HIGH  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- When clicking on a model in sidebar, model loads correctly
+- BUT Positions section and Model Info constantly refresh/jiggle
+- Entire page "jiggles" every few seconds
+- Creates poor UX and visual instability
+- Makes interface feel broken/unstable
+
+**Root Cause:**
+Aggressive polling via `setInterval` every 5 seconds in `context-panel.tsx` (lines 133-137). This caused `loadModelData()` to be called continuously, triggering full component re-renders even when no data changed. Combined with trade event refreshes, this created a storm of unnecessary updates.
+
+**Affected Files:**
+- `frontend-v2/components/context-panel.tsx` - Lines 127-148
+
+**Why This Was Wrong:**
+```typescript
+// BEFORE - Line 133-137
+const intervalId = setInterval(() => {
+  loadModelData()  // ❌ Calls every 5 seconds regardless of changes
+}, 5000)
+```
+
+This caused:
+1. Full component re-render every 5 seconds
+2. API calls to `/positions/latest`, `/runs`, `/models/{id}` every 5 seconds
+3. DOM elements unmounting/remounting (the "jiggle")
+4. Redundant updates (SSE already provides real-time updates)
+
+**Final Solution:**
+Removed `setInterval` polling entirely. SSE via `useTradingStream` hook already provides real-time updates for trades and status changes. Kept trade event refresh for position updates.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/context-panel.tsx` lines 127-138]
+```typescript
+useEffect(() => {
+  if (context === "model" && selectedModelId) {
+    loadModelData()
+    
+    // Poll for updates every 5 seconds during active trading
+    const intervalId = setInterval(() => {
+      loadModelData()
+    }, 5000)
+    
+    return () => clearInterval(intervalId)
+  }
+}, [context, selectedModelId, loadModelData])
+```
+
+[AFTER - file: `frontend-v2/components/context-panel.tsx` lines 127-133]
+```typescript
+useEffect(() => {
+  if (context === "model" && selectedModelId) {
+    loadModelData()
+    // NOTE: Removed setInterval polling - SSE already provides real-time updates
+    // Polling was causing constant refreshing/jiggling of the UI
+  }
+}, [context, selectedModelId, loadModelData])
+```
+
+**Lessons Learned:**
+- **Polling is often redundant** when SSE/WebSocket already provides real-time updates
+- **Check existing update mechanisms** before adding new ones
+- **Visual "jiggle" indicates unnecessary re-renders** - profile component updates
+- **setInterval + React state updates** = performance problems and poor UX
+- **Event-driven updates > polling** for real-time data
+
+**Prevention Strategy:**
+1. Always check if SSE/WebSocket already handles updates before adding polling
+2. Use React DevTools Profiler to detect excessive re-renders
+3. Only poll when SSE is disconnected or unavailable
+4. If polling is necessary, use longer intervals (30s+) and compare data before setState
+5. Consider using `useMemo` to prevent unnecessary re-renders when data hasn't changed
+
+---
+
+### BUG-023: React Hook Order Violation When Clicking Runs
+**Date Discovered:** 2025-11-07 15:00  
+**Date Fixed:** 2025-11-07 15:30  
+**Severity:** CRITICAL  
+**Status:** ✅ FIXED
+
+**Symptoms:**
+- User clicks on a run in "All Runs" section
+- Application crashes with React error
+- Console error: "React has detected a change in the order of Hooks called by ContextPanel"
+- Error message: "Rendered more hooks than during the previous render"
+- Run details page never loads
+
+**Root Cause:**
+React Hook (`useEffect` at line 704) was called AFTER conditional return statements. This violated React's Rules of Hooks: "Hooks must be called in the same order on every render."
+
+**Hook Call Flow:**
+```
+context === "dashboard" → Returns at line 218 → Hook at 704 NEVER called (25 hooks)
+context === "model"     → Returns at line 700 → Hook at 704 NEVER called (25 hooks)  
+context === "run"       → Continues past returns → Hook at 704 IS called (26 hooks)
+```
+
+**Result:** Different number of hooks between renders = React crashes
+
+**Affected Files:**
+- `frontend-v2/components/context-panel.tsx` - Line 704
+
+**Why This Was Wrong:**
+```typescript
+// BEFORE - Line 700-720
+  if (context === "model") {
+    return (...)  // ❌ Early return BEFORE hook
+  }
+
+  // This hook only runs for "run" context
+  useEffect(() => {  // ❌ WRONG: After conditional returns
+    if (context === "run" && selectedRunId && selectedModelId) {
+      // Load run data
+    }
+  }, [context, selectedRunId, selectedModelId])
+  
+  if (context === "run") {
+    return (...)
+  }
+```
+
+**React Rules of Hooks Violation:**
+- Hooks must be called at the TOP LEVEL of the component
+- Hooks must be called in the SAME ORDER on every render
+- Hooks must NOT be called after conditional returns
+- Hooks CAN have conditional logic INSIDE them (that's fine)
+
+**Final Solution:**
+Moved the `useEffect` hook to line 144 (BEFORE any conditional returns). The conditional logic remains inside the hook body, which is allowed by React.
+
+**Code Changes:**
+
+[BEFORE - file: `frontend-v2/components/context-panel.tsx` lines 703-720]
+```typescript
+// Hook was HERE - after all the conditional returns
+
+// Load run data when run context is active
+useEffect(() => {
+  if (context === "run" && selectedRunId && selectedModelId) {
+    async function loadRunData() {
+      try {
+        setRunLoading(true)
+        const data = await getRunDetails(selectedModelId, selectedRunId)
+        setRunData(data)
+      } catch (error) {
+        console.error('Failed to load run data:', error)
+      } finally {
+        setRunLoading(false)
+      }
+    }
+    
+    loadRunData()
+  }
+}, [context, selectedRunId, selectedModelId])
+```
+
+[AFTER - file: `frontend-v2/components/context-panel.tsx` lines 144-162]
+```typescript
+// Moved HERE - BEFORE any conditional returns
+
+// Load run data when run context is active
+// CRITICAL: This hook must be called BEFORE any conditional returns (React Rules of Hooks)
+useEffect(() => {
+  if (context === "run" && selectedRunId && selectedModelId) {
+    async function loadRunData() {
+      try {
+        setRunLoading(true)
+        const data = await getRunDetails(selectedModelId, selectedRunId)
+        setRunData(data)
+      } catch (error) {
+        console.error('Failed to load run data:', error)
+      } finally {
+        setRunLoading(false)
+      }
+    }
+    
+    loadRunData()
+  }
+}, [context, selectedRunId, selectedModelId])
+```
+
+**Lessons Learned:**
+- **ALL hooks must be at the top level** of the component function
+- **Hooks must run on EVERY render** regardless of conditional logic
+- **Conditional logic goes INSIDE hooks**, not before them
+- **Early returns break hook order** if hooks come after them
+- **ESLint rule `react-hooks/rules-of-hooks`** catches these errors during development
+- **React error messages are clear** - "change in order of Hooks" = hook after conditional
+
+**Prevention Strategy:**
+1. **Always place ALL hooks at the top** of component functions (right after props destructuring)
+2. **Use ESLint plugin `eslint-plugin-react-hooks`** to catch violations at compile time
+3. **If hook should only run conditionally**, put the condition INSIDE the hook, not before it
+4. **Never put hooks after:**
+   - Conditional returns (`if (x) return ...`)
+   - Loops (`for`, `while`)
+   - Callbacks or nested functions
+5. **Review hook placement** when refactoring component structure
+6. **Add comment "// CRITICAL: Hook placement"** for non-obvious hook locations
+
+**Related Pattern:**
+```typescript
+// ❌ WRONG - Hook after conditional
+if (condition) return <Component />
+useEffect(() => { ... })
+
+// ✅ CORRECT - Hook before conditional
+useEffect(() => {
+  if (condition) {
+    // logic here
+  }
+})
+if (condition) return <Component />
+```
+
+---
+
 ### BUG-018: AI Doesn't Know About Runs in Model Conversations
 **Date Discovered:** 2025-11-06 18:30  
 **Date Fixed:** 2025-11-06 18:45  
@@ -1401,16 +1945,17 @@ if (data.type === 'session_created' && data.session_id) {
 
 ## Bug Statistics
 
-**Total Bugs Logged:** 18  
-**Critical:** 2 (BUG-001, BUG-003)  
-**High:** 16 (BUG-002, BUG-004 through BUG-018)  
+**Total Bugs Logged:** 23  
+**Critical:** 4 (BUG-001, BUG-003, BUG-023, BUG-025)  
+**High:** 18 (BUG-002, BUG-004 through BUG-022, BUG-024)  
+**Medium:** 1 (BUG-026)  
 **Status:**
-- Fixed: 18 (100%)
+- Fixed: 23 (100%)
 - In Progress: 0
 - Blocked: 0
 
-**Most Common Bug Type:** Frontend State Management & Streaming (10/18)  
-**Average Time to Fix:** ~45 minutes  
+**Most Common Bug Type:** Frontend State Management & Streaming (14/23)  
+**Average Time to Fix:** ~30 minutes  
 **Test Coverage:** 100% (all fixes have test verification or manual test protocols)
 
 ---

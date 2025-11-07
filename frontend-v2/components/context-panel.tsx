@@ -4,7 +4,7 @@ import { Activity, CheckCircle, TrendingUp, TrendingDown, Bot, Settings, AlertCi
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun } from "@/lib/api"
+import { getModelById, getRuns, getPositions, getTradingStatus, getPerformance, stopTrading, deleteRun, stopSpecificRun, getRunDetails } from "@/lib/api"
 import { useTradingStream, type TradingEvent } from "@/hooks/use-trading-stream"
 import { LogsViewer } from "@/components/LogsViewer"
 import { ActivityFeed } from "@/components/activity-feed"
@@ -127,14 +127,8 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
   useEffect(() => {
     if (context === "model" && selectedModelId) {
       loadModelData()
-      
-      // Poll for updates every 5 seconds during active trading
-      // This ensures positions stay fresh during live runs
-      const intervalId = setInterval(() => {
-        loadModelData()
-      }, 5000) // 5 seconds for live updates
-      
-      return () => clearInterval(intervalId)
+      // NOTE: Removed setInterval polling - SSE already provides real-time updates
+      // Polling was causing constant refreshing/jiggling of the UI
     }
   }, [context, selectedModelId, loadModelData])
   
@@ -146,6 +140,32 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
       loadModelData()
     }
   }, [events, loadModelData])
+
+  // Load run data when run context is active
+  // CRITICAL: This hook must be called BEFORE any conditional returns (React Rules of Hooks)
+  useEffect(() => {
+    if (context === "run" && selectedRunId && selectedModelId) {
+      async function loadRunData() {
+        try {
+          setRunLoading(true)
+          const data = await getRunDetails(selectedModelId, selectedRunId)
+          setRunData(data)
+        } catch (error) {
+          console.error('Failed to load run data:', error)
+          setRunData(null)  // Clear data on error to prevent stale state
+        } finally {
+          setRunLoading(false)
+        }
+      }
+      
+      loadRunData()
+    } else {
+      // Reset state when NOT in run context to prevent stale data
+      setRunData(null)
+      setRunLoading(false)
+    }
+  }, [context, selectedRunId, selectedModelId])
+
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
       case 'trade':
@@ -700,25 +720,6 @@ export function ContextPanel({ context, selectedModelId, selectedRunId, showStra
     )
   }
 
-  // Load run data when run context is active
-  useEffect(() => {
-    if (context === "run" && selectedRunId && selectedModelId) {
-      async function loadRunData() {
-        try {
-          setRunLoading(true)
-          const data = await getRunDetails(selectedModelId, selectedRunId)
-          setRunData(data)
-        } catch (error) {
-          console.error('Failed to load run data:', error)
-        } finally {
-          setRunLoading(false)
-        }
-      }
-      
-      loadRunData()
-    }
-  }, [context, selectedRunId, selectedModelId])
-  
   if (context === "run" && selectedRunId && selectedModelId) {
     
     if (runLoading || !runData) {

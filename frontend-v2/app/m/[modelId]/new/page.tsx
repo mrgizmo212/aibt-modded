@@ -71,8 +71,6 @@ export default function NewModelConversationPage() {
   }
   
   const handleRunClick = async (runModelId: number, runId: number) => {
-    console.log('Run clicked:', runModelId, runId)
-    
     setSelectedRunId(runId)
     
     try {

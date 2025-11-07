@@ -133,6 +133,8 @@ export function ModelEditDialog({ model, onClose, onSave }: ModelEditDialogProps
         custom_rules: (model as any)?.custom_rules || "",
         custom_instructions: (model as any)?.custom_instructions || "",
         starting_capital: (model as any)?.initial_cash || model?.starting_capital || 10000,
+        max_position_size_dollars: modelParams?.max_position_size_dollars ?? 2000,
+        max_daily_loss_dollars: modelParams?.max_daily_loss_dollars ?? 500,
       })
       setModelParameters(modelParams)
     }
