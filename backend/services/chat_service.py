@@ -266,6 +266,7 @@ async def get_or_create_session_v2(
 async def list_user_sessions(
     user_id: str,
     model_id: Optional[int] = None,
+    has_run: Optional[bool] = None,
     limit: int = 50
 ) -> List[Dict]:
     """
@@ -274,6 +275,7 @@ async def list_user_sessions(
     Args:
         user_id: User ID
         model_id: Filter by model (None = general conversations only)
+        has_run: Filter by run conversations (True = run conversations, False = model conversations, None = all)
         limit: Max sessions to return
     
     Returns:
@@ -282,7 +284,7 @@ async def list_user_sessions(
     supabase = get_supabase()
     
     query = supabase.table("chat_sessions")\
-        .select("*")\
+        .select("*, trading_runs(*)")\
         .eq("user_id", user_id)\
         .order("last_message_at", desc=True)\
         .limit(limit)
@@ -292,8 +294,21 @@ async def list_user_sessions(
     else:
         query = query.is_("model_id", "null")
     
+    if has_run is True:
+        query = query.not_.is_("run_id", "null")
+    elif has_run is False:
+        query = query.is_("run_id", "null")
+    
     result = query.execute()
-    return result.data if result.data else []
+    sessions = result.data if result.data else []
+    
+    # Format run data if present
+    for session in sessions:
+        if session.get("trading_runs"):
+            session["run"] = session["trading_runs"]
+            del session["trading_runs"]
+    
+    return sessions
 
 
 async def start_new_conversation(

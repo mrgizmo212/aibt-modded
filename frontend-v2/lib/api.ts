@@ -409,9 +409,22 @@ export async function getGeneralChatHistory(modelId: number) {
 // CHAT SESSIONS V2 (Multi-Conversation Support)
 // ============================================================================
 
-export async function listChatSessions(modelId?: number) {
-  const params = modelId ? `?model_id=${modelId}` : ''
-  return apiFetch(`/api/chat/sessions${params}`)
+export async function listChatSessions(
+  modelId?: number,
+  options?: { has_run?: boolean }
+) {
+  const params = new URLSearchParams()
+  
+  if (modelId !== undefined) {
+    params.append('model_id', modelId.toString())
+  }
+  
+  if (options?.has_run !== undefined) {
+    params.append('has_run', options.has_run.toString())
+  }
+  
+  const queryString = params.toString()
+  return apiFetch(`/api/chat/sessions${queryString ? `?${queryString}` : ''}`)
 }
 
 export async function createNewSession(modelId?: number) {

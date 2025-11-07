@@ -1478,6 +1478,7 @@ async def save_global_chat_settings(
 @app.get("/api/chat/sessions")
 async def list_chat_sessions_endpoint(
     model_id: Optional[int] = None,
+    has_run: Optional[bool] = None,
     current_user: Dict = Depends(require_auth)
 ):
     """
@@ -1485,6 +1486,7 @@ async def list_chat_sessions_endpoint(
     
     Query params:
         model_id (optional): Filter by model (omit for general conversations)
+        has_run (optional): Filter by run conversations (true = run conversations, false = model conversations)
     
     Returns:
         List of sessions with message counts
@@ -1494,7 +1496,8 @@ async def list_chat_sessions_endpoint(
         
         sessions = await list_user_sessions(
             user_id=current_user["id"],
-            model_id=model_id
+            model_id=model_id,
+            has_run=has_run
         )
         
         # Add message count to each session

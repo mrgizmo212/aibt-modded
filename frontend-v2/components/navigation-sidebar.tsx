@@ -16,6 +16,7 @@ import {
   Loader2,
   MessageSquare,
   Trash2,
+  Activity,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
@@ -49,6 +50,21 @@ interface NavigationSidebarProps {
   isEphemeralActive?: boolean  // NEW: Indicates we're on /new or /m/[id]/new
 }
 
+// Helper function to format dates for run conversations
+function formatDate(dateString: string | undefined): string {
+  if (!dateString) return 'Unknown'
+  
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export function NavigationSidebar({ selectedModelId, selectedConversationId: externalSelectedConversationId, onSelectModel, onToggleModel, onModelEdit, onCreateModel, onConversationSelect, isHidden = false, isEphemeralActive = false }: NavigationSidebarProps) {
   const router = useRouter()
   const [modelsExpanded, setModelsExpanded] = useState(true)
@@ -75,7 +91,9 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
   // Chat sessions state
   const [generalConversations, setGeneralConversations] = useState<any[]>([])
   const [modelConversations, setModelConversations] = useState<Record<number, any[]>>({})
+  const [modelRunConversations, setModelRunConversations] = useState<Record<number, any[]>>({})
   const [conversationsLoaded, setConversationsLoaded] = useState(false)
+  const [runConversationsLoaded, setRunConversationsLoaded] = useState(false)
 
   // Get running model IDs for SSE connections
   const runningModelIds = modelList.filter(m => m.status === "running").map(m => m.id)
@@ -179,6 +197,16 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     }
   }, [modelList.length, conversationsLoaded, isHidden])
   
+  // Load run conversations ONLY ONCE when models are first loaded
+  useEffect(() => {
+    if (isHidden) return  // ← CRITICAL: Don't load if hidden (mobile drawer)
+    
+    if (modelList.length > 0 && !runConversationsLoaded) {
+      loadAllModelRunConversations()
+      setRunConversationsLoaded(true)
+    }
+  }, [modelList.length, runConversationsLoaded, isHidden])
+  
   // Listen for conversation-created events (from chat-interface after first message)
   useEffect(() => {
     // CRITICAL: Only add listener if NOT hidden
@@ -213,6 +241,41 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     
     return () => {
       window.removeEventListener('conversation-created', handleConversationCreated as EventListener)
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
+      }
+    }
+  }, [isHidden])  // Only setup when hidden state changes
+  
+  // Listen for run-conversation-created events
+  useEffect(() => {
+    // CRITICAL: Only add listener if NOT hidden
+    // Prevents duplicate listeners when component mounted multiple times (desktop + mobile drawer)
+    if (isHidden) {
+      console.log('[Nav] Skipping run conversation event listener setup (component hidden)')
+      return
+    }
+    
+    let refreshTimeout: NodeJS.Timeout | null = null
+    
+    const handleRunConversationCreated = (event: any) => {
+      console.log('[Nav] Run conversation created event received:', event.detail)
+      
+      // Debounce refresh to prevent spam (only refresh once even if multiple events fire)
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
+      }
+      
+      refreshTimeout = setTimeout(() => {
+        // Refresh run conversation lists to show new conversation
+        loadAllModelRunConversations()
+      }, 500)  // Wait 500ms before refreshing
+    }
+    
+    window.addEventListener('run-conversation-created', handleRunConversationCreated as EventListener)
+    
+    return () => {
+      window.removeEventListener('run-conversation-created', handleRunConversationCreated as EventListener)
       if (refreshTimeout) {
         clearTimeout(refreshTimeout)
       }
@@ -261,6 +324,22 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
         }))
       } catch (error) {
         console.error(`Failed to load conversations for model ${model.id}:`, error)
+      }
+    }
+  }
+  
+  // Load run conversations for all models
+  async function loadAllModelRunConversations() {
+    for (const model of modelList) {
+      try {
+        // Backend filters sessions where run_id IS NOT NULL
+        const data = await listChatSessions(model.id, { has_run: true })
+        setModelRunConversations(prev => ({
+          ...prev,
+          [model.id]: data.sessions || []
+        }))
+      } catch (error) {
+        console.error(`Failed to load run conversations for model ${model.id}:`, error)
       }
     }
   }
@@ -471,6 +550,60 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
     // Navigate to ephemeral route - NO API call, NO database record, NO page reload
     console.log('[Nav] Navigating to /m/' + modelId + '/new (ephemeral model chat)')
     router.push(`/m/${modelId}/new`)
+  }
+  
+  const handleSelectRunConversation = (modelId: number, sessionId: number) => {
+    console.log('[Nav] Run conversation selected:', sessionId, 'model:', modelId)
+    
+    // Navigate to conversation (same route as model conversations)
+    onConversationSelect?.(sessionId, modelId)
+  }
+  
+  const handleDeleteRunConversation = async (modelId: number, convoId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    try {
+      // Optimistically update UI first
+      const newRunConvos = (modelRunConversations[modelId] || []).filter(c => c.id !== convoId)
+      setModelRunConversations(prev => ({
+        ...prev,
+        [modelId]: newRunConvos
+      }))
+      
+      // Check if we're deleting the currently viewed conversation
+      const isCurrentConvo = selectedConversationId === convoId || window.location.pathname.includes(`/c/${convoId}`)
+      const noConversationsLeft = newRunConvos.length === 0
+      
+      if (isCurrentConvo || noConversationsLeft) {
+        setSelectedConversationId(null)
+        
+        // Update URL to /new without page reload
+        window.history.pushState({}, '', '/new')
+        console.log('[Nav] Deleted run conversation, URL updated to /new')
+        
+        // Trigger New Chat event to reset state
+        window.dispatchEvent(new CustomEvent('new-chat-requested'))
+      }
+      
+      // Then delete from backend
+      await deleteSession(convoId)
+      
+      // Notify chat interface to reset if viewing this conversation
+      window.dispatchEvent(new CustomEvent('conversation-deleted', {
+        detail: { conversationId: convoId }
+      }))
+      
+      toast.success("Run conversation deleted")
+    } catch (error: any) {
+      console.error('Failed to delete run conversation:', error)
+      // Reload to recover from error
+      const data = await listChatSessions(modelId, { has_run: true })
+      setModelRunConversations(prev => ({
+        ...prev,
+        [modelId]: data.sessions || []
+      }))
+      toast.error(error.message || "Failed to delete conversation")
+    }
   }
   
   const handleDeleteConversation = async (convId: number, e: React.MouseEvent) => {
@@ -758,7 +891,7 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                           
                           {/* Model's conversations (when expanded) */}
                           {expandedModels[model.id] && (
-                            <div className="ml-8 space-y-1">
+                            <div className="ml-8 space-y-2">
                               {/* New Chat button */}
                               <button
                                 onClick={() => handleNewModelChat(model.id)}
@@ -768,80 +901,127 @@ export function NavigationSidebar({ selectedModelId, selectedConversationId: ext
                                 New Chat
                               </button>
                               
-                              {/* Conversations list */}
-                              {modelConversations[model.id]?.length > 0 ? (
-                                modelConversations[model.id].map((convo) => (
-                                  <div
-                                    key={convo.id}
-                                    onClick={() => handleSelectModelConversation(model.id, convo.id)}
-                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#1a1a1a] transition-colors cursor-pointer group ${
-                                      selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
-                                    }`}
-                                  >
-                                    <MessageSquare className="w-3 h-3 text-[#737373] flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-white truncate">{convo.session_title}</p>
-                                      <p className="text-[10px] text-[#737373]">{convo.message_count} msgs</p>
-                                    </div>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        
-                                        try {
-                                          // Optimistically update UI first
-                                          const newModelConvos = (modelConversations[model.id] || []).filter(c => c.id !== convo.id)
-                                          setModelConversations(prev => ({
-                                            ...prev,
-                                            [model.id]: newModelConvos
-                                          }))
-                                          
-                                          // Check if we're deleting the currently viewed conversation OR if this leaves model with no conversations
-                                          const isCurrentConvo = selectedConversationId === convo.id || window.location.pathname.includes(`/c/${convo.id}`)
-                                          const noConversationsLeft = newModelConvos.length === 0
-                                          
-                                          if (isCurrentConvo || noConversationsLeft) {
-                                            setSelectedConversationId(null)
-                                            
-                                            // ChatGPT-style: Update URL to /new without page reload
-                                            window.history.pushState({}, '', '/new')
-                                            console.log('[Nav] Deleted model conversation, URL updated to /new (isCurrentConvo:', isCurrentConvo, 'noConversationsLeft:', noConversationsLeft, ')')
-                                            
-                                            // Trigger New Chat event to reset state
-                                            window.dispatchEvent(new CustomEvent('new-chat-requested'))
-                                          }
-                                          
-                                          // Then delete from backend
-                                          await deleteSession(convo.id)
-                                          
-                                          // Notify chat interface to reset if viewing this conversation
-                                          window.dispatchEvent(new CustomEvent('conversation-deleted', {
-                                            detail: { conversationId: convo.id }
-                                          }))
-                                          
-                                          toast.success("Conversation deleted")
-                                        } catch (error: any) {
-                                          console.error('Failed to delete model conversation:', error)
-                                          // Reload to recover from error
-                                          const data = await listChatSessions(model.id)
-                                          setModelConversations(prev => ({
-                                            ...prev,
-                                            [model.id]: data.sessions || []
-                                          }))
-                                          toast.error(error.message || "Failed to delete conversation")
-                                        }
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#262626] rounded text-[#ef4444] transition-opacity"
-                                      title="Delete"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="px-2 py-1 text-[10px] text-[#737373] text-center">
-                                  No conversations yet
+                              {/* MODEL CONVERSATIONS Section */}
+                              <div>
+                                <div className="text-[10px] text-[#737373] uppercase px-2 py-1 flex items-center gap-1 font-medium tracking-wide">
+                                  <MessageSquare className="w-3 h-3" />
+                                  Conversations
                                 </div>
-                              )}
+                                {modelConversations[model.id]?.length > 0 ? (
+                                  modelConversations[model.id].map((convo) => (
+                                    <div
+                                      key={convo.id}
+                                      onClick={() => handleSelectModelConversation(model.id, convo.id)}
+                                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#1a1a1a] transition-colors cursor-pointer group ${
+                                        selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
+                                      }`}
+                                    >
+                                      <MessageSquare className="w-3 h-3 text-[#737373] flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-white truncate">{convo.session_title}</p>
+                                        <p className="text-[10px] text-[#737373]">{convo.message_count} msgs</p>
+                                      </div>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation()
+                                          
+                                          try {
+                                            // Optimistically update UI first
+                                            const newModelConvos = (modelConversations[model.id] || []).filter(c => c.id !== convo.id)
+                                            setModelConversations(prev => ({
+                                              ...prev,
+                                              [model.id]: newModelConvos
+                                            }))
+                                            
+                                            // Check if we're deleting the currently viewed conversation OR if this leaves model with no conversations
+                                            const isCurrentConvo = selectedConversationId === convo.id || window.location.pathname.includes(`/c/${convo.id}`)
+                                            const noConversationsLeft = newModelConvos.length === 0
+                                            
+                                            if (isCurrentConvo || noConversationsLeft) {
+                                              setSelectedConversationId(null)
+                                              
+                                              // ChatGPT-style: Update URL to /new without page reload
+                                              window.history.pushState({}, '', '/new')
+                                              console.log('[Nav] Deleted model conversation, URL updated to /new (isCurrentConvo:', isCurrentConvo, 'noConversationsLeft:', noConversationsLeft, ')')
+                                              
+                                              // Trigger New Chat event to reset state
+                                              window.dispatchEvent(new CustomEvent('new-chat-requested'))
+                                            }
+                                            
+                                            // Then delete from backend
+                                            await deleteSession(convo.id)
+                                            
+                                            // Notify chat interface to reset if viewing this conversation
+                                            window.dispatchEvent(new CustomEvent('conversation-deleted', {
+                                              detail: { conversationId: convo.id }
+                                            }))
+                                            
+                                            toast.success("Conversation deleted")
+                                          } catch (error: any) {
+                                            console.error('Failed to delete model conversation:', error)
+                                            // Reload to recover from error
+                                            const data = await listChatSessions(model.id)
+                                            setModelConversations(prev => ({
+                                              ...prev,
+                                              [model.id]: data.sessions || []
+                                            }))
+                                            toast.error(error.message || "Failed to delete conversation")
+                                          }
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#262626] rounded text-[#ef4444] transition-opacity"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-2 py-1 text-[10px] text-[#737373] text-center">
+                                    No conversations yet
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* RUN CONVERSATIONS Section */}
+                              <div>
+                                <div className="text-[10px] text-[#737373] uppercase px-2 py-1 flex items-center gap-1 font-medium tracking-wide">
+                                  <Activity className="w-3 h-3" />
+                                  Run Conversations
+                                </div>
+                                {modelRunConversations[model.id]?.length > 0 ? (
+                                  modelRunConversations[model.id].map((convo) => (
+                                    <div
+                                      key={convo.id}
+                                      onClick={() => handleSelectRunConversation(model.id, convo.id)}
+                                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#1a1a1a] transition-colors cursor-pointer group ${
+                                        selectedConversationId === convo.id ? "bg-[#1a1a1a] border-l-2 border-l-[#3b82f6]" : ""
+                                      }`}
+                                    >
+                                      <Activity className="w-3 h-3 text-[#737373] flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-white truncate">
+                                          Run #{convo.run?.run_number} - {formatDate(convo.run?.started_at)}
+                                        </p>
+                                        <p className="text-[10px] text-[#737373]">
+                                          {convo.message_count} msgs
+                                          {convo.run?.final_return && ` • ${convo.run.final_return.toFixed(2)}%`}
+                                        </p>
+                                      </div>
+                                      <button
+                                        onClick={(e) => handleDeleteRunConversation(model.id, convo.id, e)}
+                                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#262626] rounded text-[#ef4444] transition-opacity"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-2 py-1 text-[10px] text-[#737373] text-center">
+                                    No run conversations yet
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
